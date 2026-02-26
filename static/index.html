@@ -20,7 +20,7 @@
       --accent: #00C4CC;
       --accent2: #F2F5F6;
       --accent3: #F2F5F6;
-      --accent4: #162b22;
+      --accent4: #5FADA0;
       --red: #FF3D71;
       --green: #00E676;
       --text: #ffffff;
@@ -3417,7 +3417,7 @@
       if (s === 'HOLD') return 'sig sig-h';
       return 'sig sig-a';
     }
-    function scoreColor(s) { return s >= 88 ? 'var(--green)' : s >= 75 ? 'var(--accent4)' : 'var(--red)' }
+    function scoreColor(s) { return s >= 88 ? 'var(--green)' : s >= 75 ? '#F2C94C' : 'var(--red)' }
 
     // ── STATUS ────────────────────────────────────────────────
     async function fetchStatus() {
@@ -3562,7 +3562,7 @@
     async function fetchMood() {
       try {
         const d = await fetch(`${API}/market-mood`).then(r => r.json());
-        const colors = { 'EXTREME GREED': 'var(--green)', 'GREED': '#7fff7f', 'NEUTRAL': 'var(--accent4)', 'FEAR': 'var(--accent2)', 'EXTREME FEAR': 'var(--red)' };
+        const colors = { 'EXTREME GREED': 'var(--green)', 'GREED': '#7fff7f', 'NEUTRAL': '#F2C94C', 'FEAR': '#FF9F43', 'EXTREME FEAR': 'var(--red)' };
         const c = colors[d.label] || 'var(--accent4)';
         document.getElementById('mood-val').textContent = d.score;
         document.getElementById('mood-val').style.color = c;
@@ -4032,7 +4032,7 @@
                 <td style="font-family:'Space Mono';font-size:11px">${s.total || 0}</td>
                 <td class="${s.win_rate >= 0.6 ? 'up' : 'down'}" style="font-family:'Space Mono';font-size:11px">${wr2}%</td>
                 <td class="${(s.avg_pnl || 0) >= 0 ? 'up' : 'down'}" style="font-family:'Space Mono';font-size:11px">${(s.avg_pnl || 0) >= 0 ? '+' : ''}₹${fmt(Math.abs(s.avg_pnl || 0))}</td>
-                <td style="font-family:'Space Mono';font-size:11px;color:${w > 1 ? 'var(--green)' : w < 1 ? 'var(--red)' : 'var(--accent4)'}">${w}×</td>
+                <td style="font-family:'Space Mono';font-size:11px;color:${w > 1 ? 'var(--green)' : w < 1 ? 'var(--red)' : 'var(--muted)'}">${w}×</td>
               </tr>`;
             }).join('') + `</tbody></table>`;
         }
@@ -4042,7 +4042,7 @@
         if (el('learn-weights-display') && Object.keys(weights).length) {
           el('learn-weights-display').innerHTML = Object.entries(weights).map(([sec, w]) => {
             const ww = parseFloat(w) || 1;
-            const col = ww > 1.1 ? 'var(--green)' : ww < 0.9 ? 'var(--red)' : 'var(--accent4)';
+            const col = ww > 1.1 ? 'var(--green)' : ww < 0.9 ? 'var(--red)' : 'var(--muted)';
             return `<div style="background:rgba(0,196,204,.06);border:1px solid var(--border);border-radius:6px;padding:8px 12px;text-align:center;min-width:80px">
               <div style="font-size:10px;color:var(--muted);margin-bottom:4px">${sec}</div>
               <div style="font-family:'Bebas Neue';font-size:18px;color:${col}">${ww.toFixed(2)}×</div>
