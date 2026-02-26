@@ -1,56 +1,113 @@
 @echo off
-title StockGuru
+title StockGuru Intelligence Hub
 color 0A
-
 cd /d "%~dp0"
 
+:: ════════════════════════════════════════════════════════════════
+::  SELF-REGISTER in Windows Startup folder — runs ONCE ever
+::  No admin needed. Creates a tiny launcher so StockGuru starts
+::  automatically every time you log into Windows.
+:: ════════════════════════════════════════════════════════════════
+set "STARTUP=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
+set "LAUNCHER=%STARTUP%\StockGuru_AutoStart.bat"
+set "SELF=%~f0"
+
+if not exist "%LAUNCHER%" (
+    echo @echo off > "%LAUNCHER%"
+    echo start "" "%SELF%" >> "%LAUNCHER%"
+    echo.
+    echo  [OK] Auto-start registered -- StockGuru will now start on every login.
+    echo.
+)
+
 echo.
-echo  STOCKGURU v2.0 - Starting...
+echo  ╔══════════════════════════════════════════╗
+echo  ║   STOCKGURU v2.0  Intelligence Hub      ║
+echo  ╚══════════════════════════════════════════╝
 echo.
 
-:: Use the exact Python path from pyenv (most reliable - no PATH issues)
-set "PYTHON=%USERPROFILE%\.pyenv\pyenv-win\versions\3.10.11\python.exe"
+:: ════════════════════════════════════════════════════════════════
+::  FIND PYTHON
+:: ════════════════════════════════════════════════════════════════
+set "PYTHON="
 
-if not exist "%PYTHON%" (
-    :: Fallback: try PATH-based python
-    set "PYTHON=python"
-    python --version >nul 2>&1
-    if errorlevel 1 (
-        set "PYTHON=py"
-        py --version >nul 2>&1
-        if errorlevel 1 (
-            echo.
-            echo  ERROR: Python not found.
-            echo  Looked at: %USERPROFILE%\.pyenv\pyenv-win\versions\3.10.11\python.exe
-            echo.
-            pause
-            exit /b 1
-        )
+:: 1. Try the known pyenv version (your current install)
+if exist "%USERPROFILE%\.pyenv\pyenv-win\versions\3.10.11\python.exe" (
+    set "PYTHON=%USERPROFILE%\.pyenv\pyenv-win\versions\3.10.11\python.exe"
+    goto :python_ok
+)
+
+:: 2. Scan all pyenv versions
+for /d %%V in ("%USERPROFILE%\.pyenv\pyenv-win\versions\*") do (
+    if exist "%%V\python.exe" (
+        set "PYTHON=%%V\python.exe"
+        goto :python_ok
     )
 )
 
-:: Kill any stale process on port 5000
+:: 3. Try standard Windows Python installs
+for %%V in (Python313 Python312 Python311 Python310 Python39) do (
+    if exist "%LOCALAPPDATA%\Programs\Python\%%V\python.exe" (
+        set "PYTHON=%LOCALAPPDATA%\Programs\Python\%%V\python.exe"
+        goto :python_ok
+    )
+)
+for %%V in (Python313 Python312 Python311 Python310 Python39) do (
+    if exist "C:\%%V\python.exe" (
+        set "PYTHON=C:\%%V\python.exe"
+        goto :python_ok
+    )
+)
+
+:: 4. Last resort -- use py launcher or PATH
+where py >nul 2>&1
+if not errorlevel 1 ( set "PYTHON=py" & goto :python_ok )
+where python >nul 2>&1
+if not errorlevel 1 ( set "PYTHON=python" & goto :python_ok )
+
+echo  [ERROR] Python not found.
+echo  Please install Python 3.10+ from https://python.org
+echo.
+pause
+exit /b 1
+
+:python_ok
+echo  Python  : %PYTHON%
+
+:: ════════════════════════════════════════════════════════════════
+::  KILL ANY STALE PROCESS ON PORT 5000
+:: ════════════════════════════════════════════════════════════════
 echo  Clearing port 5000...
-for /f "tokens=5" %%a in ('netstat -aon 2^>nul ^| findstr ":5000 "') do (
+for /f "tokens=5" %%a in ('netstat -aon 2^>nul ^| findstr " :5000 "') do (
     taskkill /PID %%a /F >nul 2>&1
 )
-timeout /t 1 /nobreak >nul
+timeout /t 2 /nobreak >nul
 
-:: Write browser-open script to temp file (avoids quote hell)
-echo for($i=1;$i-le50;$i++){Start-Sleep -Milliseconds 800;try{$r=Invoke-WebRequest -Uri 'http://localhost:5000/api/status' -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop;if($r.StatusCode -eq 200){Start-Process 'http://localhost:5000';exit}}catch{}} > "%TEMP%\sg_open.ps1"
+:: ════════════════════════════════════════════════════════════════
+::  WRITE BROWSER-OPENER (polls until server is ready, then opens)
+:: ════════════════════════════════════════════════════════════════
+> "%TEMP%\sg_open.ps1" (
+    echo $url = 'http://localhost:5000'
+    echo for ^($i = 0; $i -lt 60; $i++^) {
+    echo     try {
+    echo         $null = Invoke-WebRequest "$url/api/status" -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+    echo         Start-Process $url
+    echo         exit
+    echo     } catch { Start-Sleep 1 }
+    echo }
+)
+start "" /b powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%TEMP%\sg_open.ps1"
 
-:: Start browser-opener in background (hidden, no window)
-start /b powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%TEMP%\sg_open.ps1"
-
-echo  Server starting... browser will open automatically.
-echo  Dashboard: http://localhost:5000
-echo  Close this window to stop the server.
+echo  Browser : will open automatically when server is ready
+echo  Stop    : close this window
+echo  ─────────────────────────────────────────
 echo.
-echo  ------------------------------------------------
 
-:: Run server HERE (errors visible in this window)
+:: ════════════════════════════════════════════════════════════════
+::  START FLASK SERVER (stays open — output visible here)
+:: ════════════════════════════════════════════════════════════════
 "%PYTHON%" app.py
 
 echo.
-echo  Server stopped.
-pause
+echo  Server stopped. Press any key to exit.
+pause >nul
