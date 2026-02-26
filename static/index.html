@@ -262,70 +262,243 @@
       color: var(--muted)
     }
 
-    .nav-tabs {
+    /* ── APP LAYOUT: sidebar + content ── */
+    .app-layout {
       display: flex;
-      gap: 0;
-      padding: 0;
+      min-height: calc(100vh - 102px);
+      position: relative;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: 210px;
+      min-width: 210px;
+      background: rgba(0, 22, 30, 0.97);
+      border-right: 1px solid var(--border);
+      position: sticky;
+      top: 102px;
+      height: calc(100vh - 102px);
+      overflow-y: auto;
+      overflow-x: hidden;
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                  min-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 50;
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .sidebar.collapsed {
+      width: 56px;
+      min-width: 56px;
+    }
+
+    .sidebar::-webkit-scrollbar { width: 3px; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    /* ── SIDEBAR TOGGLE BUTTON ── */
+    .sidebar-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 14px 16px;
+      background: none;
+      border: none;
       border-bottom: 1px solid var(--border);
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
+      cursor: pointer;
+      color: var(--accent);
+      font-size: 13px;
+      transition: all 0.2s;
+      width: 100%;
+      gap: 8px;
+      white-space: nowrap;
+      overflow: hidden;
     }
 
-    .nav-tabs::-webkit-scrollbar {
-      height: 4px;
+    .sidebar-toggle:hover {
+      background: rgba(0, 196, 204, 0.08);
     }
 
-    .nav-tabs::-webkit-scrollbar-track {
-      background: rgba(0, 0, 0, 0.1);
-    }
-
-    .nav-tabs::-webkit-scrollbar-thumb {
-      background: var(--accent);
-      border-radius: 10px;
-    }
-
-    .tab-btn {
-      padding: 0 32px;
-      height: 64px;
+    .sidebar-toggle .toggle-label {
       font-family: 'Bebas Neue', sans-serif;
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: var(--muted);
+      transition: opacity 0.2s, width 0.3s;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    .sidebar.collapsed .sidebar-toggle {
+      justify-content: center;
+      padding: 14px 0;
+    }
+
+    .sidebar.collapsed .toggle-label {
+      opacity: 0;
+      width: 0;
+      pointer-events: none;
+    }
+
+    .toggle-arrow {
+      display: inline-block;
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       font-size: 16px;
+      line-height: 1;
+      color: var(--accent);
+    }
+
+    .sidebar.collapsed .toggle-arrow {
+      transform: rotate(180deg);
+    }
+
+    /* ── SIDEBAR SECTION GROUPS ── */
+    .sidebar-group {
+      padding: 6px 0 2px;
+    }
+
+    .sidebar-group-label {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 9px;
+      letter-spacing: 3px;
+      color: rgba(0, 196, 204, 0.4);
+      padding: 6px 18px 4px;
+      text-transform: uppercase;
+      transition: opacity 0.2s, height 0.3s;
+      overflow: hidden;
+      white-space: nowrap;
+      display: block;
+    }
+
+    .sidebar.collapsed .sidebar-group-label {
+      opacity: 0;
+      height: 0;
+      padding: 0;
+      pointer-events: none;
+    }
+
+    /* ── TAB BUTTONS (vertical) ── */
+    .tab-btn {
+      padding: 0 14px;
+      height: 44px;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 13px;
       font-weight: 400;
-      letter-spacing: 2.5px;
+      letter-spacing: 1.8px;
       color: var(--muted);
       cursor: pointer;
       border: none;
       background: none;
-      border-bottom: 3px solid transparent;
-      transition: all .25s cubic-bezier(0.4, 0, 0.2, 1);
+      border-left: 3px solid transparent;
+      transition: all .22s cubic-bezier(0.4, 0, 0.2, 1);
       white-space: nowrap;
       text-transform: uppercase;
-      flex-shrink: 0;
       display: flex;
       align-items: center;
-      gap: 10px;
-      opacity: 0.7
+      gap: 11px;
+      opacity: 0.72;
+      width: 100%;
+      text-align: left;
     }
 
     .tab-btn:hover {
       color: var(--text);
-      background: rgba(255, 255, 255, 0.05);
-      opacity: 1
+      background: rgba(0, 196, 204, 0.07);
+      border-left-color: rgba(0, 196, 204, 0.35);
+      opacity: 1;
     }
 
     .tab-btn.active {
-      color: var(--accent2);
-      border-bottom-color: var(--accent);
+      color: var(--accent);
+      border-left-color: var(--accent);
+      background: rgba(0, 196, 204, 0.12);
       opacity: 1;
-      text-shadow: 0 0 12px rgba(0, 196, 204, 0.5)
+      text-shadow: 0 0 14px rgba(0, 196, 204, 0.45);
     }
 
+    .tab-icon {
+      font-size: 16px;
+      flex-shrink: 0;
+      width: 22px;
+      text-align: center;
+      filter: drop-shadow(0 0 4px rgba(0,196,204,0.3));
+    }
+
+    .tab-label {
+      transition: opacity 0.2s, max-width 0.3s;
+      overflow: hidden;
+      max-width: 160px;
+      white-space: nowrap;
+    }
+
+    .sidebar.collapsed .tab-label {
+      opacity: 0;
+      max-width: 0;
+      pointer-events: none;
+    }
+
+    .sidebar.collapsed .tab-btn {
+      padding: 0;
+      justify-content: center;
+      border-left-color: transparent !important;
+    }
+
+    .sidebar.collapsed .tab-btn.active {
+      background: rgba(0, 196, 204, 0.18);
+    }
+
+    /* Tooltip for collapsed state */
+    .sidebar.collapsed .tab-btn {
+      position: relative;
+    }
+
+    .sidebar.collapsed .tab-btn::after {
+      content: attr(data-label);
+      position: absolute;
+      left: 62px;
+      background: rgba(0, 22, 30, 0.97);
+      border: 1px solid var(--border);
+      color: var(--accent);
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 12px;
+      letter-spacing: 2px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s;
+      z-index: 999;
+      text-transform: uppercase;
+      backdrop-filter: blur(12px);
+    }
+
+    .sidebar.collapsed .tab-btn:hover::after {
+      opacity: 1;
+    }
+
+    /* ── CONTENT WRAP ── */
+    .content-wrap {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .content-wrap .container {
+      max-width: 100%;
+      padding: 0 24px;
+    }
+
+    /* ── SECTIONS ── */
     .section {
       display: none;
-      padding: 28px 0 48px
+      padding: 24px 0 48px;
     }
 
     .section.active {
-      display: block
+      display: block;
     }
 
     .g4 {
@@ -357,7 +530,6 @@
     }
 
     @media(max-width:900px) {
-
       .g4,
       .g3 {
         grid-template-columns: 1fr 1fr
@@ -367,6 +539,9 @@
       .g2e {
         grid-template-columns: 1fr
       }
+
+      /* Smaller tab buttons on narrow screens */
+      .tab-btn { height: 40px; font-size: 12px; }
     }
 
     .stat {
@@ -1417,27 +1592,60 @@
     </div>
   </div>
 
-  <!-- MAIN -->
-  <div class="container">
-    <div class="nav-tabs">
-      <button class="tab-btn active" onclick="showTab('overview',this)">📊 Overview</button>
-      <button class="tab-btn" onclick="showTab('watchlist',this)">📈 Equities</button>
-      <button class="tab-btn" onclick="showTab('commodities',this)">🥇 Commodities</button>
-      <button class="tab-btn" onclick="showTab('crypto',this)">₿ Crypto</button>
-      <button class="tab-btn" onclick="showTab('fno',this)">⚡ F&amp;O</button>
-      <button class="tab-btn" onclick="showTab('market',this)">🌐 Markets</button>
-      <button class="tab-btn" onclick="showTab('daily',this)">📋 Daily Brief</button>
-      <button class="tab-btn" onclick="showTab('paper',this)">🎯 Paper Trade</button>
-      <button class="tab-btn" onclick="showTab('alerts',this)">🔔 Alerts</button>
-      <button class="tab-btn" onclick="showTab('learn',this)">🎓 Learn</button>
-      <button class="tab-btn" onclick="showTab('tools',this)">🔧 Tools</button>
-      <button class="tab-btn" onclick="showTab('agents',this)">🤖 Agents</button>
-      <button class="tab-btn" onclick="showTab('intelligence',this)">🧠 Intelligence</button>
-      <button class="tab-btn" onclick="showTab('portfolio',this)">💼 Portfolio</button>
-      <button class="tab-btn" onclick="showTab('learning',this)">📈 Learning</button>
-      <button class="tab-btn" onclick="showTab('apikeys',this)"
-        style="color:var(--accent4);border-bottom-color:transparent">🔑 API Keys</button>
-    </div>
+  <!-- APP LAYOUT: sidebar + content -->
+  <div class="app-layout">
+
+    <!-- ══ LEFT SIDEBAR NAV ══ -->
+    <aside class="sidebar" id="sidebar">
+
+      <!-- Toggle arrow -->
+      <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle navigation">
+        <span class="toggle-label">NAVIGATE</span>
+        <span class="toggle-arrow" id="toggle-arrow">&#8249;</span>
+      </button>
+
+      <!-- Group: Markets -->
+      <div class="sidebar-group">
+        <span class="sidebar-group-label">Markets</span>
+        <button class="tab-btn active" data-label="Overview"    onclick="showTab('overview',this)">    <span class="tab-icon">📊</span><span class="tab-label">Overview</span></button>
+        <button class="tab-btn"        data-label="Equities"    onclick="showTab('watchlist',this)">   <span class="tab-icon">📈</span><span class="tab-label">Equities</span></button>
+        <button class="tab-btn"        data-label="Commodities" onclick="showTab('commodities',this)"> <span class="tab-icon">🥇</span><span class="tab-label">Commodities</span></button>
+        <button class="tab-btn"        data-label="Crypto"      onclick="showTab('crypto',this)">      <span class="tab-icon">₿</span><span class="tab-label">Crypto</span></button>
+        <button class="tab-btn"        data-label="F&amp;O"     onclick="showTab('fno',this)">         <span class="tab-icon">⚡</span><span class="tab-label">F&amp;O</span></button>
+        <button class="tab-btn"        data-label="Markets"     onclick="showTab('market',this)">      <span class="tab-icon">🌐</span><span class="tab-label">Markets</span></button>
+      </div>
+
+      <!-- Group: Intelligence -->
+      <div class="sidebar-group">
+        <span class="sidebar-group-label">Intelligence</span>
+        <button class="tab-btn"        data-label="Daily Brief"  onclick="showTab('daily',this)">        <span class="tab-icon">📋</span><span class="tab-label">Daily Brief</span></button>
+        <button class="tab-btn"        data-label="Agents"       onclick="showTab('agents',this)">       <span class="tab-icon">🤖</span><span class="tab-label">Agents</span></button>
+        <button class="tab-btn"        data-label="Intelligence" onclick="showTab('intelligence',this)"> <span class="tab-icon">🧠</span><span class="tab-label">Intelligence</span></button>
+        <button class="tab-btn"        data-label="Learning"     onclick="showTab('learning',this)">     <span class="tab-icon">📈</span><span class="tab-label">Learning</span></button>
+      </div>
+
+      <!-- Group: Trading -->
+      <div class="sidebar-group">
+        <span class="sidebar-group-label">Trading</span>
+        <button class="tab-btn"        data-label="Paper Trade"  onclick="showTab('paper',this)">       <span class="tab-icon">🎯</span><span class="tab-label">Paper Trade</span></button>
+        <button class="tab-btn"        data-label="Portfolio"    onclick="showTab('portfolio',this)">   <span class="tab-icon">💼</span><span class="tab-label">Portfolio</span></button>
+        <button class="tab-btn"        data-label="Alerts"       onclick="showTab('alerts',this)">      <span class="tab-icon">🔔</span><span class="tab-label">Alerts</span></button>
+      </div>
+
+      <!-- Group: Tools -->
+      <div class="sidebar-group">
+        <span class="sidebar-group-label">Tools</span>
+        <button class="tab-btn"        data-label="Learn"        onclick="showTab('learn',this)">       <span class="tab-icon">🎓</span><span class="tab-label">Learn</span></button>
+        <button class="tab-btn"        data-label="Tools"        onclick="showTab('tools',this)">       <span class="tab-icon">🔧</span><span class="tab-label">Tools</span></button>
+        <button class="tab-btn"        data-label="API Keys"     onclick="showTab('apikeys',this)">     <span class="tab-icon">🔑</span><span class="tab-label">API Keys</span></button>
+      </div>
+
+    </aside>
+    <!-- ══ END SIDEBAR ══ -->
+
+    <!-- ══ CONTENT AREA ══ -->
+    <div class="content-wrap">
+      <div class="container">
 
     <!-- ══════════════════ OVERVIEW ══════════════════ -->
     <div class="section active" id="tab-overview">
@@ -3174,7 +3382,9 @@
         StockGuru Intelligence Hub · Local Build · Yahoo Finance · Paper Trade Mode Active · v2.0
       </div>
     </footer>
-  </div>
+      </div><!-- /container -->
+    </div><!-- /content-wrap -->
+  </div><!-- /app-layout -->
 
   <script>
     // Works on localhost AND Railway/any cloud host automatically
@@ -3395,12 +3605,41 @@
       if (btn) { btn.disabled = false; btn.textContent = '📲 Send Test Message to Telegram'; }
     }
 
+    // ── SIDEBAR TOGGLE ────────────────────────────────────────
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      sidebar.classList.toggle('collapsed');
+      try { localStorage.setItem('sg_sidebar_collapsed', sidebar.classList.contains('collapsed') ? '1' : '0'); } catch(e){}
+    }
+
+    // Restore / init sidebar state on load
+    (function initSidebar() {
+      const s = document.getElementById('sidebar');
+      if (!s) return;
+      let stored;
+      try { stored = localStorage.getItem('sg_sidebar_collapsed'); } catch(e){}
+      if (stored === '1') {
+        s.classList.add('collapsed');
+      } else if (stored === null && window.innerWidth < 900) {
+        // First visit on small screen: default to collapsed
+        s.classList.add('collapsed');
+        try { localStorage.setItem('sg_sidebar_collapsed', '1'); } catch(e){}
+      }
+      // else: stored === '0' means user explicitly opened it — keep open
+    })();
+
     // ── TAB SWITCH ────────────────────────────────────────────
     function showTab(id, btn) {
       document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.getElementById('tab-' + id).classList.add('active');
+      const tab = document.getElementById('tab-' + id);
+      if (tab) tab.classList.add('active');
       if (btn) btn.classList.add('active');
+      // On mobile: auto-collapse sidebar after selecting
+      if (window.innerWidth < 768) {
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar && !sidebar.classList.contains('collapsed')) toggleSidebar();
+      }
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
