@@ -1637,6 +1637,8 @@
         <span class="sidebar-group-label">Tools</span>
         <button class="tab-btn"        data-label="Learn"        onclick="showTab('learn',this)">       <span class="tab-icon">🎓</span><span class="tab-label">Learn</span></button>
         <button class="tab-btn"        data-label="Tools"        onclick="showTab('tools',this)">       <span class="tab-icon">🔧</span><span class="tab-label">Tools</span></button>
+        <button class="tab-btn"        data-label="Channels"     onclick="showTab('channels',this)">    <span class="tab-icon">🔌</span><span class="tab-label">Channels</span></button>
+        <button class="tab-btn"        data-label="Backtest"     onclick="showTab('backtest',this)">    <span class="tab-icon">📈</span><span class="tab-label">Backtest</span></button>
         <button class="tab-btn"        data-label="API Keys"     onclick="showTab('apikeys',this)">     <span class="tab-icon">🔑</span><span class="tab-label">API Keys</span></button>
       </div>
 
@@ -3382,6 +3384,84 @@
         StockGuru Intelligence Hub · Local Build · Yahoo Finance · Paper Trade Mode Active · v2.0
       </div>
     </footer>
+
+    <!-- ══════════════════ CHANNELS ══════════════════ -->
+    <div class="section" id="tab-channels">
+      <div style="padding-top:22px">
+        <div class="sec-title">🔌 CHANNELS — BROKER &amp; DATA CONNECTORS</div>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:24px">
+          Connect brokers and data sources to expand agent intelligence. Add API keys to your .env file to activate each channel.
+        </p>
+
+        <!-- Channel Cards -->
+        <div id="channels-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-bottom:32px">
+          <div style="color:var(--muted);padding:24px;font-size:13px">Loading channels...</div>
+        </div>
+
+        <!-- Agent Confidence Handoff Panel -->
+        <div class="card" style="margin-bottom:24px">
+          <div class="card-title">🤝 AGENT HANDOFF — CONFIDENCE SCORES</div>
+          <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Live confidence output from each agent — feeds downstream agents for coordinated decisions (CrewAI-style)</p>
+          <div id="agent-confidence-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">
+            <div style="color:var(--muted);font-size:13px">Run agent cycle to see confidence scores...</div>
+          </div>
+        </div>
+
+        <!-- Earnings Calendar -->
+        <div class="card">
+          <div class="card-title">📅 EVENTS CALENDAR — NEXT 7 DAYS</div>
+          <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Corporate events for watchlist stocks. High-impact events (earnings, results) block entries in risk_manager.</p>
+          <div id="earnings-calendar-list" style="min-height:60px">
+            <div style="color:var(--muted);font-size:13px;padding:12px">Loading events...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ BACKTEST ══════════════════ -->
+    <div class="section" id="tab-backtest">
+      <div style="padding-top:22px">
+        <div class="sec-title">📈 BACKTESTING — SIGNAL VALIDATION</div>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:24px">
+          Replay historical signals against Yahoo Finance price data. Validate agent accuracy before trusting live signals.
+        </p>
+
+        <!-- Run Button + Stats -->
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;flex-wrap:wrap">
+          <button id="run-backtest-btn" onclick="runBacktest()"
+            style="padding:12px 28px;background:var(--accent);color:#000;border:none;border-radius:8px;font-family:'Bebas Neue';font-size:16px;letter-spacing:2px;cursor:pointer">
+            ▶ RUN BACKTEST
+          </button>
+          <div style="color:var(--muted);font-size:12px" id="backtest-meta">Load last results or run a fresh backtest</div>
+        </div>
+
+        <!-- Key Metrics -->
+        <div class="g4" style="margin-bottom:24px">
+          <div class="stat"><div class="stat-label">WIN RATE</div><div class="stat-val" id="bt-winrate">--</div></div>
+          <div class="stat"><div class="stat-label">SHARPE RATIO</div><div class="stat-val" id="bt-sharpe">--</div></div>
+          <div class="stat"><div class="stat-label">MAX DRAWDOWN</div><div class="stat-val" id="bt-maxdd" style="color:var(--red)">--</div></div>
+          <div class="stat"><div class="stat-label">AVG P&amp;L / TRADE</div><div class="stat-val" id="bt-avgpnl">--</div></div>
+        </div>
+
+        <!-- By Sector -->
+        <div class="card" style="margin-bottom:24px">
+          <div class="card-title">SECTOR BREAKDOWN</div>
+          <div id="bt-sector-table" style="overflow-x:auto">
+            <div style="color:var(--muted);font-size:13px;padding:12px">Run backtest to see sector breakdown</div>
+          </div>
+        </div>
+
+        <!-- Last 20 Trades -->
+        <div class="card">
+          <div class="card-title">LAST 20 SIMULATED TRADES</div>
+          <div id="bt-trades-table" style="overflow-x:auto">
+            <div style="color:var(--muted);font-size:13px;padding:12px">Run backtest to see trade history</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    </footer>
       </div><!-- /container -->
     </div><!-- /content-wrap -->
   </div><!-- /app-layout -->
@@ -4228,13 +4308,183 @@
       } catch (e) { /* silent */ }
     }
 
+    // ── CHANNELS ──────────────────────────────────────────────
+    const CHANNEL_ICONS = {
+      zerodha_kite:  { icon: '🏦', label: 'Zerodha Kite',    hint: 'India broker' },
+      alpaca:        { icon: '🦙', label: 'Alpaca Markets',   hint: 'US broker' },
+      alpha_vantage: { icon: '📊', label: 'Alpha Vantage',    hint: 'Fundamentals' },
+      newsapi:       { icon: '📰', label: 'NewsAPI',          hint: 'News data' },
+      telegram:      { icon: '✈️',  label: 'Telegram Alerts',  hint: 'Notifications' },
+    };
+
+    async function fetchChannels() {
+      try {
+        const d = await fetch(`${API}/channels-status`).then(r => r.json());
+        const grid = document.getElementById('channels-grid');
+        if (!grid) return;
+        const channels = d.channels || {};
+        if (!Object.keys(channels).length) { grid.innerHTML = '<div style="color:var(--muted);font-size:13px">Channels not loaded</div>'; return; }
+        grid.innerHTML = Object.entries(channels).map(([id, ch]) => {
+          const meta = CHANNEL_ICONS[id] || { icon: '🔌', label: id };
+          const statusColor = ch.status === 'connected' ? 'var(--green)' : ch.status === 'partial' ? '#F2C94C' : 'var(--muted)';
+          const statusLabel = ch.status === 'connected' ? '✅ CONNECTED' : ch.status === 'partial' ? '⚠️ PARTIAL' : '○ NOT CONFIGURED';
+          const missing = (ch.missing_keys || []).map(k => `<code style="font-size:10px;color:var(--muted);background:rgba(0,0,0,.3);padding:2px 6px;border-radius:3px">${k}</code>`).join(' ');
+          return `<div style="background:rgba(0,196,204,.04);border:1px solid ${statusColor}33;border-radius:12px;padding:18px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+              <span style="font-size:22px">${meta.icon}</span>
+              <div>
+                <div style="font-family:'Bebas Neue';font-size:16px;letter-spacing:1.5px">${meta.label}</div>
+                <div style="font-size:10px;color:var(--muted)">${ch.type?.toUpperCase()} · ${ch.region}</div>
+              </div>
+              <div style="margin-left:auto;font-family:'Space Mono';font-size:10px;color:${statusColor}">${statusLabel}</div>
+            </div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:10px">${ch.description}</div>
+            ${missing ? `<div style="font-size:11px;color:var(--muted);margin-bottom:8px">Missing: ${missing}</div>` : ''}
+            <div style="font-size:10px;color:var(--accent);opacity:.7"><a href="${ch.docs_url}" target="_blank" style="color:var(--accent)">📖 Setup docs →</a></div>
+          </div>`;
+        }).join('');
+
+        // Fetch confidence handoff
+        const conf = await fetch(`${API}/agent-confidence`).then(r => r.json());
+        const confGrid = document.getElementById('agent-confidence-grid');
+        if (confGrid && Object.keys(conf).length) {
+          confGrid.innerHTML = Object.entries(conf).map(([agent, c]) => {
+            const confPct = Math.round((c.confidence || 0) * 100);
+            const confColor = confPct >= 85 ? 'var(--green)' : confPct >= 65 ? '#F2C94C' : 'var(--muted)';
+            return `<div style="background:rgba(0,196,204,.05);border:1px solid var(--border);border-radius:8px;padding:12px">
+              <div style="font-family:'Bebas Neue';font-size:13px;letter-spacing:1px;margin-bottom:6px">${agent.replace(/_/g,' ').toUpperCase()}</div>
+              <div style="font-family:'Space Mono';font-size:18px;color:${confColor};margin-bottom:4px">${confPct}%</div>
+              <div style="font-size:10px;color:${c.key_signal==='BULLISH'?'var(--green)':c.key_signal==='BEARISH'?'var(--red)':'var(--muted)'};margin-bottom:4px">${c.key_signal||'--'}</div>
+              <div style="font-size:10px;color:var(--muted);line-height:1.4">${c.handoff_notes||''}</div>
+              ${c.llm_enhanced ? '<div style="font-size:9px;color:var(--accent);margin-top:4px">🤖 LLM enhanced</div>' : ''}
+            </div>`;
+          }).join('');
+        }
+
+        // Fetch earnings calendar
+        const cal = await fetch(`${API}/earnings-calendar`).then(r => r.json());
+        const calList = document.getElementById('earnings-calendar-list');
+        if (calList) {
+          const upcoming = cal.upcoming || [];
+          const alerts   = cal.watchlist_alerts || [];
+          if (!upcoming.length) {
+            calList.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:12px">No upcoming events in next 7 days (agents not yet run)</div>';
+          } else {
+            calList.innerHTML = `
+              ${alerts.length ? `<div style="padding:10px 14px;background:rgba(255,61,113,.08);border-left:3px solid var(--red);border-radius:6px;margin-bottom:12px;font-size:12px;color:var(--accent2)">
+                ⚠️ <strong>${alerts.length} WATCHLIST EVENT${alerts.length>1?'S':''}</strong> in next 7 days — review before trading
+              </div>` : ''}
+              <table style="width:100%;border-collapse:collapse;font-size:12px">
+                <thead><tr>
+                  <th style="text-align:left;padding:8px;color:var(--muted);font-weight:400;border-bottom:1px solid var(--border)">Symbol</th>
+                  <th style="text-align:left;padding:8px;color:var(--muted);font-weight:400;border-bottom:1px solid var(--border)">Event</th>
+                  <th style="text-align:left;padding:8px;color:var(--muted);font-weight:400;border-bottom:1px solid var(--border)">Date</th>
+                  <th style="text-align:left;padding:8px;color:var(--muted);font-weight:400;border-bottom:1px solid var(--border)">Days</th>
+                  <th style="text-align:left;padding:8px;color:var(--muted);font-weight:400;border-bottom:1px solid var(--border)">Impact</th>
+                </tr></thead>
+                <tbody>${upcoming.slice(0,20).map(e => {
+                  const impColor = e.impact>=0.8?'var(--red)':e.impact>=0.6?'#F2C94C':'var(--muted)';
+                  const inWl = e.watchlist_match ? ' style="color:var(--accent)"' : '';
+                  return `<tr style="border-bottom:1px solid rgba(0,196,204,.07)">
+                    <td style="padding:8px;font-family:'Space Mono';font-size:11px"${inWl}>${e.symbol}${e.watchlist_match?' ★':''}</td>
+                    <td style="padding:8px;color:var(--text)">${e.purpose}</td>
+                    <td style="padding:8px;font-family:'Space Mono';font-size:11px;color:var(--muted)">${e.date}</td>
+                    <td style="padding:8px;font-family:'Space Mono';font-size:11px;color:var(--accent)">${e.days_away}d</td>
+                    <td style="padding:8px;color:${impColor}">${Math.round(e.impact*100)}%</td>
+                  </tr>`;
+                }).join('')}</tbody>
+              </table>
+              <div style="font-size:10px;color:var(--muted);padding:8px">★ = in your watchlist · Last run: ${cal.last_run||'--'}</div>`;
+          }
+        }
+      } catch (e) { console.warn('fetchChannels', e); }
+    }
+
+    // ── BACKTEST ───────────────────────────────────────────────
+    async function fetchBacktest() {
+      try {
+        const d = await fetch(`${API}/backtest`).then(r => r.json());
+        if (d.error || d.message) return;
+        renderBacktest(d);
+      } catch (e) { /* silent */ }
+    }
+
+    function renderBacktest(d) {
+      const el = id => document.getElementById(id);
+      if (!d || d.error) return;
+      if (el('bt-winrate'))  el('bt-winrate').textContent  = d.win_rate ? `${(d.win_rate*100).toFixed(1)}%` : '--';
+      if (el('bt-sharpe'))   el('bt-sharpe').textContent   = d.sharpe_ratio ?? '--';
+      if (el('bt-maxdd'))    el('bt-maxdd').textContent    = d.max_drawdown_pct ? `-${d.max_drawdown_pct}%` : '--';
+      if (el('bt-avgpnl'))   el('bt-avgpnl').textContent   = d.avg_pnl_pct != null ? `${d.avg_pnl_pct>0?'+':''}${d.avg_pnl_pct}%` : '--';
+      if (el('backtest-meta')) el('backtest-meta').textContent = `${d.signals_tested||0} signals tested · ${d.run_date||''}`;
+
+      if (el('bt-sector-table') && d.by_sector) {
+        const rows = Object.entries(d.by_sector).sort((a,b)=>b[1].win_rate-a[1].win_rate);
+        el('bt-sector-table').innerHTML = rows.length ? `<table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr>
+            <th style="text-align:left;padding:8px;color:var(--muted);font-weight:400;border-bottom:1px solid var(--border)">Sector</th>
+            <th style="padding:8px;color:var(--muted);font-weight:400;border-bottom:1px solid var(--border)">Trades</th>
+            <th style="padding:8px;color:var(--muted);font-weight:400;border-bottom:1px solid var(--border)">Wins</th>
+            <th style="padding:8px;color:var(--muted);font-weight:400;border-bottom:1px solid var(--border)">Win Rate</th>
+          </tr></thead>
+          <tbody>${rows.map(([sec,s])=>`<tr style="border-bottom:1px solid rgba(0,196,204,.07)">
+            <td style="padding:8px">${sec}</td>
+            <td style="padding:8px;text-align:center;font-family:'Space Mono';font-size:11px">${s.total}</td>
+            <td style="padding:8px;text-align:center;font-family:'Space Mono';font-size:11px;color:var(--green)">${s.wins}</td>
+            <td style="padding:8px;text-align:center;font-family:'Space Mono';font-size:11px;color:${s.win_rate>=0.6?'var(--green)':s.win_rate>=0.4?'#F2C94C':'var(--red)'}">${(s.win_rate*100).toFixed(0)}%</td>
+          </tr>`).join('')}</tbody>
+        </table>` : '<div style="color:var(--muted);padding:12px;font-size:13px">No sector data yet</div>';
+      }
+
+      if (el('bt-trades-table') && d.last_20_trades) {
+        el('bt-trades-table').innerHTML = d.last_20_trades.length ? `<table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr>
+            <th style="text-align:left;padding:8px;color:var(--muted);font-weight:400;border-bottom:1px solid var(--border)">Symbol</th>
+            <th style="padding:8px;color:var(--muted);font-weight:400;border-bottom:1px solid var(--border)">Outcome</th>
+            <th style="padding:8px;color:var(--muted);font-weight:400;border-bottom:1px solid var(--border)">P&L %</th>
+            <th style="padding:8px;color:var(--muted);font-weight:400;border-bottom:1px solid var(--border)">Hold Days</th>
+          </tr></thead>
+          <tbody>${d.last_20_trades.map(t=>{
+            const oc=t.outcome==='TARGET_HIT'?'var(--green)':t.outcome==='SL_HIT'?'var(--red)':'var(--muted)';
+            const pnlC=t.pnl_pct>0?'var(--green)':t.pnl_pct<0?'var(--red)':'var(--muted)';
+            return `<tr style="border-bottom:1px solid rgba(0,196,204,.07)">
+              <td style="padding:8px;font-family:'Space Mono';font-size:11px">${t.symbol}</td>
+              <td style="padding:8px;text-align:center;color:${oc};font-size:11px">${t.outcome}</td>
+              <td style="padding:8px;text-align:center;font-family:'Space Mono';font-size:11px;color:${pnlC}">${t.pnl_pct>0?'+':''}${t.pnl_pct}%</td>
+              <td style="padding:8px;text-align:center;font-family:'Space Mono';font-size:11px;color:var(--muted)">${t.hold_days}d</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>` : '<div style="color:var(--muted);padding:12px;font-size:13px">No trades yet</div>';
+      }
+    }
+
+    async function runBacktest() {
+      const btn = document.getElementById('run-backtest-btn');
+      const meta = document.getElementById('backtest-meta');
+      if (btn) { btn.disabled = true; btn.textContent = '⏳ Running...'; }
+      if (meta) meta.textContent = 'Fetching historical data and simulating trades...';
+      try {
+        const d = await fetch(`${API}/backtest`, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({signals: 50})
+        }).then(r => r.json());
+        renderBacktest(d);
+        if (meta) meta.textContent = `${d.signals_tested||0} signals tested · ${d.run_date||'Complete'}`;
+      } catch (e) {
+        if (meta) meta.textContent = 'Backtest error — ensure agents have run at least once';
+      }
+      if (btn) { btn.disabled = false; btn.textContent = '▶ RUN BACKTEST'; }
+    }
+
     // ── MAIN LOOP ─────────────────────────────────────────────
     async function fetchAll() {
       await Promise.all([
         fetchPrices(), fetchWatchlist(), fetchMood(), fetchAlerts(), fetchStatus(),
         fetchAgentStatus(), fetchScanner(), fetchSignals(), fetchAgentNews(),
         fetchClaudeAnalysis(), fetchPaperPortfolio(), fetchLearningStats(),
-        fetchOptionsAndFii(), fetchTechnical(), fetchAgentLog()
+        fetchOptionsAndFii(), fetchTechnical(), fetchAgentLog(),
+        fetchChannels(), fetchBacktest()
       ]);
     }
     fetchAll();

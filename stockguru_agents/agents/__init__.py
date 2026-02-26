@@ -18,4 +18,6 @@ from agents import (
     morning_brief,
     pattern_memory,
     paper_trader,
+    # Tier 1: Events
+    earnings_calendar,
 )

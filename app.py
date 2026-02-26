@@ -30,7 +30,7 @@ try:
         technical_analysis, institutional_flow, options_flow,
         claude_intelligence, web_researcher,
         sector_rotation, risk_manager,
-        pattern_memory, paper_trader,
+        pattern_memory, paper_trader, earnings_calendar,
     )
     AGENTS_AVAILABLE = True
 except ImportError as _e:
@@ -43,6 +43,23 @@ try:
     LEARNING_AVAILABLE = True
 except ImportError:
     LEARNING_AVAILABLE = False
+
+# ── CHANNELS + BACKTESTING ────────────────────────────────────────────────────
+try:
+    from channels import ChannelManager
+    channel_manager = ChannelManager()
+    CHANNELS_AVAILABLE = True
+except Exception as _ce:
+    channel_manager    = None
+    CHANNELS_AVAILABLE = False
+    logging.warning(f"Channels not loaded: {_ce}")
+
+try:
+    from backtesting import BacktestEngine
+    BACKTESTING_AVAILABLE = True
+except Exception as _be:
+    BACKTESTING_AVAILABLE = False
+    logging.warning(f"Backtesting not loaded: {_be}")
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
@@ -336,9 +353,12 @@ def run_all_agents():
         _st("commodity",  "running"); commodity_crypto.run(shared_state);       _st("commodity",  "done")
         _log(f"   Gold={shared_state.get('commodity_results',[{}])[0].get('price','?')} | Crude={shared_state.get('commodity_results',[{},{}])[1].get('price','?') if len(shared_state.get('commodity_results',[]))>1 else '?'}")
         _st("news",       "running"); news_sentiment.run(shared_state);          _st("news",       "done")
-        _log(f"   News sentiment: {shared_state.get('market_sentiment_score',0):+.0f} | {len(shared_state.get('news_results',[]))} headlines")
+        _log(f"   News sentiment: {shared_state.get('market_sentiment_score',0):+.0f} | {len(shared_state.get('news_results',[]))} headlines | {'LLM+keyword' if any(n.get('scored_by')=='llm+keyword' for n in shared_state.get('news_results',[])) else 'keyword'}")
         _st("scanner",    "running"); market_scanner.run(shared_state);          _st("scanner",    "done")
         _log(f"   Scanner: {len(shared_state.get('scanner_results',[]))} stocks ranked")
+        _st("calendar",   "running")
+        try:    earnings_calendar.run(shared_state); _st("calendar", "done"); _log(f"   Events calendar: {shared_state.get('events_calendar',{}).get('total_events',0)} events | {len(shared_state.get('events_calendar',{}).get('watchlist_alerts',[]))} watchlist matches")
+        except Exception as e: log.warning("earnings_calendar: %s", e); _st("calendar", "error")
 
         for agent_name, agent_mod in [("technical",  technical_analysis),
                                        ("inst_flow",  institutional_flow),
@@ -510,6 +530,49 @@ def api_risk_summary():
 @app.route("/api/web-research")
 def api_web_research():
     return jsonify(shared_state.get("web_research", {}))
+
+@app.route("/api/earnings-calendar")
+def api_earnings_calendar():
+    return jsonify(shared_state.get("events_calendar", {
+        "total_events": 0, "watchlist_alerts": [], "upcoming": [],
+        "last_run": None, "high_impact_count": 0
+    }))
+
+@app.route("/api/agent-confidence")
+def api_agent_confidence():
+    return jsonify(shared_state.get("agent_confidence", {}))
+
+@app.route("/api/channels-status")
+def api_channels_status():
+    if not CHANNELS_AVAILABLE or not channel_manager:
+        return jsonify({"error": "Channels module not loaded", "channels": {}})
+    try:
+        statuses = channel_manager.get_all_statuses()
+        return jsonify({
+            "channels": statuses,
+            "summary":  channel_manager.summary(),
+            "checked_at": datetime.now().strftime("%H:%M:%S")
+        })
+    except Exception as e:
+        return jsonify({"error": str(e), "channels": {}})
+
+@app.route("/api/backtest", methods=["GET", "POST"])
+def api_backtest():
+    """GET: return last results. POST: run a new backtest."""
+    if not BACKTESTING_AVAILABLE:
+        return jsonify({"error": "Backtesting module not loaded"})
+    try:
+        engine = BacktestEngine()
+        if request.method == "POST":
+            n = int(request.json.get("signals", 50)) if request.is_json else 50
+            result = engine.run_signal_backtest(lookback_signals=n)
+        else:
+            result = engine.load_results()
+            if not result:
+                result = {"message": "No backtest run yet. POST to /api/backtest to start."}
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)})
 
 @app.route("/api/paper-portfolio")
 def api_paper_portfolio():

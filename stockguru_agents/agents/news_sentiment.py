@@ -7,10 +7,14 @@ Runs    : Every 15 minutes
 Reports : Telegram (high-impact only) + Dashboard
 """
 
+import os
+import json
 import requests
 import logging
 import re
 from datetime import datetime
+
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 
 log = logging.getLogger("NewsSentiment")
 
@@ -140,6 +144,64 @@ def classify_impact(score, headline):
     else:
         return "LOW"
 
+def _llm_batch_score(headlines: list, watchlist_names: list) -> dict:
+    """
+    Send top headlines to Claude Haiku for nuanced LLM sentiment scoring.
+    Returns dict: {headline_idx: {score, reasoning, stocks, impact}}
+    Falls back silently if API unavailable.
+    """
+    if not ANTHROPIC_API_KEY or not headlines:
+        return {}
+    try:
+        wl_str = ", ".join(watchlist_names[:15]) if watchlist_names else "general Indian equities"
+        numbered = "\n".join(f"{i+1}. {h}" for i, h in enumerate(headlines[:15]))
+        prompt = f"""You are a financial news analyst for Indian equity markets.
+Analyze these {len(headlines[:15])} headlines. For each, return a JSON array:
+
+Watchlist stocks to watch: {wl_str}
+
+Headlines:
+{numbered}
+
+Return ONLY a valid JSON array with one object per headline (same order):
+[{{"idx":1,"score":-8,"impact":"HIGH","stocks":["HDFC BANK"],"reason":"NPA rise hurts bank stocks"}}, ...]
+
+Rules:
+- score: -10 (very negative) to +10 (very positive) for Indian markets
+- impact: "HIGH" | "MEDIUM" | "LOW"
+- stocks: list of watchlist stocks directly affected (empty list if none)
+- reason: max 8 words explaining the market impact
+Return ONLY the JSON array, no other text."""
+
+        resp = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": ANTHROPIC_API_KEY,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json"
+            },
+            json={
+                "model": "claude-haiku-4-5-20251001",
+                "max_tokens": 800,
+                "messages": [{"role": "user", "content": prompt}]
+            },
+            timeout=12
+        )
+        if resp.status_code != 200:
+            return {}
+        content = resp.json()["content"][0]["text"].strip()
+        # Extract JSON array from response
+        start = content.find("[")
+        end   = content.rfind("]") + 1
+        if start < 0 or end <= start:
+            return {}
+        results = json.loads(content[start:end])
+        return {r["idx"]: r for r in results if isinstance(r, dict)}
+    except Exception as e:
+        log.debug(f"LLM batch score error: {e}")
+        return {}
+
+
 def run(shared_state):
     """Main agent function — fetch, score, rank news."""
     log.info("📰 NewsSentiment: Fetching from %d sources...", len(NEWS_FEEDS))
@@ -158,7 +220,7 @@ def run(shared_state):
         shared_state["news_last_run"] = datetime.now().strftime("%d %b %H:%M:%S")
         return []
 
-    # Score & enrich each headline
+    # ── Keyword-based scoring (fast, always runs) ────────────────────────────
     scored = []
     for item in all_items:
         s   = score_headline(item["headline"])
@@ -169,8 +231,31 @@ def run(shared_state):
             "sentiment_score": s,
             "impact":          imp,
             "stocks_affected": stk,
+            "scored_by":       "keyword",
             "emoji":           "🟢" if s > 0 else "🔴" if s < 0 else "⚪",
         })
+
+    # ── LLM batch scoring (top 15 headlines — one API call) ──────────────────
+    wl_names = [s.get("name", "") for s in shared_state.get("watchlist", [])]
+    top_headlines = [item["headline"] for item in scored[:15]]
+    llm_scores = _llm_batch_score(top_headlines, wl_names)
+
+    if llm_scores:
+        log.info(f"  LLM scored {len(llm_scores)} headlines (Claude Haiku)")
+        for i, item in enumerate(scored[:15]):
+            llm = llm_scores.get(i + 1, {})
+            if llm:
+                # Blend: LLM score takes 70% weight, keyword 30%
+                blended = round(llm.get("score", item["sentiment_score"]) * 0.7
+                                + item["sentiment_score"] * 0.3, 1)
+                item["sentiment_score"] = blended
+                item["impact"]          = llm.get("impact", item["impact"])
+                item["llm_reason"]      = llm.get("reason", "")
+                item["scored_by"]       = "llm+keyword"
+                # Merge LLM-identified stocks with keyword-found ones
+                llm_stocks = llm.get("stocks", [])
+                item["stocks_affected"] = list(set(item["stocks_affected"] + llm_stocks))
+                item["emoji"]           = "🟢" if blended > 0 else "🔴" if blended < 0 else "⚪"
 
     # Sort: high impact first, then by abs score
     scored.sort(key=lambda x: (
@@ -203,4 +288,21 @@ def run(shared_state):
     shared_state["market_sentiment_score"] = avg_score
     shared_state["stock_sentiment_map"]    = stock_sentiment
     shared_state["news_last_run"]          = datetime.now().strftime("%d %b %H:%M:%S")
+
+    # ── Agent handoff protocol ────────────────────────────────────────────────
+    if "agent_confidence" not in shared_state:
+        shared_state["agent_confidence"] = {}
+    llm_used = any(s.get("scored_by") == "llm+keyword" for s in scored[:15])
+    shared_state["agent_confidence"]["news_sentiment"] = {
+        "confidence":    0.85 if llm_used else 0.60,
+        "key_signal":    "BULLISH" if avg_score > 1 else "BEARISH" if avg_score < -1 else "NEUTRAL",
+        "avg_score":     avg_score,
+        "high_impact":   len(high_impact),
+        "llm_enhanced":  llm_used,
+        "handoff_notes": (
+            f"{'LLM-scored' if llm_used else 'Keyword-scored'} | "
+            f"Avg sentiment: {avg_score:+.1f} | "
+            f"{len(high_impact)} high-impact headlines"
+        )
+    }
     return scored[:25]
