@@ -61,6 +61,20 @@ except Exception as _be:
     BACKTESTING_AVAILABLE = False
     logging.warning(f"Backtesting not loaded: {_be}")
 
+# ── INTELLIGENCE CONNECTORS ───────────────────────────────────────────────────
+try:
+    from connectors import ConnectorManager as IntelConnectorManager
+    intel_connector_mgr = IntelConnectorManager()
+    _router   = intel_connector_mgr.get_agent_router()
+    _patterns = intel_connector_mgr.get_pattern_detector()
+    _risk_anl = intel_connector_mgr.get_risk_analytics()
+    CONNECTORS_AVAILABLE = True
+except Exception as _conx:
+    intel_connector_mgr = None
+    _router = _patterns = _risk_anl = None
+    CONNECTORS_AVAILABLE = False
+    logging.warning(f"Connectors not loaded: {_conx}")
+
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 log = logging.getLogger(__name__)
@@ -369,14 +383,28 @@ def run_all_agents():
             except Exception as e:
                 log.error("%s failed: %s", agent_name, e); _st(agent_name, "error")
 
+        # ── AGENT ROUTER: decide whether to run LLM this cycle ───────────────
+        routing = {"run_llm": True, "routing_reason": "Router not available"}
+        if _router:
+            try:
+                routing = _router.route(shared_state)
+                shared_state["routing_decisions"] = routing
+                _log(f"   🔀 AgentRouter: LLM={'RUN' if routing['run_llm'] else 'SKIP'} | conf={routing.get('avg_tier1_confidence',0)}% | {routing['routing_reason'][:60]}")
+            except Exception as e:
+                log.debug(f"AgentRouter error: {e}")
+
         # ── TIER 2: LLM BRAIN ─────────────────────────────────────────────────
         log.info("─── TIER 2: LLM Intelligence ─────────────────────────────────")
         _log("── TIER 2: LLM Brain ────────────────────────────────")
         _st("claude", "running")
         try:
-            claude_intelligence.run(shared_state); _st("claude", "done")
-            ca = shared_state.get("claude_analysis", {})
-            _log(f"   Market: {ca.get('market_condition','?')} | Stance: {ca.get('market_stance','?')} | Picks: {len(ca.get('conviction_picks',[]))}")
+            if routing.get("run_llm", True):
+                claude_intelligence.run(shared_state); _st("claude", "done")
+                ca = shared_state.get("claude_analysis", {})
+                _log(f"   Market: {ca.get('market_condition','?')} | Stance: {ca.get('market_stance','?')} | Picks: {len(ca.get('conviction_picks',[]))}")
+            else:
+                _st("claude", "done")
+                _log(f"   ⏭ LLM skipped by AgentRouter (cycle saved)")
         except Exception as e: log.error("claude_intelligence: %s", e); _st("claude", "error"); _log(f"   ⚠ Claude error: {e}", "error")
 
         # ── TIER 3: STRATEGY ──────────────────────────────────────────────────
@@ -406,6 +434,21 @@ def run_all_agents():
         _st("patterns", "running")
         try:    pattern_memory.run(shared_state); _st("patterns", "done")
         except Exception as e: log.error("pattern_memory: %s", e); _st("patterns", "error")
+
+        # ── CONNECTORS: chart patterns + risk analytics ───────────────────────
+        if _patterns:
+            try:
+                _patterns.run(shared_state)
+                n_pat = sum(len(v) for v in shared_state.get("chart_patterns",{}).values())
+                _log(f"   📐 PatternDetector: {n_pat} patterns found across {len(shared_state.get('chart_patterns',{}))} stocks")
+            except Exception as e: log.debug(f"PatternDetector: {e}")
+
+        if _risk_anl:
+            try:
+                _risk_anl.run(shared_state)
+                ra = shared_state.get("risk_analytics", {})
+                _log(f"   📊 RiskAnalytics: VaR95={ra.get('var_95_pct',0)}% | β={ra.get('portfolio_beta',1)} ({ra.get('beta_status','?')}) | MaxCorr={ra.get('max_corr',0)}")
+            except Exception as e: log.debug(f"RiskAnalytics: {e}")
 
         if LEARNING_AVAILABLE:
             try: weight_adjuster.adjust_weights()
@@ -555,6 +598,40 @@ def api_channels_status():
         })
     except Exception as e:
         return jsonify({"error": str(e), "channels": {}})
+
+@app.route("/api/connectors-status")
+def api_connectors_status():
+    if not CONNECTORS_AVAILABLE or not intel_connector_mgr:
+        return jsonify({"error": "Connectors module not loaded", "connectors": {}})
+    try:
+        statuses = intel_connector_mgr.get_all_statuses()
+        return jsonify({
+            "connectors": statuses,
+            "summary":    intel_connector_mgr.summary(),
+            "checked_at": datetime.now().strftime("%H:%M:%S"),
+        })
+    except Exception as e:
+        return jsonify({"error": str(e), "connectors": {}})
+
+@app.route("/api/chart-patterns")
+def api_chart_patterns():
+    return jsonify(shared_state.get("chart_patterns", {}))
+
+@app.route("/api/routing-decisions")
+def api_routing_decisions():
+    return jsonify(shared_state.get("routing_decisions", {
+        "run_llm": True, "avg_tier1_confidence": 0,
+        "cycles_saved": 0, "cycles_total": 0, "llm_save_rate_pct": 0,
+        "routing_reason": "No data yet — waiting for first agent cycle"
+    }))
+
+@app.route("/api/risk-analytics")
+def api_risk_analytics():
+    return jsonify(shared_state.get("risk_analytics", {
+        "var_95_pct": 0, "var_99_pct": 0, "var_95_inr": 0, "var_99_inr": 0,
+        "portfolio_beta": 1.0, "beta_status": "NEUTRAL",
+        "max_corr": 0, "high_corr_pairs": [], "open_positions": 0,
+    }))
 
 @app.route("/api/backtest", methods=["GET", "POST"])
 def api_backtest():

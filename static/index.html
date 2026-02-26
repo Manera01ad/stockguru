@@ -3072,6 +3072,7 @@
                 <th>Change</th>
                 <th>Score</th>
                 <th>Signal</th>
+                <th>Pattern</th>
               </tr>
             </thead>
             <tbody id="scanner-table">
@@ -3272,6 +3273,18 @@
           </div>
         </div>
 
+        <!-- Risk Analytics Panel -->
+        <div class="card" style="margin-bottom:18px">
+          <div class="card-title">📊 PORTFOLIO RISK ANALYTICS</div>
+          <div class="g4" style="margin-bottom:14px">
+            <div class="stat"><div class="stat-label">VAR 95%</div><div class="stat-val" id="ra-var95" style="color:var(--red)">--</div><div class="stat-chg flat" id="ra-var95-inr">Daily worst-case</div></div>
+            <div class="stat"><div class="stat-label">VAR 99%</div><div class="stat-val" id="ra-var99" style="color:var(--red)">--</div><div class="stat-chg flat" id="ra-var99-inr">Extreme loss</div></div>
+            <div class="stat"><div class="stat-label">PORTFOLIO BETA</div><div class="stat-val" id="ra-beta">--</div><div class="stat-chg flat" id="ra-beta-status">vs NIFTY 50</div></div>
+            <div class="stat"><div class="stat-label">MAX CORRELATION</div><div class="stat-val" id="ra-maxcorr">--</div><div class="stat-chg flat" id="ra-corr-warn"></div></div>
+          </div>
+          <div id="ra-highcorr" style="font-size:12px;color:var(--muted)"></div>
+        </div>
+
         <!-- Open Positions -->
         <div class="card" style="margin-bottom:18px">
           <div class="card-head">
@@ -3408,12 +3421,36 @@
         </div>
 
         <!-- Earnings Calendar -->
-        <div class="card">
+        <div class="card" style="margin-bottom:24px">
           <div class="card-title">📅 EVENTS CALENDAR — NEXT 7 DAYS</div>
           <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Corporate events for watchlist stocks. High-impact events (earnings, results) block entries in risk_manager.</p>
           <div id="earnings-calendar-list" style="min-height:60px">
             <div style="color:var(--muted);font-size:13px;padding:12px">Loading events...</div>
           </div>
+        </div>
+
+        <!-- Intelligence Connectors -->
+        <div class="sec-title" style="margin-top:32px">🔌 INTELLIGENCE CONNECTORS</div>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:20px">
+          Pluggable intelligence modules — pattern detection, smart routing, and risk analytics always active. Alpaca execution activates with broker credentials.
+        </p>
+        <div id="connectors-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-bottom:28px">
+          <div style="color:var(--muted);padding:24px;font-size:13px">Loading connectors...</div>
+        </div>
+
+        <!-- Agent Router Panel -->
+        <div class="card">
+          <div class="card-title">🔀 AGENT ROUTER — LLM CYCLE EFFICIENCY</div>
+          <p style="color:var(--muted);font-size:12px;margin-bottom:16px">
+            Skips Claude/Gemini calls when Tier 1 confidence is low — saves API cost without sacrificing quality.
+          </p>
+          <div class="g4" style="margin-bottom:12px">
+            <div class="stat"><div class="stat-label">AVG CONFIDENCE</div><div class="stat-val" id="router-confidence">--</div></div>
+            <div class="stat"><div class="stat-label">CYCLES SAVED</div><div class="stat-val" id="router-saved">--</div></div>
+            <div class="stat"><div class="stat-label">LLM SAVE RATE</div><div class="stat-val" id="router-saverate">--</div></div>
+            <div class="stat"><div class="stat-label">LAST DECISION</div><div class="stat-val" id="router-decision" style="font-size:14px">--</div></div>
+          </div>
+          <div id="router-reason" style="color:var(--muted);font-size:12px;padding:8px;background:var(--bg3);border-radius:6px"></div>
         </div>
       </div>
     </div>
@@ -3859,7 +3896,7 @@
         const tbody = document.getElementById('scanner-table');
         if (!tbody) return;
         if (!d.top10 || d.top10.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">Click <strong>▶ Run Agents Now</strong> to scan the market</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">Click <strong>▶ Run Agents Now</strong> to scan the market</td></tr>';
           return;
         }
         tbody.innerHTML = d.top10.map((s, i) => `<tr>
@@ -3870,6 +3907,7 @@
           <td class="${chgClass(s.change_pct || 0)}" style="font-family:'Space Mono';font-size:11px">${chgStr(s.change_pct || 0)}</td>
           <td><div class="score-wrap"><div class="sbar"><div class="sbar-fill" style="width:${s.score}%;background:${scoreColor(s.score)}"></div></div><span class="snum" style="color:${scoreColor(s.score)}">${s.score}</span></div></td>
           <td><span class="${sigClass(s.signal)}">${s.signal || '--'}</span></td>
+          <td>${(()=>{const pts=_chartPatterns[s.name||s.sym]||[];if(!pts.length)return '<span style="color:var(--muted);font-size:11px">—</span>';const p=pts[0];const pc=p.direction==='BULLISH'?'var(--green)':'var(--red)';return `<span style="font-size:10px;font-family:Space Mono;color:${pc};background:${pc}22;padding:2px 6px;border-radius:4px;white-space:nowrap">${p.label}</span>`;})()}</td>
         </tr>`).join('');
       } catch (e) { console.warn('fetchScanner', e); }
     }
@@ -4477,6 +4515,107 @@
       if (btn) { btn.disabled = false; btn.textContent = '▶ RUN BACKTEST'; }
     }
 
+    // ── CONNECTORS ────────────────────────────────────────────
+    const CONNECTOR_ICONS = {
+      alpaca_execution: '🦙', pattern_detector: '📐', agent_router: '🔀', risk_analytics: '📊'
+    };
+    const CONNECTOR_TYPE_LABELS = {
+      execution: 'EXECUTION', analysis: 'ANALYSIS', orchestration: 'ORCHESTRATION', risk: 'RISK'
+    };
+
+    async function fetchConnectors() {
+      try {
+        const [cs, rd] = await Promise.all([
+          fetch('/api/connectors-status').then(r => r.json()),
+          fetch('/api/routing-decisions').then(r => r.json()),
+        ]);
+
+        // Connector cards
+        const grid = document.getElementById('connectors-grid');
+        if (grid && cs.connectors) {
+          const entries = Object.entries(cs.connectors);
+          grid.innerHTML = entries.map(([id, c]) => {
+            const statusColor = c.status === 'enabled' ? 'var(--green)'
+              : c.status === 'connected' ? 'var(--accent)'
+              : c.status === 'partial' ? 'var(--yellow)' : 'var(--muted)';
+            const statusLabel = c.status === 'enabled' ? '● ACTIVE'
+              : c.status === 'connected' ? '● CONNECTED'
+              : c.status === 'partial' ? '◐ PARTIAL' : '○ NOT CONFIGURED';
+            const icon = CONNECTOR_ICONS[id] || '🔌';
+            const typeLabel = CONNECTOR_TYPE_LABELS[c.type] || c.type?.toUpperCase() || '';
+            const missingHtml = c.missing_keys?.length
+              ? `<div style="margin-top:8px;font-size:11px;color:var(--muted)">Missing: ${c.missing_keys.map(k => `<code style="background:rgba(0,0,0,.3);padding:1px 5px;border-radius:3px">${k}</code>`).join(' ')}</div>` : '';
+            return `<div style="background:rgba(0,196,204,.04);border:1px solid var(--muted)33;border-radius:12px;padding:18px">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+                <span style="font-size:22px">${icon}</span>
+                <div>
+                  <div style="font-family:'Bebas Neue';font-size:16px;letter-spacing:1.5px">${c.name}</div>
+                  <div style="font-size:10px;color:var(--muted)">${typeLabel}</div>
+                </div>
+                <div style="margin-left:auto;font-size:11px;color:${statusColor};font-family:'Space Mono'">${statusLabel}</div>
+              </div>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:8px">${c.description}</div>
+              ${missingHtml}
+            </div>`;
+          }).join('');
+        }
+
+        // Agent Router stats
+        if (rd) {
+          const setEl = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
+          setEl('router-confidence', rd.avg_tier1_confidence != null ? rd.avg_tier1_confidence + '%' : '--');
+          setEl('router-saved', (rd.cycles_saved || 0) + ' / ' + (rd.cycles_total || 0));
+          setEl('router-saverate', rd.llm_save_rate_pct != null ? rd.llm_save_rate_pct + '%' : '--');
+          const decEl = document.getElementById('router-decision');
+          if (decEl) {
+            decEl.textContent = rd.run_llm === true ? '✅ RUN LLM' : rd.run_llm === false ? '⏭ SKIP LLM' : '--';
+            decEl.style.color = rd.run_llm === true ? 'var(--green)' : rd.run_llm === false ? 'var(--yellow)' : 'var(--muted)';
+          }
+          const reasonEl = document.getElementById('router-reason');
+          if (reasonEl) reasonEl.textContent = rd.routing_reason || '';
+        }
+      } catch (e) { console.warn('fetchConnectors', e); }
+    }
+
+    async function fetchRiskAnalytics() {
+      try {
+        const d = await fetch('/api/risk-analytics').then(r => r.json());
+        const setEl = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
+        setEl('ra-var95',  d.var_95_pct != null ? d.var_95_pct + '%' : '--');
+        setEl('ra-var99',  d.var_99_pct != null ? d.var_99_pct + '%' : '--');
+        setEl('ra-var95-inr', d.var_95_inr ? '₹' + Number(d.var_95_inr).toLocaleString('en-IN') : 'Daily worst-case');
+        setEl('ra-var99-inr', d.var_99_inr ? '₹' + Number(d.var_99_inr).toLocaleString('en-IN') : 'Extreme loss');
+        setEl('ra-beta',  d.portfolio_beta != null ? d.portfolio_beta : '--');
+        const betaEl = document.getElementById('ra-beta-status');
+        if (betaEl) {
+          betaEl.textContent = d.beta_status || 'vs NIFTY 50';
+          betaEl.style.color = d.beta_status === 'AGGRESSIVE' ? 'var(--red)' : d.beta_status === 'DEFENSIVE' ? 'var(--green)' : 'var(--muted)';
+        }
+        setEl('ra-maxcorr', d.max_corr != null ? d.max_corr : '--');
+        const warnEl = document.getElementById('ra-corr-warn');
+        if (warnEl) {
+          if (d.max_corr >= 0.7) { warnEl.textContent = '⚠ High overlap'; warnEl.style.color = 'var(--red)'; }
+          else { warnEl.textContent = 'Diversified'; warnEl.style.color = 'var(--green)'; }
+        }
+        const hcEl = document.getElementById('ra-highcorr');
+        if (hcEl && d.high_corr_pairs?.length) {
+          hcEl.innerHTML = '⚠ Correlated pairs: ' + d.high_corr_pairs.map(([a,b,r]) => `<strong>${a}/${b}</strong> (r=${r})`).join(' · ');
+        } else if (hcEl) { hcEl.textContent = d.open_positions > 0 ? '✅ No highly-correlated position pairs' : 'No open positions yet'; }
+      } catch(e) { console.warn('fetchRiskAnalytics', e); }
+    }
+
+    // Chart patterns cache — updated by fetchChartPatterns()
+    let _chartPatterns = {};
+    async function fetchChartPatterns() {
+      try {
+        _chartPatterns = await fetch('/api/chart-patterns').then(r => r.json());
+        // Re-render scanner table if it's visible to show pattern badges
+        if (document.getElementById('tab-equities')?.classList.contains('active')) {
+          fetchScanner();
+        }
+      } catch(e) { console.warn('fetchChartPatterns', e); }
+    }
+
     // ── MAIN LOOP ─────────────────────────────────────────────
     async function fetchAll() {
       await Promise.all([
@@ -4484,7 +4623,8 @@
         fetchAgentStatus(), fetchScanner(), fetchSignals(), fetchAgentNews(),
         fetchClaudeAnalysis(), fetchPaperPortfolio(), fetchLearningStats(),
         fetchOptionsAndFii(), fetchTechnical(), fetchAgentLog(),
-        fetchChannels(), fetchBacktest()
+        fetchChannels(), fetchBacktest(),
+        fetchConnectors(), fetchRiskAnalytics(), fetchChartPatterns()
       ]);
     }
     fetchAll();
