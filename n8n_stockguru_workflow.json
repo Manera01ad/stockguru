@@ -1,0 +1,198 @@
+{
+  "name": "StockGuru — Agents + Telegram Insights",
+  "nodes": [
+    {
+      "id": "cron-trigger",
+      "name": "Schedule (Market Hours)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/15 9-15 * * 1-5"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "check-server",
+      "name": "Check Server Health",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [470, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "http://localhost:5000/api/status",
+        "options": { "timeout": 5000 },
+        "onError": "continueErrorOutput"
+      }
+    },
+    {
+      "id": "server-down-alert",
+      "name": "Server Down Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [690, 460],
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "⚠️ *StockGuru Server is DOWN*\nThe Flask server at localhost:5000 is not responding.\n\nStart it manually: double-click START.bat",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "credentials": { "telegramApi": { "id": "telegram-creds", "name": "Telegram" } }
+    },
+    {
+      "id": "run-agents",
+      "name": "Trigger Agent Cycle",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [690, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5000/api/run-now",
+        "options": { "timeout": 8000 }
+      }
+    },
+    {
+      "id": "wait-for-agents",
+      "name": "Wait 3 min for Agents",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [910, 300],
+      "parameters": {
+        "unit": "minutes",
+        "amount": 3
+      }
+    },
+    {
+      "id": "get-analysis",
+      "name": "Fetch Claude Analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1130, 220],
+      "parameters": {
+        "method": "GET",
+        "url": "http://localhost:5000/api/claude-analysis"
+      }
+    },
+    {
+      "id": "get-agent-status",
+      "name": "Fetch Agent Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1130, 380],
+      "parameters": {
+        "method": "GET",
+        "url": "http://localhost:5000/api/agent-status"
+      }
+    },
+    {
+      "id": "get-sector",
+      "name": "Fetch Sector Rotation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1130, 540],
+      "parameters": {
+        "method": "GET",
+        "url": "http://localhost:5000/api/sector-rotation"
+      }
+    },
+    {
+      "id": "format-message",
+      "name": "Format Telegram Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1350, 380],
+      "parameters": {
+        "jsCode": "const analysis = $('Fetch Claude Analysis').first().json;\nconst status   = $('Fetch Agent Status').first().json;\nconst sector   = $('Fetch Sector Rotation').first().json;\n\nconst now = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false });\nconst picks = (analysis.conviction_picks || []).filter(p => p.execute_paper_trade);\nconst allPicks = analysis.conviction_picks || [];\n\n// Top sector movers\nconst sectors = (sector.sectors || []).slice(0, 3);\nconst sectorLines = sectors.map(s => {\n  const icon = s.change_pct >= 2 ? '🚀' : s.change_pct >= 0 ? '▲' : '▼';\n  return `  ${icon} ${s.name}: ${s.change_pct >= 0 ? '+' : ''}${(s.change_pct||0).toFixed(1)}%`;\n}).join('\\n');\n\n// Conviction picks\nconst pickLines = picks.slice(0,3).map(p =>\n  `  ✅ *${p.name}* — ${p.signal||'?'} (${p.gates_passed||0}/8 gates)\\n     ${(p.entry_thesis||p.reason||'').slice(0,60)}`\n).join('\\n');\n\n// Agent health\nconst agentCount = Object.values(status.agent_status||{}).filter(s=>s==='done').length;\nconst total = Object.keys(status.agent_status||{}).length || 14;\n\nconst msg = [\n  `🤖 *StockGuru Cycle #${status.cycle_count}*`,\n  `🕐 ${now} IST`,\n  ``,\n  `📊 *Market*: ${analysis.market_condition||'?'} | *Stance*: ${analysis.market_stance||'?'}`,\n  `⚡ *Agents*: ${agentCount}/${total} done | Signals: ${status.signals_count||0}`,\n  ``,\n  sectorLines ? `🏭 *Top Sectors:*\\n${sectorLines}` : '',\n  ``,\n  picks.length\n    ? `🎯 *AI Conviction Picks (${picks.length}):*\\n${pickLines}`\n    : `🔍 No high-conviction picks this cycle (${allPicks.length} reviewed)`,\n  ``,\n  `_⚠️ Simulation only — paper trading mode_`\n].filter(Boolean).join('\\n');\n\nreturn [{ json: { message: msg } }];"
+      }
+    },
+    {
+      "id": "send-telegram",
+      "name": "Send to Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1570, 380],
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "={{ $json.message }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "credentials": { "telegramApi": { "id": "telegram-creds", "name": "Telegram" } }
+    },
+    {
+      "id": "morning-only-check",
+      "name": "Is it 9:15 AM opening?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1570, 200],
+      "parameters": {
+        "conditions": {
+          "options": { "leftValue": "", "caseSensitive": true, "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "morning-check",
+              "leftValue": "={{ new Date().toLocaleTimeString('en-IN',{timeZone:'Asia/Kolkata',hour:'2-digit',minute:'2-digit',hour12:false}) }}",
+              "rightValue": "09:15",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "morning-brief",
+      "name": "Send Morning Brief",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1790, 200],
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "={{ '🌅 *StockGuru Morning Brief*\\n🕐 NSE opens in a few minutes\\n\\n' + $('Format Telegram Message').first().json.message }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "credentials": { "telegramApi": { "id": "telegram-creds", "name": "Telegram" } }
+    }
+  ],
+  "connections": {
+    "Schedule (Market Hours)": {
+      "main": [[{ "node": "Check Server Health", "type": "main", "index": 0 }]]
+    },
+    "Check Server Health": {
+      "main": [
+        [{ "node": "Trigger Agent Cycle", "type": "main", "index": 0 }],
+        [{ "node": "Server Down Alert",   "type": "main", "index": 0 }]
+      ]
+    },
+    "Trigger Agent Cycle": {
+      "main": [[{ "node": "Wait 3 min for Agents", "type": "main", "index": 0 }]]
+    },
+    "Wait 3 min for Agents": {
+      "main": [[
+        { "node": "Fetch Claude Analysis",  "type": "main", "index": 0 },
+        { "node": "Fetch Agent Status",     "type": "main", "index": 0 },
+        { "node": "Fetch Sector Rotation",  "type": "main", "index": 0 }
+      ]]
+    },
+    "Fetch Claude Analysis":  { "main": [[{ "node": "Format Telegram Message", "type": "main", "index": 0 }]] },
+    "Fetch Agent Status":     { "main": [[{ "node": "Format Telegram Message", "type": "main", "index": 0 }]] },
+    "Fetch Sector Rotation":  { "main": [[{ "node": "Format Telegram Message", "type": "main", "index": 0 }]] },
+    "Format Telegram Message": {
+      "main": [[
+        { "node": "Send to Telegram",       "type": "main", "index": 0 },
+        { "node": "Is it 9:15 AM opening?", "type": "main", "index": 0 }
+      ]]
+    },
+    "Is it 9:15 AM opening?": {
+      "main": [[{ "node": "Send Morning Brief", "type": "main", "index": 0 }], []]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata"
+  }
+}

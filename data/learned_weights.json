@@ -1,0 +1,34 @@
+{
+  "_note": "Dynamic weights learned from signal outcomes. Start neutral. Drift based on accuracy.",
+  "_version": 1,
+  "sector_weights": {
+    "Banking":    1.0,
+    "Telecom":    1.0,
+    "Defence":    1.0,
+    "NBFC":       1.0,
+    "Gold Loan":  1.0,
+    "Pharma":     1.0,
+    "Auto":       1.0,
+    "IT":         1.0,
+    "Metals":     1.0,
+    "FMCG":       1.0,
+    "Energy":     1.0,
+    "Infra":      1.0,
+    "Power":      1.0,
+    "Food Tech":  1.0,
+    "Healthcare": 1.0,
+    "Aviation":   1.0,
+    "Insurance":  1.0,
+    "Realty":     1.0,
+    "Fintech":    1.0
+  },
+  "stock_weights": {},
+  "factor_weights": {
+    "fundamental_pct": 0.40,
+    "technical_pct":   0.30,
+    "momentum_pct":    0.20,
+    "risk_pct":        0.10
+  },
+  "last_adjusted": null,
+  "total_adjustments": 0
+}

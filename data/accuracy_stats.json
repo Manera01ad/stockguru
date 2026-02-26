@@ -1,0 +1,18 @@
+{
+  "_note": "Win/loss stats by sector and stock. Populated after first 5+ outcomes.",
+  "by_sector": {},
+  "by_stock": {},
+  "overall": {
+    "total_signals": 0,
+    "outcomes_recorded": 0,
+    "wins_t1": 0,
+    "wins_t2": 0,
+    "losses_sl": 0,
+    "open": 0,
+    "win_rate": 0.0,
+    "avg_win_pct": 0.0,
+    "avg_loss_pct": 0.0,
+    "expectancy": 0.0
+  },
+  "last_updated": null
+}

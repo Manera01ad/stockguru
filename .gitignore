@@ -1,0 +1,36 @@
+# ── Secrets ────────────────────────────────────────────────
+.env
+
+# ── Python cache ───────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# ── Virtual environments ────────────────────────────────────
+venv/
+env/
+.venv/
+
+# ── Data files (paper trades, portfolio — Railway uses fresh state) ──
+data/paper_portfolio.json
+data/paper_trades.json
+data/signal_history.json
+
+# Keep these — they are initial seed config that agents learn from
+# data/learned_weights.json   ← keep
+# data/accuracy_stats.json    ← keep
+# data/pattern_library.json   ← keep
+
+# ── Windows junk ───────────────────────────────────────────
+nul
+Thumbs.db
+Desktop.ini
+
+# ── Logs ───────────────────────────────────────────────────
+*.log
+
+# ── IDE ────────────────────────────────────────────────────
+.vscode/
+.idea/

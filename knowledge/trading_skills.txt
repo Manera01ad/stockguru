@@ -1,0 +1,120 @@
+STOCKGURU PROFESSIONAL TRADING SKILLS
+======================================
+These rules encode the decision-making of the top 5% of Indian equity market
+participants. Every agent must internalize and apply these rules.
+
+REALISTIC ACCURACY EXPECTATION:
+  - Professional traders target 60-70% win rate with 2.5:1+ R:R (not 95%)
+  - 95% target = 95% SYSTEM RELIABILITY + extreme selectivity
+  - A day with NO trades is better than a bad trade
+  - Only take signals where 6+ of 8 conviction gates pass
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ENTRY RULES (when to enter a trade)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+R1.  TREND ALIGNMENT: Only go long in stocks whose sector shows positive
+     momentum. If sector_rotation shows sector bearish, skip even strong stocks.
+
+R2.  VOLUME CONFIRMATION: No breakout is valid without volume surge >= 1.5x
+     the 10-day average. Price move without volume = trap.
+
+R3.  EMA STRUCTURE: Price must be above the 50-EMA for all long trades.
+     Ideally above 200-EMA too (strongest setups). Below 50-EMA = avoid.
+
+R4.  RSI DISCIPLINE: Never buy RSI > 72 (overbought, late entry).
+     Best entries: RSI 40-60 (healthy momentum). RSI 30-40 = oversold bounce only.
+
+R5.  INSTITUTIONAL ALIGNMENT: FII must be net buyers (positive flow) in the
+     stock's sector on the day of signal. Never fight FII selling.
+
+R6.  EARNINGS PROXIMITY: Avoid new long positions within 3 days before
+     quarterly results — gap risk is unquantifiable.
+
+R7.  MACD SIGNAL: MACD line must be above signal line (bullish crossover)
+     OR showing bullish divergence. MACD below signal = momentum fading.
+
+R8.  OPTIONS MARKET: PCR (Put-Call Ratio) between 0.6-1.1 for new longs.
+     PCR < 0.5 = euphoria (too bullish, correct soon). PCR > 1.2 = fear
+     (can buy dips but not breakouts).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RISK MANAGEMENT RULES (position sizing + stops)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+R9.  2% RULE: Never risk more than 2% of total portfolio on any single trade.
+     Formula: Shares = (Capital × 0.02) / (Entry - StopLoss)
+
+R10. MINIMUM R:R: Only take trades with Risk-to-Reward >= 2.5:1 at T1.
+     If T1 gives less than 2.5x the risk, skip the trade.
+
+R11. HARD STOP LOSS: Every position must have a stop loss set at entry.
+     Default: 8% below entry. Maximum: 12%. Never move SL against the trade.
+
+R12. SECTOR CONCENTRATION: Never have more than 25% of capital in one sector.
+     Prevents sector-event wipeout (e.g., RBI shock on all banking stocks).
+
+R13. SIMULTANEOUS POSITIONS: Maximum 5 open paper positions at one time.
+     Quality over quantity — each position deserves active monitoring.
+
+R14. VIX ADJUSTMENT: When India VIX > 20, reduce all position sizes by 40%.
+     When VIX > 25, only take exits — no new longs.
+
+R15. DAILY LOSS CIRCUIT: If paper portfolio loses 3% in a single day,
+     stop all new entries for the rest of that trading day.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TRADE MANAGEMENT RULES (during the trade)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+R16. PARTIAL BOOKING: At T1, book exactly 50% of position. This locks in
+     profit and reduces risk. Let the remaining 50% run to T2.
+
+R17. TRAILING STOP: After T1 is hit, move stop loss to breakeven (entry price)
+     for the remaining 50% position. Never give back a profitable trade.
+
+R18. NO AVERAGING DOWN: Never buy more of a losing position. If price falls
+     below entry before stop loss, do not add — wait for it to recover above entry.
+
+R19. RETEST ENTRIES: Best entries are on retests of breakout levels, not at
+     the first breakout. Wait for the second test with lower volume = stronger signal.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MARKET CONDITION RULES (macro awareness)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+R20. NIFTY TREND: If Nifty 50 is below its 200-EMA, only trade defensive
+     sectors (FMCG, Pharma, IT exporters). Avoid cyclicals in bear markets.
+
+R21. CRUDE INVERSE: India is an oil importer. Crude falling = positive for
+     Aviation, FMCG, Paints. Crude rising = positive for ONGC, OIL, HPCL.
+
+R22. FII MASTER SIGNAL: When FIIs net buy > ₹2000Cr, market likely to rally
+     next 2-5 days. When FII net sell > ₹2000Cr, caution — don't fight.
+
+R23. GOLD HEDGE: Gold rising sharply = fear in global markets. Reduce
+     position sizing in high-beta stocks when gold > +1.5% in a day.
+
+R24. PCR EXTREMES: PCR < 0.6 = market overly bullish (correction coming soon,
+     reduce new longs). PCR > 1.3 = market overly fearful (good for buying dips).
+
+R25. RBI POLICY WEEK: In the week of RBI MPC meeting, avoid new rate-sensitive
+     positions (Banking, NBFC). Wait for clarity before entering.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTOR LEADERSHIP RULES (top 5% knowledge)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+R26. LEADER NOT LAGGARD: Within a sector, only trade the #1 or #2 stock
+     by market cap + ROE. If HDFC Bank is signaling BUY, prefer it over
+     smaller private banks.
+
+R27. DEFENSIVE ROTATION: When market falls 2%+, defensive sectors (FMCG,
+     Pharma, IT) outperform. Recognize rotation early and position accordingly.
+
+R28. EARNINGS PLAYS: Strong quarterly results often lead to 5-15% moves.
+     The setup to watch: stock consolidating near highs before results with
+     increasing volume = institutional accumulation before catalyst.
+
+R29. GLOBAL CORRELATION: When US markets fall >1%, Indian IT/markets usually
+     fall next day. When US markets rally strong, IT + Nifty usually gap up.
+     Avoid aggressive longs when US futures are significantly negative.
+
+R30. PATIENCE: Wait for the setup. The top 5% of traders earn not by trading
+     more but by trading only when conditions are clearly aligned. Missing a
+     trade is not a loss. Taking a bad trade is.
