@@ -160,6 +160,65 @@ def fetch_bulk_deals():
     log.info("  Bulk/Block deals: %d found", len(deals))
     return deals
 
+# ── DELIVERY % TRACKING ───────────────────────────────────────────────────────
+def fetch_delivery_data(watchlist_symbols: list) -> dict:
+    """
+    Fetch delivery % for watchlist stocks from NSE.
+    Delivery % > 60% on high volume = institutional accumulation.
+    Delivery % < 25% on high volume = pure speculative/intraday play.
+
+    Returns: {SYMBOL: {delivery_pct, delivery_qty, traded_qty, interpretation}}
+    """
+    delivery_map = {}
+    try:
+        session = requests.Session()
+        session.get("https://www.nseindia.com", headers=NSE_HEADERS, timeout=8)
+
+        r = session.get(
+            "https://www.nseindia.com/api/deliveryTradeDetails",
+            headers=NSE_HEADERS, timeout=10
+        )
+        if r.status_code == 200:
+            data  = r.json()
+            items = data if isinstance(data, list) else data.get("data", [])
+            for item in items:
+                sym = item.get("symbol", "").upper()
+                if not sym:
+                    continue
+                try:
+                    delivery_qty = float(str(item.get("deliveryQuantity", 0)).replace(",", ""))
+                    traded_qty   = float(str(item.get("tradedQuantity",   0)).replace(",", ""))
+                    delivery_pct = round((delivery_qty / traded_qty) * 100, 1) if traded_qty else 0.0
+                except (ValueError, ZeroDivisionError):
+                    delivery_pct = 0.0
+                    delivery_qty = 0
+                    traded_qty   = 0
+
+                if delivery_pct >= 60:
+                    interpretation = "INSTITUTIONAL_ACCUMULATION"
+                elif delivery_pct >= 45:
+                    interpretation = "MIXED_HOLDING"
+                elif delivery_pct >= 25:
+                    interpretation = "MOSTLY_INTRADAY"
+                else:
+                    interpretation = "SPECULATIVE"
+
+                delivery_map[sym] = {
+                    "delivery_pct":    delivery_pct,
+                    "delivery_qty":    int(delivery_qty),
+                    "traded_qty":      int(traded_qty),
+                    "interpretation":  interpretation,
+                    "institutional":   delivery_pct >= 60,
+                }
+
+            log.info("  Delivery data: %d stocks fetched", len(delivery_map))
+        else:
+            log.debug("  Delivery API returned %d", r.status_code)
+    except Exception as e:
+        log.debug("Delivery fetch failed: %s", e)
+
+    return delivery_map
+
 # ── SECTOR FLOW INFERENCE ─────────────────────────────────────────────────────
 def infer_sector_flow(fii_net, bulk_deals, sector_map):
     """
@@ -199,12 +258,21 @@ def run(shared_state):
 
     # Build quick sector map from scanner
     sector_map = {}
+    watchlist_syms = []
     for s in shared_state.get("full_scan", []):
-        sector_map[s.get("sym", "").replace(".NS", "")] = s.get("sector", "Unknown")
+        raw_sym = s.get("sym", "")
+        clean   = raw_sym.replace(".NS", "").replace(".BO", "")
+        sector_map[clean] = s.get("sector", "Unknown")
+        watchlist_syms.append(clean)
 
-    sector_flow = infer_sector_flow(
-        fii_dii.get("fii_net_crore", 0), bulk_deals, sector_map
-    )
+    sector_flow   = infer_sector_flow(fii_dii.get("fii_net_crore", 0), bulk_deals, sector_map)
+    delivery_data = fetch_delivery_data(watchlist_syms)
+
+    # Identify institutional accumulation stocks (high delivery + scanner watchlist)
+    inst_accumulation = {
+        sym: d for sym, d in delivery_data.items()
+        if d["institutional"] and sym in sector_map
+    }
 
     # Overall FII signal (R22: >₹2000Cr buy = strong bullish)
     fii_net  = fii_dii.get("fii_net_crore", 0) or 0
@@ -226,22 +294,28 @@ def run(shared_state):
     market_flow  = "BULLISH" if net_combined > 0 else "BEARISH" if net_combined < 0 else "NEUTRAL"
 
     result = {
-        "fii_net_crore":  fii_net,
-        "dii_net_crore":  dii_net,
-        "fii_buy":        fii_dii.get("fii_buy"),
-        "fii_sell":       fii_dii.get("fii_sell"),
-        "fii_signal":     fii_signal,
-        "market_flow":    market_flow,
-        "bulk_deals":     bulk_deals[:8],
-        "sector_flow":    sector_flow,
-        "data_source":    fii_dii.get("source", "unavailable"),
-        "fii_gate_pass":  fii_net >= 0,  # Gate R5: FII not net selling
-        "last_run":       datetime.now().strftime("%d %b %H:%M:%S"),
+        "fii_net_crore":       fii_net,
+        "dii_net_crore":       dii_net,
+        "fii_buy":             fii_dii.get("fii_buy"),
+        "fii_sell":            fii_dii.get("fii_sell"),
+        "fii_signal":          fii_signal,
+        "market_flow":         market_flow,
+        "bulk_deals":          bulk_deals[:8],
+        "sector_flow":         sector_flow,
+        "delivery_data":       delivery_data,
+        "inst_accumulation":   inst_accumulation,
+        "data_source":         fii_dii.get("source", "unavailable"),
+        "fii_gate_pass":       fii_net >= 0,  # Gate R5: FII not net selling
+        "last_run":            datetime.now().strftime("%d %b %H:%M:%S"),
     }
 
     shared_state["institutional_flow"]      = result
     shared_state["institutional_last_run"]  = result["last_run"]
+    shared_state["delivery_data"]           = delivery_data
 
-    log.info("✅ InstitutionalFlow: FII ₹%.0f Cr | Signal: %s | Deals: %d",
-             fii_net, fii_signal, len(bulk_deals))
+    accum_names = list(inst_accumulation.keys())[:5]
+    log.info("✅ InstitutionalFlow: FII ₹%.0f Cr | Signal: %s | Deals: %d | "
+             "Delivery tracked: %d stocks | Accumulation: %s",
+             fii_net, fii_signal, len(bulk_deals),
+             len(delivery_data), accum_names or "none")
     return result

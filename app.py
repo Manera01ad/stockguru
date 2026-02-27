@@ -68,10 +68,11 @@ try:
     _router   = intel_connector_mgr.get_agent_router()
     _patterns = intel_connector_mgr.get_pattern_detector()
     _risk_anl = intel_connector_mgr.get_risk_analytics()
+    _scorer   = intel_connector_mgr.get_agent_scorer()
     CONNECTORS_AVAILABLE = True
 except Exception as _conx:
     intel_connector_mgr = None
-    _router = _patterns = _risk_anl = None
+    _router = _patterns = _risk_anl = _scorer = None
     CONNECTORS_AVAILABLE = False
     logging.warning(f"Connectors not loaded: {_conx}")
 
@@ -450,6 +451,13 @@ def run_all_agents():
                 _log(f"   📊 RiskAnalytics: VaR95={ra.get('var_95_pct',0)}% | β={ra.get('portfolio_beta',1)} ({ra.get('beta_status','?')}) | MaxCorr={ra.get('max_corr',0)}")
             except Exception as e: log.debug(f"RiskAnalytics: {e}")
 
+        if _scorer:
+            try:
+                scores = _scorer.run(shared_state)
+                top = max(scores.items(), key=lambda x: x[1]["avg"], default=(None, {"label": "—", "grade": "?", "avg": 0}))
+                _log(f"   🎯 AgentScorer: {len(scores)} agents graded | Top: {top[1]['label']} ({top[1]['grade']} {top[1]['avg']}%)")
+            except Exception as e: log.debug(f"AgentScorer: {e}")
+
         if LEARNING_AVAILABLE:
             try: weight_adjuster.adjust_weights()
             except Exception as e: log.debug("weight_adjuster: %s", e)
@@ -632,6 +640,10 @@ def api_risk_analytics():
         "portfolio_beta": 1.0, "beta_status": "NEUTRAL",
         "max_corr": 0, "high_corr_pairs": [], "open_positions": 0,
     }))
+
+@app.route("/api/agent-scores")
+def api_agent_scores():
+    return jsonify(shared_state.get("agent_scores", {}))
 
 @app.route("/api/backtest", methods=["GET", "POST"])
 def api_backtest():

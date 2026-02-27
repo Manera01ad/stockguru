@@ -49,6 +49,13 @@ class ConnectorManager:
             "type":        "risk",
             "icon":        "📊",
         },
+        "agent_scorer": {
+            "name":        "Agent Scorer",
+            "description": "Learn%, Trained%, Skilled% — result-oriented grades for all 14 agents",
+            "env_keys":    [],
+            "type":        "scoring",
+            "icon":        "🎯",
+        },
     }
 
     def __init__(self):
@@ -128,6 +135,15 @@ class ConnectorManager:
             return RiskAnalytics()
         except Exception as e:
             log.warning(f"RiskAnalytics init failed: {e}")
+            return None
+
+    def get_agent_scorer(self):
+        """Return AgentScorer (always available)."""
+        try:
+            from .agent_scorer import AgentScorer
+            return AgentScorer()
+        except Exception as e:
+            log.warning(f"AgentScorer init failed: {e}")
             return None
 
     def summary(self) -> str:

@@ -3039,6 +3039,19 @@
           </div>
         </div>
 
+        <!-- Agent Performance Score Cards -->
+        <div class="card" style="margin-bottom:18px">
+          <div class="card-head">
+            <div class="card-title">🎯 AGENT PERFORMANCE SCORES</div>
+            <div style="font-size:11px;color:var(--muted)">Learn% · Trained% · Skilled% — result-oriented grades</div>
+          </div>
+          <div id="agent-scores-container" style="padding:16px 20px">
+            <div style="text-align:center;color:var(--muted);padding:24px">
+              Run agents to see performance scores
+            </div>
+          </div>
+        </div>
+
         <!-- Live Agent Activity Log -->
         <div class="card" style="margin-bottom:18px">
           <div class="card-head">
@@ -4616,6 +4629,72 @@
       } catch(e) { console.warn('fetchChartPatterns', e); }
     }
 
+    // ── AGENT SCORES ──────────────────────────────────────────
+    async function fetchAgentScores() {
+      try {
+        const d = await fetch('/api/agent-scores').then(r => r.json());
+        const container = document.getElementById('agent-scores-container');
+        if (!container || !Object.keys(d).length) return;
+
+        // Group agents by tier
+        const tiers = {};
+        Object.entries(d).forEach(([id, s]) => {
+          const t = s.tier || 1;
+          if (!tiers[t]) tiers[t] = [];
+          tiers[t].push([id, s]);
+        });
+
+        const tierLabels = {
+          1: 'TIER 1 — DATA COLLECTION',
+          2: 'TIER 2 — LLM BRAIN',
+          3: 'TIER 3 — STRATEGY & RISK',
+          4: 'TIER 4 — OUTPUT & LEARNING'
+        };
+
+        let html = '';
+        Object.keys(tiers).sort().forEach(tier => {
+          html += `<div style="font-family:'Space Mono';font-size:9px;color:var(--muted);letter-spacing:1.2px;margin:${tier==1?'4px':' 16px'} 0 10px">${tierLabels[tier] || 'TIER ' + tier}</div>`;
+          html += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin-bottom:4px">`;
+          tiers[tier].forEach(([id, s]) => {
+            const gradeColor = s.grade_color || '#888';
+            const bars = [
+              { label: 'Learn',   val: s.learn   || 0, color: 'var(--accent)' },
+              { label: 'Trained', val: s.trained || 0, color: 'var(--green)'  },
+              { label: 'Skilled', val: s.skilled || 0, color: '#f2c94c'       },
+            ];
+            const statusDot   = s.status === 'done' ? '●' : s.status === 'running' ? '◌' : s.status === 'error' ? '✕' : '○';
+            const statusColor = s.status === 'done' ? 'var(--green)' : s.status === 'running' ? 'var(--accent)' : s.status === 'error' ? 'var(--red)' : 'var(--muted)';
+            const avg = s.avg || 0;
+            html += `<div style="background:rgba(0,196,204,.04);border:1px solid var(--muted)33;border-radius:12px;padding:14px 16px">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                <span style="font-size:20px">${s.icon || '🤖'}</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-family:'Bebas Neue';font-size:15px;letter-spacing:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.label}</div>
+                  <div style="font-size:9px;color:var(--muted);font-family:'Space Mono'">${s.tier_name || ''} · <span style="color:${statusColor}">${statusDot} ${(s.status||'—').toUpperCase()}</span></div>
+                </div>
+                <div style="text-align:right;flex-shrink:0">
+                  <div style="background:${gradeColor};color:#0d0f14;font-family:'Bebas Neue';font-size:17px;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-left:auto">${s.grade || 'D'}</div>
+                  <div style="font-size:9px;color:var(--muted);font-family:'Space Mono';margin-top:2px">${avg}%</div>
+                </div>
+              </div>
+              ${bars.map(b => `<div style="margin-bottom:6px">
+                <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px">
+                  <span style="color:var(--muted)">${b.label}%</span>
+                  <span style="color:${b.color};font-family:'Space Mono'">${b.val}%</span>
+                </div>
+                <div style="background:rgba(255,255,255,.07);border-radius:4px;height:5px">
+                  <div style="height:100%;border-radius:4px;width:${b.val}%;background:${b.color};transition:width .6s ease"></div>
+                </div>
+              </div>`).join('')}
+              <div style="font-size:10px;color:var(--muted);margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${s.desc || ''}">${s.desc || ''}</div>
+            </div>`;
+          });
+          html += `</div>`;
+        });
+        container.innerHTML = html;
+      } catch(e) { console.warn('fetchAgentScores', e); }
+    }
+
     // ── MAIN LOOP ─────────────────────────────────────────────
     async function fetchAll() {
       await Promise.all([
@@ -4624,7 +4703,8 @@
         fetchClaudeAnalysis(), fetchPaperPortfolio(), fetchLearningStats(),
         fetchOptionsAndFii(), fetchTechnical(), fetchAgentLog(),
         fetchChannels(), fetchBacktest(),
-        fetchConnectors(), fetchRiskAnalytics(), fetchChartPatterns()
+        fetchConnectors(), fetchRiskAnalytics(), fetchChartPatterns(),
+        fetchAgentScores()
       ]);
     }
     fetchAll();

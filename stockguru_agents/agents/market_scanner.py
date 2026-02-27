@@ -156,6 +156,15 @@ def score_stock(stock, price_data):
     elif vol_s > 1.0:       m_score += 6
     else:                   m_score += 2
 
+    # ── DELIVERY BONUS (up to +8 pts from institutional accumulation) ──
+    delivery_pct = stock.get("delivery_pct", 0)
+    if delivery_pct >= 60 and vol_s >= 1.5:
+        m_score = min(20, m_score + 8)   # institutional accumulation: high delivery + high vol
+    elif delivery_pct >= 45 and vol_s >= 1.2:
+        m_score = min(20, m_score + 4)   # moderate institutional interest
+    elif delivery_pct > 0 and delivery_pct < 25 and vol_s > 2.0:
+        m_score = max(0, m_score - 4)    # high vol but speculative — penalise
+
     # ── RISK SCORE (10 pts) ─────────────────────────
     r_score = 10 if chg > -2 else 5 if chg > -4 else 2
 
@@ -176,14 +185,27 @@ def run(shared_state):
     start   = time.time()
     results = []
 
+    # Pull delivery data written by institutional_flow (may be empty on first cycle)
+    delivery_map = shared_state.get("delivery_data", {})
+
     for i, stock in enumerate(UNIVERSE):
         pdata = fetch_price(stock["sym"])
-        score, sig = score_stock(stock, pdata)
+
+        # Enrich stock with delivery % before scoring
+        clean_sym = stock["sym"].replace(".NS", "").replace(".BO", "")
+        del_info  = delivery_map.get(clean_sym, {})
+        stock_enriched = {
+            **stock,
+            "delivery_pct":   del_info.get("delivery_pct", 0),
+            "institutional":  del_info.get("institutional", False),
+        }
+
+        score, sig = score_stock(stock_enriched, pdata)
         if pdata:
             target = round(pdata["price"] * 1.20, 1)
             sl     = round(pdata["price"] * 0.92, 1)
             results.append({
-                **stock, **pdata,
+                **stock_enriched, **pdata,
                 "score": score, "signal": sig,
                 "target": target, "sl": sl,
                 "scanned_at": datetime.now().strftime("%H:%M:%S")
