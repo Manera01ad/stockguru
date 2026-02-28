@@ -110,9 +110,15 @@ def _build_data_summary(shared_state):
             "tech_score": tech.get("tech_score"),
         })
 
+    # New enriched data feeds
+    india_vix  = shared_state.get("india_vix", {})
+    iv_rank    = shared_state.get("iv_rank", {})
+    rollover   = shared_state.get("rollover_data", {})
+    ad_data    = shared_state.get("advance_decline", {})
+
     summary = {
         "market": {
-            "mood_score":     round(mood, 2),
+            "mood_score":      round(mood, 2),
             "commodity_macro": commodity,
             "fii_net_crore":   inst.get("fii_net_crore", "N/A"),
             "fii_signal":      inst.get("fii_signal", "NEUTRAL"),
@@ -120,6 +126,25 @@ def _build_data_summary(shared_state):
             "options_bias":    options.get("market_bias", "NEUTRAL"),
             "breadth":         sector_r.get("market_breadth", "UNKNOWN"),
             "top_sectors":     sector_r.get("top_sectors", [])[:3],
+        },
+        "volatility": {
+            "india_vix":       india_vix.get("level"),
+            "vix_regime":      india_vix.get("regime", "UNKNOWN"),
+            "vix_alert":       india_vix.get("alert", ""),
+            "nifty_ivr":       iv_rank.get("nifty_ivr"),
+            "iv_regime":       iv_rank.get("iv_regime", "NORMAL"),
+            "strategy_bias":   iv_rank.get("strategy_bias", "BALANCED"),
+            "atm_iv_pct":      iv_rank.get("nifty_iv_pct"),
+        },
+        "positioning": {
+            "rollover_pct":    rollover.get("nifty_rollover_pct"),
+            "rollover_vs_avg": rollover.get("diff_vs_avg"),
+            "rollover_read":   rollover.get("interpretation", ""),
+            "rollover_strength": rollover.get("strength", ""),
+            "ad_ratio":        ad_data.get("ad_ratio"),
+            "advances":        ad_data.get("advances"),
+            "declines":        ad_data.get("declines"),
+            "breadth_signal":  ad_data.get("breadth_signal", ""),
         },
         "top_stocks": scanner_s,
         "high_impact_news": [
@@ -131,7 +156,9 @@ def _build_data_summary(shared_state):
 
 SYSTEM_PROMPT = """You are StockGuru's Master Intelligence — an expert Indian equity analyst who combines quantitative data with professional trading discipline.
 
-You review outputs from 9 specialized agents and provide the master verdict.
+You review outputs from 14 specialized agents and provide the master verdict, including market elaboration and short-term forecast.
+
+Input data includes: FII/DII flows, PCR, India VIX, IV Rank, rollover data, Advance-Decline breadth, sector rotation, news sentiment, and individual stock technicals.
 
 {skills}
 
@@ -143,8 +170,18 @@ TOP PROVEN PATTERNS:
 RESPONSE: Return ONLY valid JSON, no markdown, no explanation outside JSON:
 {{
   "market_condition": "BULLISH|BEARISH|NEUTRAL|VOLATILE",
-  "market_narrative": "<2-3 sentence assessment of what is actually happening>",
+  "market_narrative": "<3-4 sentence elaboration — what agents are seeing right now, what the data collectively says>",
   "market_stance": "AGGRESSIVE|MODERATE|CONSERVATIVE|AVOID",
+  "market_forecast": {{
+    "next_session": "<1 sentence — what to expect in tomorrow's trading session>",
+    "next_week":    "<1 sentence — directional view for the next 5 trading days>",
+    "nifty_support":    <price level as number or null>,
+    "nifty_resistance": <price level as number or null>,
+    "bias_change_triggers": ["<event or data that would flip the current bias>", "<second trigger>"]
+  }},
+  "vix_read":        "<1 sentence — what today's VIX level means for position sizing and strategy>",
+  "iv_environment":  "<1 sentence — IV rank implication: should traders buy or sell options premium?>",
+  "breadth_read":    "<1 sentence — what A/D ratio and rollover data say about market participation>",
   "conviction_picks": [
     {{
       "name": "<STOCK NAME>",
@@ -162,7 +199,7 @@ RESPONSE: Return ONLY valid JSON, no markdown, no explanation outside JSON:
         "options_gate": <bool>
       }},
       "execute_paper_trade": <bool — true only if gates_passed >= 6>,
-      "entry_thesis": "<specific 1-sentence reason>",
+      "entry_thesis": "<specific 1-sentence reason citing actual data>",
       "key_risk": "<specific 1-sentence risk>",
       "hold_period": "<1-2 weeks|2-4 weeks|monitor>"
     }}
@@ -177,7 +214,9 @@ CRITICAL RULES:
 - execute_paper_trade = true ONLY when gates_passed >= 6 of 8
 - Be conservative — no trade is better than a wrong trade
 - If FII selling > ₹2000Cr, no new longs (R22)
-- If VIX > 20, set market_stance to CONSERVATIVE minimum"""
+- If VIX > 20, set market_stance to CONSERVATIVE minimum
+- Use vix_read, iv_environment, breadth_read to elaborate the full market picture
+- market_forecast must be actionable and specific (use actual numbers where data is available)"""
 
 # ── CLAUDE API CALL ───────────────────────────────────────────────────────────
 def _call_claude(data_summary, shared_state):
@@ -194,7 +233,7 @@ def _call_claude(data_summary, shared_state):
         )
         msg = client.messages.create(
             model      = CLAUDE_MODEL,
-            max_tokens = 2000,
+            max_tokens = 2800,
             system     = system,
             messages   = [{
                 "role":    "user",
@@ -300,6 +339,16 @@ def _fallback_analysis():
         "market_condition": "NEUTRAL",
         "market_narrative": "LLM unavailable — rule-based mode active. Signals from other agents still valid.",
         "market_stance":    "CONSERVATIVE",
+        "market_forecast": {
+            "next_session":        "Monitor key support levels — LLM offline.",
+            "next_week":           "Insufficient data for forecast — LLM offline.",
+            "nifty_support":       None,
+            "nifty_resistance":    None,
+            "bias_change_triggers": ["LLM reconnection"],
+        },
+        "vix_read":        "Check India VIX on F&O tab for volatility context.",
+        "iv_environment":  "IV data available in Options Flow section.",
+        "breadth_read":    "Review A/D ratio in Market tab for breadth context.",
         "conviction_picks": [],
         "key_risks":        ["LLM analysis unavailable"],
         "rules_applied":    [],

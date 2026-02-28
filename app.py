@@ -570,6 +570,17 @@ def api_institutional_flow():
 def api_options_flow():
     return jsonify(shared_state.get("options_flow", {}))
 
+@app.route("/api/market-intelligence")
+def api_market_intelligence():
+    """Combined market intelligence: VIX, IV Rank, Rollover, Advance-Decline."""
+    return jsonify({
+        "india_vix":      shared_state.get("india_vix", {}),
+        "iv_rank":        shared_state.get("iv_rank", {}),
+        "rollover_data":  shared_state.get("rollover_data", {}),
+        "advance_decline": shared_state.get("advance_decline", {}),
+        "last_updated":   shared_state.get("options_last_run", "--"),
+    })
+
 @app.route("/api/sector-rotation")
 def api_sector_rotation():
     return jsonify(shared_state.get("sector_rotation", {}))

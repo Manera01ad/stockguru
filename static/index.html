@@ -3203,6 +3203,57 @@
           </div>
         </div>
 
+        <!-- Market Intelligence: VIX / IV Rank / Rollover / A-D -->
+        <div class="g4" style="margin-bottom:18px">
+          <div class="card" style="padding:14px 16px">
+            <div style="font-size:10px;color:var(--muted);letter-spacing:.08em;margin-bottom:6px">INDIA VIX</div>
+            <div style="display:flex;align-items:baseline;gap:8px">
+              <div style="font-size:22px;font-weight:700" id="mi-vix-level">--</div>
+              <div style="font-size:12px" id="mi-vix-chg">--</div>
+            </div>
+            <div style="margin-top:4px">
+              <span class="badge" id="mi-vix-regime" style="font-size:10px">--</span>
+            </div>
+            <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5" id="mi-vix-alert">--</div>
+          </div>
+          <div class="card" style="padding:14px 16px">
+            <div style="font-size:10px;color:var(--muted);letter-spacing:.08em;margin-bottom:6px">IV RANK (IVR)</div>
+            <div style="display:flex;align-items:baseline;gap:8px">
+              <div style="font-size:22px;font-weight:700" id="mi-ivr">--</div>
+              <div style="font-size:11px;color:var(--muted)">/ 100</div>
+            </div>
+            <div style="margin-top:4px">
+              <span class="badge" id="mi-iv-regime" style="font-size:10px">--</span>
+            </div>
+            <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5" id="mi-iv-strategy">--</div>
+          </div>
+          <div class="card" style="padding:14px 16px">
+            <div style="font-size:10px;color:var(--muted);letter-spacing:.08em;margin-bottom:6px">NIFTY ROLLOVER</div>
+            <div style="display:flex;align-items:baseline;gap:8px">
+              <div style="font-size:22px;font-weight:700" id="mi-rollover-pct">--</div>
+              <div style="font-size:11px;color:var(--muted)" id="mi-rollover-vs-avg">avg --</div>
+            </div>
+            <div style="margin-top:4px">
+              <span class="badge" id="mi-rollover-strength" style="font-size:10px">--</span>
+            </div>
+            <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5" id="mi-rollover-read">--</div>
+          </div>
+          <div class="card" style="padding:14px 16px">
+            <div style="font-size:10px;color:var(--muted);letter-spacing:.08em;margin-bottom:6px">ADVANCE-DECLINE</div>
+            <div style="display:flex;align-items:baseline;gap:8px">
+              <div style="font-size:22px;font-weight:700" id="mi-ad-ratio">--</div>
+              <div style="font-size:11px;color:var(--muted)" id="mi-ad-counts">--↑ --↓</div>
+            </div>
+            <div style="margin-top:4px">
+              <span class="badge" id="mi-ad-signal" style="font-size:10px">--</span>
+            </div>
+            <!-- Mini breadth bar -->
+            <div style="margin-top:8px;height:6px;border-radius:3px;background:var(--border);overflow:hidden">
+              <div id="mi-ad-bar" style="height:100%;background:var(--green);border-radius:3px;transition:width .4s;width:50%"></div>
+            </div>
+          </div>
+        </div>
+
         <!-- Claude Narrative -->
         <div class="card" style="margin-bottom:18px">
           <div class="card-head">
@@ -3211,6 +3262,17 @@
           </div>
           <div id="intel-narrative" style="padding:20px;font-size:13px;color:var(--muted);line-height:1.8">
             No analysis yet — click <strong style="color:var(--accent)">▶ Run Agents Now</strong> on the Agents tab.
+          </div>
+        </div>
+
+        <!-- Claude Forecast -->
+        <div class="card" style="margin-bottom:18px" id="intel-forecast-card">
+          <div class="card-head">
+            <div class="card-title">🔭 AI MARKET FORECAST</div>
+            <span style="font-size:11px;color:var(--muted)">Claude's forward-looking view based on all agent data</span>
+          </div>
+          <div style="padding:16px 20px" id="intel-forecast-body">
+            <div style="color:var(--muted);font-size:13px">Forecast not yet generated — run agents to enable.</div>
           </div>
         </div>
 
@@ -4018,7 +4080,36 @@
 
         if (el('intel-narrative')) {
           const narr = intel.market_narrative || intel.risk_note || 'Analysis in progress...';
-          el('intel-narrative').innerHTML = `<p style="color:var(--text)">${narr}</p>`;
+          // Append VIX/IV/breadth reads if present
+          const vixRead  = intel.vix_read    ? `<p style="margin-top:10px;color:var(--accent3)">📊 <em>${intel.vix_read}</em></p>` : '';
+          const ivRead   = intel.iv_environment ? `<p style="margin-top:6px;color:var(--accent)">⚡ <em>${intel.iv_environment}</em></p>` : '';
+          const adRead   = intel.breadth_read ? `<p style="margin-top:6px;color:var(--muted)">📈 <em>${intel.breadth_read}</em></p>` : '';
+          el('intel-narrative').innerHTML = `<p style="color:var(--text)">${narr}</p>${vixRead}${ivRead}${adRead}`;
+        }
+
+        // ── Forecast Section ──────────────────────────────────
+        const fc = intel.market_forecast;
+        if (fc && el('intel-forecast-body')) {
+          const supportTxt    = fc.nifty_support    ? `<span style="color:var(--green)">▲ ${fc.nifty_support}</span>` : '--';
+          const resistTxt     = fc.nifty_resistance ? `<span style="color:var(--red)">▼ ${fc.nifty_resistance}</span>` : '--';
+          const triggersList  = (fc.bias_change_triggers || []).map(t =>
+            `<li style="margin-bottom:4px">⚡ ${t}</li>`).join('');
+          el('intel-forecast-body').innerHTML = `
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+              <div style="background:var(--border);border-radius:8px;padding:14px">
+                <div style="font-size:10px;color:var(--muted);letter-spacing:.08em;margin-bottom:6px">NEXT SESSION</div>
+                <div style="font-size:13px;color:var(--text);line-height:1.6">${fc.next_session || '--'}</div>
+              </div>
+              <div style="background:var(--border);border-radius:8px;padding:14px">
+                <div style="font-size:10px;color:var(--muted);letter-spacing:.08em;margin-bottom:6px">NEXT WEEK</div>
+                <div style="font-size:13px;color:var(--text);line-height:1.6">${fc.next_week || '--'}</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:24px;margin-bottom:14px;flex-wrap:wrap">
+              <div><span style="font-size:10px;color:var(--muted)">NIFTY SUPPORT </span>${supportTxt}</div>
+              <div><span style="font-size:10px;color:var(--muted)">NIFTY RESISTANCE </span>${resistTxt}</div>
+            </div>
+            ${triggersList ? `<div style="font-size:10px;color:var(--muted);letter-spacing:.08em;margin-bottom:8px">BIAS CHANGE TRIGGERS</div><ul style="list-style:none;padding:0;margin:0;font-size:12px;color:var(--accent4)">${triggersList}</ul>` : ''}`;
         }
 
         if (el('intel-gemini')) {
@@ -4048,6 +4139,73 @@
           }).join('');
         }
       } catch (e) { console.warn('fetchClaudeAnalysis', e); }
+    }
+
+    // ── MARKET INTELLIGENCE (VIX / IVR / Rollover / A-D) ──────
+    async function fetchMarketIntelligence() {
+      try {
+        const d = await fetch(`${API}/market-intelligence`).then(r => r.json());
+        const el = id => document.getElementById(id);
+
+        // VIX card
+        const vix = d.india_vix || {};
+        if (el('mi-vix-level')) el('mi-vix-level').textContent = vix.level ? vix.level.toFixed(2) : '--';
+        if (el('mi-vix-chg')) {
+          const chg = vix.change_pct;
+          el('mi-vix-chg').textContent = chg != null ? `${chg > 0 ? '+' : ''}${chg.toFixed(2)}%` : '--';
+          el('mi-vix-chg').style.color = chg > 0 ? 'var(--red)' : chg < 0 ? 'var(--green)' : 'var(--muted)';
+        }
+        if (el('mi-vix-regime')) {
+          const reg = vix.regime || '--';
+          el('mi-vix-regime').textContent = reg;
+          const regColors = {GREED:'rgba(255,160,0,.2)',CALM:'rgba(0,230,118,.15)',CAUTIOUS:'rgba(255,160,0,.2)',FEARFUL:'rgba(255,82,82,.2)',PANIC:'rgba(255,82,82,.35)',UNKNOWN:'rgba(255,255,255,.07)'};
+          const regTextC  = {GREED:'var(--accent)',CALM:'var(--green)',CAUTIOUS:'var(--accent)',FEARFUL:'var(--red)',PANIC:'var(--red)',UNKNOWN:'var(--muted)'};
+          el('mi-vix-regime').style.background = regColors[reg] || 'rgba(255,255,255,.07)';
+          el('mi-vix-regime').style.color = regTextC[reg] || 'var(--muted)';
+          el('mi-vix-regime').style.border = '1px solid ' + (regTextC[reg] || 'var(--border)').replace(')', ',.3)').replace('var(', 'rgba(').replace('--green','0,230,118').replace('--red','255,82,82').replace('--accent','255,160,0').replace('--muted','255,255,255');
+        }
+        if (el('mi-vix-alert')) el('mi-vix-alert').textContent = vix.alert || '--';
+
+        // IV Rank card
+        const ivr = d.iv_rank || {};
+        if (el('mi-ivr')) el('mi-ivr').textContent = ivr.nifty_ivr != null ? ivr.nifty_ivr.toFixed(1) : '--';
+        if (el('mi-iv-regime')) {
+          el('mi-iv-regime').textContent = ivr.iv_regime || '--';
+          const isHighIV = (ivr.nifty_ivr || 0) > 60;
+          el('mi-iv-regime').style.background = isHighIV ? 'rgba(255,82,82,.15)' : 'rgba(0,230,118,.1)';
+          el('mi-iv-regime').style.color = isHighIV ? 'var(--red)' : 'var(--green)';
+          el('mi-iv-regime').style.border = isHighIV ? '1px solid rgba(255,82,82,.3)' : '1px solid rgba(0,230,118,.3)';
+        }
+        if (el('mi-iv-strategy')) el('mi-iv-strategy').textContent = ivr.strategy_bias || '--';
+
+        // Rollover card
+        const ro = d.rollover_data || {};
+        if (el('mi-rollover-pct')) el('mi-rollover-pct').textContent = ro.nifty_rollover_pct != null ? ro.nifty_rollover_pct.toFixed(1) + '%' : '--';
+        if (el('mi-rollover-vs-avg')) el('mi-rollover-vs-avg').textContent = ro.avg_rollover_30d != null ? `avg ${ro.avg_rollover_30d.toFixed(1)}%` : 'avg --';
+        if (el('mi-rollover-strength')) {
+          const s = ro.strength || '--';
+          el('mi-rollover-strength').textContent = s;
+          el('mi-rollover-strength').style.background = s === 'STRONG' ? 'rgba(0,230,118,.15)' : s === 'WEAK' ? 'rgba(255,82,82,.15)' : 'rgba(255,255,255,.07)';
+          el('mi-rollover-strength').style.color = s === 'STRONG' ? 'var(--green)' : s === 'WEAK' ? 'var(--red)' : 'var(--muted)';
+          el('mi-rollover-strength').style.border = '1px solid ' + (s === 'STRONG' ? 'rgba(0,230,118,.3)' : s === 'WEAK' ? 'rgba(255,82,82,.3)' : 'var(--border)');
+        }
+        if (el('mi-rollover-read')) el('mi-rollover-read').textContent = ro.interpretation || '--';
+
+        // Advance-Decline card
+        const ad = d.advance_decline || {};
+        const adRatio = ad.ad_ratio != null ? ad.ad_ratio : 0.5;
+        if (el('mi-ad-ratio')) el('mi-ad-ratio').textContent = adRatio.toFixed(2);
+        if (el('mi-ad-counts')) el('mi-ad-counts').textContent = `${ad.advances || '--'}↑ ${ad.declines || '--'}↓`;
+        if (el('mi-ad-signal')) {
+          const sig = ad.breadth_signal || '--';
+          el('mi-ad-signal').textContent = sig;
+          const isUp = sig.includes('RALLY') || sig.includes('BUYING');
+          el('mi-ad-signal').style.background = isUp ? 'rgba(0,230,118,.15)' : sig === 'BROAD_SELLING' ? 'rgba(255,82,82,.15)' : 'rgba(255,255,255,.07)';
+          el('mi-ad-signal').style.color = isUp ? 'var(--green)' : sig === 'BROAD_SELLING' ? 'var(--red)' : 'var(--muted)';
+          el('mi-ad-signal').style.border = isUp ? '1px solid rgba(0,230,118,.3)' : sig === 'BROAD_SELLING' ? '1px solid rgba(255,82,82,.3)' : '1px solid var(--border)';
+        }
+        if (el('mi-ad-bar')) el('mi-ad-bar').style.width = (adRatio * 100).toFixed(0) + '%';
+      } catch (e) { console.warn('fetchMarketIntelligence', e); }
     }
 
     // ── PAPER PORTFOLIO ───────────────────────────────────────
@@ -4700,7 +4858,7 @@
       await Promise.all([
         fetchPrices(), fetchWatchlist(), fetchMood(), fetchAlerts(), fetchStatus(),
         fetchAgentStatus(), fetchScanner(), fetchSignals(), fetchAgentNews(),
-        fetchClaudeAnalysis(), fetchPaperPortfolio(), fetchLearningStats(),
+        fetchClaudeAnalysis(), fetchMarketIntelligence(), fetchPaperPortfolio(), fetchLearningStats(),
         fetchOptionsAndFii(), fetchTechnical(), fetchAgentLog(),
         fetchChannels(), fetchBacktest(),
         fetchConnectors(), fetchRiskAnalytics(), fetchChartPatterns(),

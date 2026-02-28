@@ -22,7 +22,13 @@ KEY METRICS:
 import requests
 import logging
 import math
+import json
+import os
 from datetime import datetime, date
+
+_BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+IV_HISTORY_PATH     = os.path.join(_BASE, "data", "iv_history.json")
+ROLLOVER_HIST_PATH  = os.path.join(_BASE, "data", "rollover_history.json")
 
 log = logging.getLogger("OptionsFlow")
 
@@ -231,6 +237,181 @@ def find_unusual_oi(records, threshold=1.5):
     unusual.sort(key=lambda x: -x["oi"])
     return unusual[:5]
 
+def interpret_vix(vix_level):
+    """Classify India VIX into regime + alert."""
+    if vix_level is None:
+        return "UNKNOWN", "VIX data unavailable", False
+    if vix_level < 12:
+        return "GREED",    "VIX extremely low — complacency risk, market priced for perfection", False
+    elif vix_level < 15:
+        return "CALM",     "VIX calm — healthy low volatility, trend-following favored", False
+    elif vix_level < 20:
+        return "CAUTIOUS", "VIX elevated — reduce size, tighten stops", True
+    elif vix_level < 25:
+        return "FEARFUL",  "VIX high — hedges needed, no aggressive longs (R22)", True
+    else:
+        return "PANIC",    "VIX extreme — markets panicking, avoid new positions", True
+
+
+def compute_iv_rank(nifty_iv, banknifty_iv=None):
+    """
+    IV Rank (IVR) = how high current IV is vs 90-day range.
+    Reads/writes data/iv_history.json.
+    Returns: {nifty_ivr, nifty_iv_pct, banknifty_ivr, iv_regime, strategy_bias}
+    """
+    today_str = date.today().isoformat()
+    # Load history
+    try:
+        with open(IV_HISTORY_PATH) as f:
+            history = json.load(f)
+    except Exception:
+        history = {}
+
+    # Store today's snapshot
+    if nifty_iv and nifty_iv > 0:
+        history[today_str] = {"nifty_iv": nifty_iv, "banknifty_iv": banknifty_iv}
+
+    # Prune to 90-day rolling window
+    dates = sorted(history.keys())[-90:]
+    history = {d: history[d] for d in dates}
+
+    # Save back
+    try:
+        os.makedirs(os.path.dirname(IV_HISTORY_PATH), exist_ok=True)
+        with open(IV_HISTORY_PATH, "w") as f:
+            json.dump(history, f)
+    except Exception:
+        pass
+
+    # Compute IVR
+    nifty_ivs = [v["nifty_iv"] for v in history.values() if v.get("nifty_iv")]
+    result = {"nifty_ivr": None, "nifty_iv_pct": None, "banknifty_ivr": None,
+              "iv_regime": "NORMAL", "strategy_bias": "BALANCED"}
+
+    if len(nifty_ivs) >= 5:
+        low, high = min(nifty_ivs), max(nifty_ivs)
+        if high > low and nifty_iv:
+            ivr = round((nifty_iv - low) / (high - low) * 100, 1)
+            result["nifty_ivr"]     = ivr
+            result["nifty_iv_pct"]  = round(nifty_iv, 2)
+            result["iv_90d_low"]    = round(low, 2)
+            result["iv_90d_high"]   = round(high, 2)
+            if ivr < 20:
+                result["iv_regime"]     = "LOW_IV"
+                result["strategy_bias"] = "BUY_OPTIONS (cheap premium)"
+            elif ivr < 40:
+                result["iv_regime"]     = "BELOW_NORMAL"
+                result["strategy_bias"] = "SLIGHT_BUY_OPTIONS"
+            elif ivr < 60:
+                result["iv_regime"]     = "NORMAL"
+                result["strategy_bias"] = "BALANCED"
+            elif ivr < 80:
+                result["iv_regime"]     = "ELEVATED"
+                result["strategy_bias"] = "SLIGHT_SELL_OPTIONS"
+            else:
+                result["iv_regime"]     = "HIGH_IV"
+                result["strategy_bias"] = "SELL_OPTIONS (rich premium)"
+
+    if banknifty_iv:
+        bn_ivs = [v["banknifty_iv"] for v in history.values() if v.get("banknifty_iv")]
+        if len(bn_ivs) >= 5:
+            low_bn, high_bn = min(bn_ivs), max(bn_ivs)
+            if high_bn > low_bn:
+                result["banknifty_ivr"] = round((banknifty_iv - low_bn) / (high_bn - low_bn) * 100, 1)
+
+    return result
+
+
+def fetch_rollover(session):
+    """
+    Fetch Nifty futures OI for current + next expiry to compute rollover %.
+    Rollover% = next_month_OI / (current_OI + next_OI) × 100
+    Higher rollover = positions being carried forward (conviction trade).
+    """
+    try:
+        url = "https://www.nseindia.com/api/quote-derivative?symbol=NIFTY"
+        r   = session.get(url, headers=NSE_HEADERS, timeout=12)
+        if r.status_code != 200:
+            return None
+        data     = r.json()
+        fut_data = [
+            x for x in data.get("stocks", [])
+            if x.get("metadata", {}).get("instrumentType") == "Index Futures"
+        ]
+        if len(fut_data) < 2:
+            return None
+
+        # Sort by expiry date
+        def parse_expiry(x):
+            try:
+                return datetime.strptime(x["metadata"]["expiryDate"], "%d-%b-%Y")
+            except Exception:
+                return datetime.max
+
+        fut_data.sort(key=parse_expiry)
+        curr = fut_data[0].get("marketDeptOrderBook", {}).get("tradeInfo", {})
+        nxt  = fut_data[1].get("marketDeptOrderBook", {}).get("tradeInfo", {}) if len(fut_data) > 1 else {}
+
+        curr_oi = curr.get("openInterest", 0) or 0
+        next_oi = nxt.get("openInterest",  0) or 0
+        total_oi = curr_oi + next_oi
+
+        if total_oi == 0:
+            return None
+
+        rollover_pct = round(next_oi / total_oi * 100, 1)
+
+        # Load/update rollover history for comparison
+        today_str = date.today().isoformat()
+        try:
+            with open(ROLLOVER_HIST_PATH) as f:
+                rh = json.load(f)
+        except Exception:
+            rh = {}
+
+        rh[today_str] = rollover_pct
+        rh = {d: rh[d] for d in sorted(rh.keys())[-30:]}   # 30-day rolling
+        try:
+            os.makedirs(os.path.dirname(ROLLOVER_HIST_PATH), exist_ok=True)
+            with open(ROLLOVER_HIST_PATH, "w") as f:
+                json.dump(rh, f)
+        except Exception:
+            pass
+
+        # Compare vs 30-day average
+        hist_vals = list(rh.values())
+        avg_rollover = round(sum(hist_vals) / len(hist_vals), 1) if hist_vals else 65.0
+        diff = round(rollover_pct - avg_rollover, 1)
+
+        if diff > 5:
+            interpretation = f"HIGH rollover ({rollover_pct}% vs avg {avg_rollover}%) — strong carry-forward, bulls confident"
+            strength = "STRONG"
+        elif diff < -5:
+            interpretation = f"LOW rollover ({rollover_pct}% vs avg {avg_rollover}%) — positions squaring, caution"
+            strength = "WEAK"
+        else:
+            interpretation = f"NORMAL rollover ({rollover_pct}% vs avg {avg_rollover}%) — orderly transition"
+            strength = "NORMAL"
+
+        curr_expiry = fut_data[0].get("metadata", {}).get("expiryDate", "")
+        next_expiry = fut_data[1].get("metadata", {}).get("expiryDate", "") if len(fut_data) > 1 else ""
+
+        return {
+            "nifty_rollover_pct":  rollover_pct,
+            "current_oi":          curr_oi,
+            "next_oi":             next_oi,
+            "avg_rollover_30d":    avg_rollover,
+            "diff_vs_avg":         diff,
+            "interpretation":      interpretation,
+            "strength":            strength,
+            "curr_expiry":         curr_expiry,
+            "next_expiry":         next_expiry,
+        }
+    except Exception as e:
+        log.debug("Rollover fetch failed: %s", e)
+        return None
+
+
 def interpret_pcr(pcr):
     """Map PCR value to market bias."""
     if pcr is None:
@@ -251,7 +432,7 @@ def interpret_pcr(pcr):
         return "FEAR_BUY_DIPS",     "Extreme fear — contrarian buy dips (not breakouts)"
 
 def run(shared_state):
-    """Main agent — compute PCR, max pain, unusual OI for Nifty + BankNifty."""
+    """Main agent — compute PCR, max pain, unusual OI, VIX regime, IV rank, rollover."""
     log.info("📈 OptionsFlow: Fetching Nifty + BankNifty option chains...")
 
     result = {
@@ -266,8 +447,38 @@ def run(shared_state):
         "last_run":          datetime.now().strftime("%d %b %H:%M:%S"),
     }
 
-    # ── NIFTY ────────────────────────────────────────────────────────────────
-    nifty_records = fetch_option_chain("NIFTY")
+    # ── SHARED SESSION (reused for all NSE calls incl. rollover) ─────────────
+    session = requests.Session()
+    try:
+        session.get("https://www.nseindia.com", headers=NSE_HEADERS, timeout=8)
+        session.get("https://www.nseindia.com/option-chain", headers=NSE_HEADERS, timeout=8)
+    except Exception:
+        pass
+
+    # ── INDIA VIX ────────────────────────────────────────────────────────────
+    vix_data = shared_state.get("price_cache", {}).get("INDIA VIX", {})
+    vix_level = vix_data.get("price") if vix_data else None
+    vix_chg   = vix_data.get("change_pct") if vix_data else None
+    vix_regime, vix_alert_msg, vix_alert = interpret_vix(vix_level)
+    india_vix = {
+        "level":      vix_level,
+        "change_pct": vix_chg,
+        "regime":     vix_regime,
+        "alert":      vix_alert_msg,
+        "is_alert":   vix_alert,
+    }
+    shared_state["india_vix"] = india_vix
+    log.info("  India VIX: %.1f → %s", vix_level or 0, vix_regime)
+
+    # ── NIFTY OPTION CHAIN ────────────────────────────────────────────────────
+    try:
+        url = f"https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY"
+        r   = session.get(url, headers=NSE_HEADERS, timeout=12)
+        nifty_records = r.json().get("records", {}) if r.status_code == 200 else None
+    except Exception:
+        nifty_records = None
+
+    nifty_atm_iv = None
     if nifty_records:
         pcr_result = compute_pcr(nifty_records)
         if pcr_result:
@@ -287,44 +498,68 @@ def run(shared_state):
         pcr_val = result["nifty_pcr"]
         result["options_gate"] = pcr_val is None or (0.60 <= pcr_val <= 1.15)
 
-        # ── NEW: IV Expected Move for Nifty ──────────────────────────────
-        nifty_price = result.get("nifty_price")  # set below if available
-        # Estimate Nifty price from ATM strike
         atm_approx  = result["nifty_max_pain"]
         iv_move = compute_iv_expected_move(nifty_records, atm_approx)
         if iv_move:
             result["nifty_iv_expected_move"] = iv_move
-            log.info("  Nifty IV Move: ±%.0f (%.1f%%) | IV=%.1f%% | DTE=%d",
+            nifty_atm_iv = iv_move.get("atm_iv")
+            log.info("  Nifty IV Move: ±%.0f (%.1f%%) | ATM IV=%.1f%% | DTE=%d",
                      iv_move["expected_move"], iv_move["expected_pct"],
                      iv_move["atm_iv"], iv_move["dte"])
 
         log.info("  Nifty PCR: %.3f → %s | Max Pain: %s",
                  result["nifty_pcr"] or 0, bias, result["nifty_max_pain"])
 
-    # ── BANKNIFTY ─────────────────────────────────────────────────────────────
-    bn_records = fetch_option_chain("BANKNIFTY")
+    # ── BANKNIFTY OPTION CHAIN ────────────────────────────────────────────────
+    try:
+        url = f"https://www.nseindia.com/api/option-chain-indices?symbol=BANKNIFTY"
+        r   = session.get(url, headers=NSE_HEADERS, timeout=12)
+        bn_records = r.json().get("records", {}) if r.status_code == 200 else None
+    except Exception:
+        bn_records = None
+
+    bn_atm_iv = None
     if bn_records:
         pcr_bn = compute_pcr(bn_records)
         if pcr_bn:
             result["banknifty_pcr"]  = pcr_bn[0]
         result["banknifty_max_pain"] = compute_max_pain(bn_records)
 
-        # ── NEW: IV Expected Move for BankNifty ──────────────────────────
         bn_atm   = result["banknifty_max_pain"]
         bn_iv_move = compute_iv_expected_move(bn_records, bn_atm)
         if bn_iv_move:
             result["banknifty_iv_expected_move"] = bn_iv_move
-            log.info("  BankNifty IV Move: ±%.0f (%.1f%%) | IV=%.1f%%",
+            bn_atm_iv = bn_iv_move.get("atm_iv")
+            log.info("  BankNifty IV Move: ±%.0f (%.1f%%) | ATM IV=%.1f%%",
                      bn_iv_move["expected_move"], bn_iv_move["expected_pct"],
                      bn_iv_move["atm_iv"])
 
         log.info("  BankNifty PCR: %.3f | Max Pain: %s",
                  result["banknifty_pcr"] or 0, result["banknifty_max_pain"])
 
+    # ── IV RANK (IVR) ─────────────────────────────────────────────────────────
+    if nifty_atm_iv:
+        iv_rank = compute_iv_rank(nifty_atm_iv, bn_atm_iv)
+        shared_state["iv_rank"] = iv_rank
+        log.info("  Nifty IVR: %s%% → %s | Strategy: %s",
+                 iv_rank.get("nifty_ivr", "N/A"),
+                 iv_rank.get("iv_regime", ""),
+                 iv_rank.get("strategy_bias", ""))
+
+    # ── ROLLOVER ANALYSIS ─────────────────────────────────────────────────────
+    rollover = fetch_rollover(session)
+    if rollover:
+        shared_state["rollover_data"] = rollover
+        log.info("  Rollover: %.1f%% (avg %.1f%%) → %s",
+                 rollover["nifty_rollover_pct"],
+                 rollover["avg_rollover_30d"],
+                 rollover["strength"])
+
     shared_state["options_flow"]      = result
     shared_state["options_last_run"]  = result["last_run"]
-    log.info("✅ OptionsFlow: Nifty PCR=%.3f | Gate=%s | Bias=%s",
+    log.info("✅ OptionsFlow: Nifty PCR=%.3f | Gate=%s | Bias=%s | VIX=%.1f(%s)",
              result["nifty_pcr"] or 0,
              "PASS" if result["options_gate"] else "FAIL",
-             result["market_bias"])
+             result["market_bias"],
+             vix_level or 0, vix_regime)
     return result

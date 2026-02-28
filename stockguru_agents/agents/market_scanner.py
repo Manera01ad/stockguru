@@ -179,6 +179,57 @@ def score_stock(stock, price_data):
 
     return total, sig
 
+def fetch_advance_decline():
+    """
+    Fetch Advance-Decline breadth from NSE allIndices API.
+    Returns: {advances, declines, unchanged, ad_ratio, total, breadth_signal}
+    """
+    try:
+        session = requests.Session()
+        session.get("https://www.nseindia.com",
+                    headers={"User-Agent": "Mozilla/5.0", "Referer": "https://www.nseindia.com/"}, timeout=6)
+        r = session.get(
+            "https://www.nseindia.com/api/allIndices",
+            headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json",
+                     "Referer": "https://www.nseindia.com/"},
+            timeout=10
+        )
+        if r.status_code != 200:
+            return None
+        data = r.json().get("data", [])
+        # Find NIFTY 50 index entry which has advances/declines
+        for idx in data:
+            if idx.get("index") in ("NIFTY 50", "Nifty 50"):
+                adv = idx.get("advances",  0) or 0
+                dec = idx.get("declines",  0) or 0
+                unc = idx.get("unchanged", 0) or 0
+                total = adv + dec + unc or 1
+                ad_ratio = round(adv / (adv + dec), 3) if (adv + dec) > 0 else 0.5
+
+                if ad_ratio > 0.65:
+                    signal = "BROAD_RALLY"
+                elif ad_ratio > 0.50:
+                    signal = "MODERATE_BUYING"
+                elif ad_ratio > 0.35:
+                    signal = "MIXED"
+                else:
+                    signal = "BROAD_SELLING"
+
+                return {
+                    "advances":       adv,
+                    "declines":       dec,
+                    "unchanged":      unc,
+                    "total":          total,
+                    "ad_ratio":       ad_ratio,
+                    "breadth_signal": signal,
+                    "breadth_pct":    round(adv / total * 100, 1),
+                }
+        return None
+    except Exception as e:
+        log.debug("Advance-Decline fetch failed: %s", e)
+        return None
+
+
 def run(shared_state):
     """Main agent function — scans universe, returns top 10."""
     log.info("🔍 MarketScanner: Starting scan of %d stocks...", len(UNIVERSE))
@@ -221,6 +272,26 @@ def run(shared_state):
     elapsed = round(time.time() - start, 1)
     log.info("✅ MarketScanner: Done in %ss. Top pick: %s (Score %d)",
              elapsed, top10[0]["name"] if top10 else "—", top10[0]["score"] if top10 else 0)
+
+    # ── ADVANCE-DECLINE BREADTH ───────────────────────────────────────────────
+    ad_data = fetch_advance_decline()
+    if ad_data:
+        shared_state["advance_decline"] = ad_data
+        log.info("  A/D: %d↑ %d↓ | Ratio=%.2f | %s",
+                 ad_data["advances"], ad_data["declines"],
+                 ad_data["ad_ratio"], ad_data["breadth_signal"])
+    else:
+        # Fallback: estimate from scan results
+        adv = sum(1 for s in results if s.get("change_pct", 0) > 0)
+        dec = len(results) - adv
+        ad_r = round(adv / (adv + dec), 3) if (adv + dec) > 0 else 0.5
+        shared_state["advance_decline"] = {
+            "advances": adv, "declines": dec, "unchanged": 0,
+            "total": len(results), "ad_ratio": ad_r,
+            "breadth_signal": "BROAD_RALLY" if ad_r > 0.65 else "MIXED",
+            "breadth_pct": round(adv / len(results) * 100, 1) if results else 50,
+            "source": "scan_estimate",
+        }
 
     # Write to shared state
     shared_state["scanner_results"]  = top10
