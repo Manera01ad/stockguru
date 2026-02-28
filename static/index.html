@@ -1640,6 +1640,7 @@
         <button class="tab-btn"        data-label="Channels"     onclick="showTab('channels',this)">    <span class="tab-icon">🔌</span><span class="tab-label">Channels</span></button>
         <button class="tab-btn"        data-label="Backtest"     onclick="showTab('backtest',this)">    <span class="tab-icon">📈</span><span class="tab-label">Backtest</span></button>
         <button class="tab-btn"        data-label="API Keys"     onclick="showTab('apikeys',this)">     <span class="tab-icon">🔑</span><span class="tab-label">API Keys</span></button>
+        <button class="tab-btn"        data-label="Sovereign"    onclick="showTab('sovereign',this)">   <span class="tab-icon">⚡</span><span class="tab-label">Sovereign</span></button>
       </div>
 
     </aside>
@@ -3574,6 +3575,149 @@
     </div>
 
     </footer>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         SOVEREIGN TRADER TAB  (Phase 1)
+    ═══════════════════════════════════════════════════════════════════════ -->
+    <div class="section" id="tab-sovereign" style="display:none">
+      <h2 style="color:var(--accent);margin-bottom:1rem">⚡ Sovereign Trader — Meta-Intelligence Layer</h2>
+      <p style="color:var(--muted);margin-bottom:1.5rem;font-size:.85rem">
+        4 sovereign agents supervise the 14-agent pipeline: <b>Scryer → Quant → Risk Master → Post-Mortem</b>.
+        Debate engine settles borderline trades. HITL sends Telegram inline-button approvals.
+      </p>
+
+      <!-- Panel 1: Sovereign Status Bar -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.5rem" id="sov-status-bar">
+        <div class="stat-card">
+          <div class="stat-label">Hard Veto</div>
+          <div class="stat-value" id="sov-hard-veto" style="font-size:1.1rem">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Market Read (Scryer)</div>
+          <div class="stat-value" id="sov-market-read" style="font-size:1.1rem">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">HITL Pending</div>
+          <div class="stat-value" id="sov-hitl-count">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Last Post-Mortem</div>
+          <div class="stat-value" id="sov-pm-last" style="font-size:.8rem">—</div>
+        </div>
+      </div>
+
+      <!-- Conviction breakdown -->
+      <div class="card" style="margin-bottom:1.5rem">
+        <h3 class="section-title">📐 Quant — Conviction Map</h3>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1rem">
+          <div>
+            <div style="color:var(--muted);font-size:.75rem;margin-bottom:.4rem">⚡ AUTO-EXECUTE (≥85)</div>
+            <div id="sov-auto-list" style="color:#22c55e;font-size:.9rem">—</div>
+          </div>
+          <div>
+            <div style="color:var(--muted);font-size:.75rem;margin-bottom:.4rem">📬 HITL REQUIRED (70-84)</div>
+            <div id="sov-hitl-list" style="color:#f59e0b;font-size:.9rem">—</div>
+          </div>
+          <div>
+            <div style="color:var(--muted);font-size:.75rem;margin-bottom:.4rem">🎭 DEBATE REQUIRED (55-69)</div>
+            <div id="sov-debate-list" style="color:#818cf8;font-size:.9rem">—</div>
+          </div>
+        </div>
+        <!-- Overreaction setups -->
+        <div id="sov-overreaction-section">
+          <div style="color:var(--muted);font-size:.75rem;margin-bottom:.5rem">🔥 OVERREACTION SETUPS (Shock vs Reality Delta)</div>
+          <div id="sov-overreaction-table" style="font-size:.82rem"></div>
+        </div>
+      </div>
+
+      <!-- Panel 2: Debate Log -->
+      <div class="card" style="margin-bottom:1.5rem">
+        <h3 class="section-title">🎭 Debate Log — Bull vs Bear</h3>
+        <div style="overflow-x:auto">
+          <table style="width:100%;font-size:.82rem;border-collapse:collapse" id="sov-debate-table">
+            <thead>
+              <tr style="color:var(--muted);border-bottom:1px solid rgba(255,255,255,.08)">
+                <th style="padding:.5rem;text-align:left">Stock</th>
+                <th style="padding:.5rem;text-align:center">Bull</th>
+                <th style="padding:.5rem;text-align:center">Bear</th>
+                <th style="padding:.5rem;text-align:left">Resolution</th>
+                <th style="padding:.5rem;text-align:center">Verdict</th>
+                <th style="padding:.5rem;text-align:left">Summary</th>
+                <th style="padding:.5rem;text-align:left">Time</th>
+              </tr>
+            </thead>
+            <tbody id="sov-debate-body">
+              <tr><td colspan="7" style="color:var(--muted);padding:1rem;text-align:center">No debates yet this cycle</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Panel 3: HITL Queue -->
+      <div class="card" style="margin-bottom:1.5rem">
+        <h3 class="section-title">📬 HITL Queue — Pending Telegram Approvals</h3>
+        <p style="color:var(--muted);font-size:.8rem;margin-bottom:1rem">
+          Approval buttons sent to your Telegram. Tap ✅ APPROVE, ❌ REJECT, or ⏩ SKIP on your phone.
+        </p>
+        <div id="sov-hitl-cards">
+          <div style="color:var(--muted);font-size:.85rem;padding:1rem">Queue is empty — no pending approvals</div>
+        </div>
+      </div>
+
+      <!-- Panel 4: Post-Mortem Analysis -->
+      <div class="card" style="margin-bottom:1.5rem">
+        <h3 class="section-title">🪦 Post-Mortem — Self-Correction Engine</h3>
+        <div id="sov-pm-diagnosis" style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:.5rem;padding:1rem;margin-bottom:1rem;font-size:.85rem;color:#fca5a5">
+          No LLM diagnosis yet — Post-Mortem runs after first SL_HIT trade.
+        </div>
+        <div style="color:var(--muted);font-size:.75rem;margin-bottom:.5rem">Recent Parameter Adjustments</div>
+        <div style="overflow-x:auto">
+          <table style="width:100%;font-size:.82rem;border-collapse:collapse" id="sov-adj-table">
+            <thead>
+              <tr style="color:var(--muted);border-bottom:1px solid rgba(255,255,255,.08)">
+                <th style="padding:.4rem;text-align:left">File</th>
+                <th style="padding:.4rem;text-align:left">Parameter</th>
+                <th style="padding:.4rem;text-align:center">Old</th>
+                <th style="padding:.4rem;text-align:center">New</th>
+                <th style="padding:.4rem;text-align:left">Reason</th>
+                <th style="padding:.4rem;text-align:left">Agent</th>
+              </tr>
+            </thead>
+            <tbody id="sov-adj-body">
+              <tr><td colspan="6" style="color:var(--muted);padding:.8rem;text-align:center">No adjustments yet</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Panel 5: Memory Lessons -->
+      <div class="card">
+        <h3 class="section-title">💾 Agent Memory — Trade Lessons (SQLite)</h3>
+        <p style="color:var(--muted);font-size:.8rem;margin-bottom:1rem">
+          Every closed trade gets a reflexion stored locally. Future HITL messages include "💭 Memory:" context from these lessons.
+          Upgrades to Qdrant vector DB when you're ready to scale.
+        </p>
+        <div style="overflow-x:auto">
+          <table style="width:100%;font-size:.82rem;border-collapse:collapse" id="sov-memory-table">
+            <thead>
+              <tr style="color:var(--muted);border-bottom:1px solid rgba(255,255,255,.08)">
+                <th style="padding:.4rem;text-align:left">Ticker</th>
+                <th style="padding:.4rem;text-align:left">Sector</th>
+                <th style="padding:.4rem;text-align:center">Outcome</th>
+                <th style="padding:.4rem;text-align:left">Root Cause</th>
+                <th style="padding:.4rem;text-align:left">Reflexion</th>
+                <th style="padding:.4rem;text-align:left">Stored</th>
+              </tr>
+            </thead>
+            <tbody id="sov-memory-body">
+              <tr><td colspan="6" style="color:var(--muted);padding:.8rem;text-align:center">No lessons yet</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div><!-- /tab-sovereign -->
+
+    </footer>
       </div><!-- /container -->
     </div><!-- /content-wrap -->
   </div><!-- /app-layout -->
@@ -4854,6 +4998,209 @@
     }
 
     // ── MAIN LOOP ─────────────────────────────────────────────
+    // ── SOVEREIGN FETCH FUNCTIONS ──────────────────────────────────────────────
+
+    async function fetchSovereignStatus() {
+      try {
+        const d = await fetch('/api/sovereign-status').then(r => r.json());
+        if (!d.available) return;
+
+        // Status bar
+        const rm = d.risk_master || {};
+        const qs = d.scryer || {};
+        const qo = d.quant || {};
+        const pm = d.post_mortem || {};
+
+        const vetoEl = document.getElementById('sov-hard-veto');
+        if (vetoEl) {
+          vetoEl.textContent = rm.hard_veto_active ? '🛑 ACTIVE' : '✅ Clear';
+          vetoEl.style.color = rm.hard_veto_active ? '#ef4444' : '#22c55e';
+        }
+        const mrEl = document.getElementById('sov-market-read');
+        if (mrEl) {
+          const read = qs.scryer_market_read || '—';
+          const colors = { PANIC:'#ef4444', EUPHORIA:'#f59e0b', SIGNAL:'#22c55e', NOISE:'#94a3b8' };
+          mrEl.textContent = read;
+          mrEl.style.color = colors[read] || '#94a3b8';
+        }
+
+        const hitlSumEl = document.getElementById('sov-hitl-count');
+        if (hitlSumEl) hitlSumEl.textContent = (d.hitl_summary || {}).pending_count || 0;
+
+        const pmEl = document.getElementById('sov-pm-last');
+        if (pmEl) pmEl.textContent = pm.last_run || '—';
+
+        // Conviction lists
+        const auto = (qo.auto_candidates || []).join(', ') || '—';
+        const hitl = (qo.hitl_candidates || []).join(', ') || '—';
+        const deb  = (qo.debate_candidates || []).join(', ') || '—';
+        const autoEl = document.getElementById('sov-auto-list');
+        const hitlEl = document.getElementById('sov-hitl-list');
+        const debEl  = document.getElementById('sov-debate-list');
+        if (autoEl) autoEl.textContent = auto;
+        if (hitlEl) hitlEl.textContent = hitl;
+        if (debEl)  debEl.textContent  = deb;
+
+        // Overreaction setups
+        const setups = qo.overreaction_setups || [];
+        const orTable = document.getElementById('sov-overreaction-table');
+        if (orTable) {
+          if (setups.length === 0) {
+            orTable.innerHTML = '<span style="color:var(--muted)">No overreaction setups this cycle</span>';
+          } else {
+            orTable.innerHTML = '<table style="width:100%;border-collapse:collapse">' +
+              '<tr style="color:var(--muted);font-size:.75rem"><th style="text-align:left;padding:.3rem">Stock</th><th>Type</th><th>Delta</th><th>Conviction</th><th style="text-align:left;padding:.3rem">Thesis</th></tr>' +
+              setups.map(s => {
+                const typeColor = s.type === 'BUY_THE_PANIC' ? '#22c55e' : '#f59e0b';
+                return `<tr style="border-bottom:1px solid rgba(255,255,255,.05)">
+                  <td style="padding:.3rem;font-weight:600">${s.name}</td>
+                  <td style="text-align:center;color:${typeColor};font-size:.75rem">${s.type}</td>
+                  <td style="text-align:center;color:#818cf8">${(s.shock_delta||0).toFixed(1)}</td>
+                  <td style="text-align:center">${(s.composite_conviction||0).toFixed(0)}%</td>
+                  <td style="padding:.3rem;color:var(--muted);font-size:.78rem">${(s.quant_thesis||'').substring(0,60)}</td>
+                </tr>`;
+              }).join('') + '</table>';
+          }
+        }
+
+        // Post-Mortem diagnosis
+        const pmDiagEl = document.getElementById('sov-pm-diagnosis');
+        if (pmDiagEl && (d.llm_note || pm.llm_diagnosis)) {
+          pmDiagEl.textContent = '🤖 ' + (d.llm_note || pm.llm_diagnosis || '');
+          pmDiagEl.style.color = '#fbbf24';
+        }
+
+        // Adjustments table
+        const adjs = (pm.adjustments_made || []);
+        const adjBody = document.getElementById('sov-adj-body');
+        if (adjBody) {
+          if (adjs.length === 0) {
+            adjBody.innerHTML = '<tr><td colspan="6" style="color:var(--muted);padding:.8rem;text-align:center">No adjustments yet</td></tr>';
+          } else {
+            adjBody.innerHTML = adjs.slice(-10).reverse().map(a =>
+              `<tr style="border-bottom:1px solid rgba(255,255,255,.05)">
+                <td style="padding:.3rem;font-size:.78rem;color:var(--muted)">${a.file||'—'}</td>
+                <td style="padding:.3rem;font-family:monospace;color:#818cf8">${a.key||'—'}</td>
+                <td style="text-align:center;color:#ef4444">${a.old}</td>
+                <td style="text-align:center;color:#22c55e">${a.new}</td>
+                <td style="padding:.3rem;color:var(--muted);font-size:.78rem">${(a.reason||a.trigger||'').substring(0,50)}</td>
+                <td style="padding:.3rem;color:var(--muted);font-size:.75rem">${a.source||'post_mortem'}</td>
+              </tr>`
+            ).join('');
+          }
+        }
+
+        // Recent debate results (from shared_state)
+        const debResults = d.debate_results || [];
+        if (debResults.length > 0) _renderDebateRows(debResults);
+
+      } catch(e) { /* silent fail */ }
+    }
+
+    async function fetchDebateLog() {
+      try {
+        const d = await fetch('/api/debate-log').then(r => r.json());
+        _renderDebateRows(d.debates || []);
+      } catch(e) {}
+    }
+
+    function _renderDebateRows(debates) {
+      const tbody = document.getElementById('sov-debate-body');
+      if (!tbody || debates.length === 0) return;
+      const verdictColors = { DEBATE_BUY:'#22c55e', DEBATE_HITL:'#f59e0b', DEBATE_SKIP:'#ef4444' };
+      tbody.innerHTML = debates.slice().reverse().slice(0,15).map(d => {
+        const vColor = verdictColors[d.final_verdict] || '#94a3b8';
+        const ts = (d.timestamp||'').substring(11,16);
+        return `<tr style="border-bottom:1px solid rgba(255,255,255,.05)">
+          <td style="padding:.4rem;font-weight:600">${d.stock||'?'}</td>
+          <td style="text-align:center;color:#22c55e">${(d.bull_verdict||{}).strength||'—'}</td>
+          <td style="text-align:center;color:#ef4444">${(d.bear_verdict||{}).strength||'—'}</td>
+          <td style="padding:.4rem;color:var(--muted);font-size:.78rem">${((d.resolution||{}).deciding_factor||'').substring(0,40)}</td>
+          <td style="text-align:center;color:${vColor};font-weight:600;font-size:.78rem">${d.final_verdict||'?'}</td>
+          <td style="padding:.4rem;color:var(--muted);font-size:.78rem">${(d.debate_summary||'').substring(0,50)}</td>
+          <td style="padding:.4rem;color:var(--muted);font-size:.75rem">${ts}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function fetchHitlQueue() {
+      try {
+        const d = await fetch('/api/hitl-queue').then(r => r.json());
+        const pending = (d.queue || []).filter(i => i.status === 'PENDING');
+        const hitlCards = document.getElementById('sov-hitl-cards');
+        const hitlCntEl = document.getElementById('sov-hitl-count');
+        if (hitlCntEl) hitlCntEl.textContent = pending.length;
+        if (!hitlCards) return;
+        if (pending.length === 0) {
+          hitlCards.innerHTML = '<div style="color:var(--muted);font-size:.85rem;padding:1rem">Queue is empty — no pending approvals</div>';
+          return;
+        }
+        hitlCards.innerHTML = pending.map(item => {
+          const exp = new Date(item.expires_at);
+          const now = new Date();
+          const minsLeft = Math.max(0, Math.round((exp - now) / 60000));
+          const convColor = item.composite_conviction >= 83 ? '#22c55e' : item.composite_conviction >= 75 ? '#f59e0b' : '#94a3b8';
+          return `<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:.5rem;padding:1rem;margin-bottom:.75rem">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+              <div>
+                <span style="font-weight:700;font-size:1rem">${item.stock}</span>
+                <span style="color:var(--muted);font-size:.8rem;margin-left:.5rem">${item.sector}</span>
+                <span style="color:${convColor};font-weight:600;margin-left:.75rem">${item.composite_conviction.toFixed(0)}% conviction</span>
+              </div>
+              <div style="color:var(--muted);font-size:.8rem">⏰ ${minsLeft} min left | #${item.id_num}</div>
+            </div>
+            <div style="font-size:.82rem;color:#94a3b8;margin-bottom:.4rem">
+              Entry: ₹${(item.entry_price||0).toLocaleString('en-IN')} | T2: ₹${(item.target2||0).toLocaleString('en-IN')} | SL: ₹${(item.stop_loss||0).toLocaleString('en-IN')} | R:R ${(item.rr_ratio||0).toFixed(1)}x | Risk: ${item.risk_pct}% (~₹${(item.risk_amount||0).toLocaleString('en-IN')})
+            </div>
+            <div style="font-size:.82rem;margin-bottom:.3rem">🧠 ${item.quant_thesis||''}</div>
+            ${item.soft_veto_flags && item.soft_veto_flags.length > 0 ? `<div style="font-size:.8rem;color:#f59e0b">⚠️ ${item.soft_veto_flags[0]}</div>` : ''}
+            ${item.memory_context ? `<div style="font-size:.8rem;color:#818cf8">💭 ${item.memory_context}</div>` : ''}
+            <div style="margin-top:.6rem;padding:.5rem;background:rgba(34,197,94,.08);border-radius:.3rem;font-size:.78rem;color:#86efac">
+              📱 Check Telegram — tap ✅ APPROVE / ❌ REJECT / ⏩ SKIP to respond
+            </div>
+          </div>`;
+        }).join('');
+      } catch(e) {}
+    }
+
+    async function fetchPostMortem() {
+      try {
+        const d = await fetch('/api/post-mortem').then(r => r.json());
+        const records = d.records || [];
+        if (d.llm_note) {
+          const pmDiagEl = document.getElementById('sov-pm-diagnosis');
+          if (pmDiagEl) { pmDiagEl.textContent = '🤖 ' + d.llm_note; pmDiagEl.style.color = '#fbbf24'; }
+        }
+      } catch(e) {}
+    }
+
+    async function fetchAgentMemory() {
+      try {
+        const d = await fetch('/api/agent-memory').then(r => r.json());
+        const lessons = d.lessons || [];
+        const tbody = document.getElementById('sov-memory-body');
+        if (!tbody) return;
+        if (lessons.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="color:var(--muted);padding:.8rem;text-align:center">No lessons yet — memories stored after first closed trade</td></tr>';
+          return;
+        }
+        const rcColors = { TIMING:'#f59e0b', SECTOR:'#818cf8', MACRO:'#ef4444', OVEREXTENDED:'#f97316', FAKE_OUT:'#ec4899' };
+        const outColors = { SUCCESS:'#22c55e', FAILURE:'#ef4444', PARTIAL:'#f59e0b' };
+        tbody.innerHTML = lessons.map(l =>
+          `<tr style="border-bottom:1px solid rgba(255,255,255,.05)">
+            <td style="padding:.4rem;font-weight:600">${l.ticker||'?'}</td>
+            <td style="padding:.4rem;color:var(--muted)">${l.sector||'—'}</td>
+            <td style="text-align:center;color:${outColors[l.outcome]||'#94a3b8'};font-weight:600">${l.outcome||'?'}</td>
+            <td style="text-align:center;color:${rcColors[l.root_cause]||'#94a3b8'};font-size:.78rem">${l.root_cause||'—'}</td>
+            <td style="padding:.4rem;color:var(--muted);font-size:.78rem">${(l.reflexion||'').substring(0,80)}</td>
+            <td style="padding:.4rem;color:var(--muted);font-size:.75rem">${(l.timestamp||'').substring(0,16).replace('T',' ')}</td>
+          </tr>`
+        ).join('');
+      } catch(e) {}
+    }
+
+    // ── END SOVEREIGN FETCH FUNCTIONS ─────────────────────────────────────────
+
     async function fetchAll() {
       await Promise.all([
         fetchPrices(), fetchWatchlist(), fetchMood(), fetchAlerts(), fetchStatus(),
@@ -4862,7 +5209,8 @@
         fetchOptionsAndFii(), fetchTechnical(), fetchAgentLog(),
         fetchChannels(), fetchBacktest(),
         fetchConnectors(), fetchRiskAnalytics(), fetchChartPatterns(),
-        fetchAgentScores()
+        fetchAgentScores(),
+        fetchSovereignStatus(), fetchHitlQueue(), fetchPostMortem(), fetchAgentMemory()
       ]);
     }
     fetchAll();

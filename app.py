@@ -44,6 +44,22 @@ try:
 except ImportError:
     LEARNING_AVAILABLE = False
 
+# ── SOVEREIGN TRADER LAYER (Phase 1) ──────────────────────────────────────────
+_sovereign_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stockguru_agents", "sovereign")
+if _sovereign_dir not in sys.path:
+    sys.path.insert(0, _sovereign_dir)
+_sovereign_parent = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stockguru_agents")
+if _sovereign_parent not in sys.path:
+    sys.path.insert(0, _sovereign_parent)
+
+try:
+    from sovereign import scryer, quant, risk_master, debate_engine, hitl_controller, post_mortem, memory_engine
+    SOVEREIGN_AVAILABLE = True
+    logging.info("✅ Sovereign Trader Layer loaded — 4 meta-agents active")
+except ImportError as _se:
+    SOVEREIGN_AVAILABLE = False
+    logging.warning(f"⚠️  Sovereign layer not loaded: {_se}")
+
 # ── CHANNELS + BACKTESTING ────────────────────────────────────────────────────
 try:
     from channels import ChannelManager
@@ -149,6 +165,15 @@ shared_state = {
     # Paper trading
     "paper_portfolio": {}, "paper_trades": [],
     "_price_cache": {},
+    # Sovereign Trader Layer state
+    "scryer_output":      {},
+    "quant_output":       {},
+    "risk_master_output": {},
+    "post_mortem_output": {},
+    "debate_results":     [],
+    "hitl_queue_summary": {"pending_count": 0, "oldest_pending_min": 0, "approved_today": 0, "rejected_today": 0},
+    "synthetic_backtest": {},
+    "post_mortem_llm_note": None,
 }
 agent_is_running = False
 
@@ -475,6 +500,60 @@ def run_all_agents():
                              f"   {p.get('entry_thesis','')[:70]}\n")
             lines.append(f"_Stance: {claude_a.get('market_stance','?')} | ⚠️ Simulation only_")
             _send_tg("\n".join(lines))
+
+        # ── TIER 5: SOVEREIGN META-LAYER ─────────────────────────────────────
+        if SOVEREIGN_AVAILABLE:
+            try:
+                _log("── TIER 5: Sovereign Layer ──────────────────────────────────────")
+                _st("scryer",      "running"); scryer.run(shared_state);      _st("scryer",      "done")
+                _st("quant",       "running"); quant.run(shared_state);       _st("quant",       "done")
+                _st("risk_master", "running"); risk_master.run(shared_state, _send_tg); _st("risk_master", "done")
+
+                q_out  = shared_state.get("quant_output", {})
+                rm_out = shared_state.get("risk_master_output", {})
+                hard_v = rm_out.get("hard_veto_active", False)
+
+                if not hard_v:
+                    # Debate candidates (conviction 55-69, cleared by Risk Master)
+                    debate_count = 0
+                    for _s in q_out.get("debate_candidates", []):
+                        if _s in rm_out.get("cleared_for_debate", []):
+                            if debate_count < 2:  # max 2 debates per cycle
+                                _dr = debate_engine.run_debate(_s, shared_state)
+                                debate_count += 1
+                                shared_state.setdefault("debate_results", []).append(_dr)
+                                if len(shared_state["debate_results"]) > 10:
+                                    shared_state["debate_results"] = shared_state["debate_results"][-10:]
+                                if _dr.get("send_to_hitl"):
+                                    hitl_controller.dispatch_hitl_request(_dr, shared_state, _send_tg)
+                                elif _dr.get("auto_execute"):
+                                    _sig = next((s for s in (shared_state.get("risk_reviewed_signals",[]) + shared_state.get("actionable_signals",[])) if s.get("name") == _s), None)
+                                    if _sig:
+                                        try: paper_trader._enter_position(_sig, 7, _dr.get("gates",{}), shared_state.get("paper_portfolio",{}), shared_state.get("_price_cache",{}), shared_state)
+                                        except Exception as _pe: log.debug("Sovereign auto-exec %s: %s", _s, _pe)
+
+                    # HITL candidates (conviction 70-84, Risk Master cleared)
+                    for _s in q_out.get("hitl_candidates", []):
+                        _is_escalated = _s in rm_out.get("escalated_to_hitl", [])
+                        _sig = next((s for s in (shared_state.get("risk_reviewed_signals",[]) + shared_state.get("actionable_signals",[])) if s.get("name") == _s), None)
+                        if _sig:
+                            hitl_controller.dispatch_hitl_request({"signal": _sig}, shared_state, _send_tg)
+
+                    # Auto-execute candidates (conviction >= 85, no veto)
+                    for _s in rm_out.get("cleared_auto", []):
+                        _sig = next((s for s in (shared_state.get("risk_reviewed_signals",[]) + shared_state.get("actionable_signals",[])) if s.get("name") == _s), None)
+                        if _sig:
+                            try: paper_trader._enter_position(_sig, 7, {}, shared_state.get("paper_portfolio",{}), shared_state.get("_price_cache",{}), shared_state)
+                            except Exception as _pe: log.debug("Sovereign auto-exec cleared %s: %s", _s, _pe)
+
+                _st("post_mortem", "running"); post_mortem.run(shared_state); _st("post_mortem", "done")
+                hitl_controller.check_queue_expiry(shared_state, _send_tg)
+                _log(f"✅ Sovereign: auto={len(rm_out.get('cleared_auto',[]))} | HITL={len(q_out.get('hitl_candidates',[]))} | debate={len(q_out.get('debate_candidates',[]))}", "done")
+            except Exception as _sov_e:
+                log.error("❌ Sovereign layer error: %s", _sov_e, exc_info=True)
+                for _sk in ["scryer","quant","risk_master","post_mortem"]:
+                    if shared_state["agent_status"].get(_sk) == "running":
+                        shared_state["agent_status"][_sk] = "error"
 
         shared_state["last_full_cycle"] = datetime.now().strftime("%d %b %H:%M:%S")
         _log(f"✅ CYCLE #{cycle} COMPLETE — next in 15 min", "done")
@@ -853,6 +932,131 @@ def api_status():
         "paper_win_rate": portfolio.get("stats", {}).get("win_rate", 0),
         "agents_v2": AGENTS_AVAILABLE, "learning_active": LEARNING_AVAILABLE,
     })
+
+# ── SOVEREIGN API ROUTES ──────────────────────────────────────────────────────
+
+@app.route("/api/sovereign-status")
+def api_sovereign_status():
+    """Combined sovereign layer state for the Sovereign tab."""
+    return jsonify({
+        "available":        SOVEREIGN_AVAILABLE,
+        "scryer":           shared_state.get("scryer_output", {}),
+        "quant":            shared_state.get("quant_output", {}),
+        "risk_master":      shared_state.get("risk_master_output", {}),
+        "post_mortem":      shared_state.get("post_mortem_output", {}),
+        "hitl_summary":     shared_state.get("hitl_queue_summary", {}),
+        "debate_results":   shared_state.get("debate_results", [])[-5:],
+        "synthetic_backtest": shared_state.get("synthetic_backtest", {}),
+        "llm_note":         shared_state.get("post_mortem_llm_note"),
+    })
+
+@app.route("/api/debate-log")
+def api_debate_log():
+    """Last 20 debate records."""
+    try:
+        import json as _j
+        dp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "debate_log.json")
+        with open(dp) as f:
+            data = _j.load(f)
+        return jsonify({"debates": data[-20:], "total": len(data)})
+    except Exception:
+        return jsonify({"debates": [], "total": 0})
+
+@app.route("/api/hitl-queue")
+def api_hitl_queue():
+    """All HITL queue items."""
+    if not SOVEREIGN_AVAILABLE:
+        return jsonify({"queue": [], "pending": 0})
+    q = hitl_controller.get_queue_for_api()
+    pending = [i for i in q if i.get("status") == "PENDING"]
+    return jsonify({"queue": q[-50:], "pending": len(pending), "summary": shared_state.get("hitl_queue_summary", {})})
+
+@app.route("/api/post-mortem")
+def api_post_mortem():
+    """Post-mortem analysis + recent adjustments."""
+    try:
+        import json as _j
+        pp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "post_mortem_log.json")
+        with open(pp) as f:
+            log_data = _j.load(f)
+        return jsonify({
+            "records":          log_data[-10:],
+            "total":            len(log_data),
+            "current_cycle":    shared_state.get("post_mortem_output", {}),
+            "llm_note":         shared_state.get("post_mortem_llm_note"),
+        })
+    except Exception:
+        return jsonify({"records": [], "total": 0, "current_cycle": {}, "llm_note": None})
+
+@app.route("/api/risk-master-status")
+def api_risk_master_status():
+    """Risk Master status for n8n War Room check."""
+    rm = shared_state.get("risk_master_output", {})
+    return jsonify({
+        "hard_veto_active":  rm.get("hard_veto_active", False),
+        "hard_veto_reason":  rm.get("hard_veto_reason"),
+        "vix_level":         rm.get("vix_level", 0),
+        "daily_pnl_pct":     rm.get("daily_pnl_pct", 0),
+        "consecutive_losses": rm.get("consecutive_losses", 0),
+        "soft_veto_count":   len(rm.get("soft_veto_flags", [])),
+        "escalated_to_hitl": rm.get("escalated_to_hitl", []),
+        "black_swan_probability": shared_state.get("synthetic_backtest", {}).get("black_swan_probability", "LOW"),
+    })
+
+@app.route("/api/agent-memory")
+def api_agent_memory():
+    """Recent SQLite lessons (last 20)."""
+    if not SOVEREIGN_AVAILABLE:
+        return jsonify({"lessons": [], "total": 0})
+    lessons = memory_engine.get_all_recent(limit=20)
+    return jsonify({"lessons": lessons, "total": len(lessons)})
+
+@app.route("/api/sovereign-config")
+def api_sovereign_config():
+    """Current sovereign_config.json values (read-only view)."""
+    try:
+        import json as _j
+        cp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "sovereign_config.json")
+        with open(cp) as f:
+            cfg = _j.load(f)
+        history = memory_engine.get_config_history(10) if SOVEREIGN_AVAILABLE else []
+        return jsonify({"config": cfg, "modification_history": history})
+    except Exception as e:
+        return jsonify({"config": {}, "error": str(e)})
+
+@app.route("/api/telegram-update", methods=["POST"])
+def api_telegram_update():
+    """
+    Telegram webhook receiver.
+    Processes inline-button callbacks (approve/reject/skip) and text commands.
+    Set this as your bot's webhook: https://api.telegram.org/bot{TOKEN}/setWebhook?url=https://your-server/api/telegram-update
+    Or use n8n to poll /getUpdates and POST here.
+    """
+    if not SOVEREIGN_AVAILABLE:
+        return jsonify({"ok": False, "error": "Sovereign layer not available"})
+    try:
+        update = request.get_json(force=True) or {}
+        result = hitl_controller.process_telegram_update(update, shared_state, send_telegram)
+        return jsonify({"ok": True, "result": result})
+    except Exception as e:
+        log.error("Telegram update handler error: %s", e)
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.route("/api/run-sovereign", methods=["GET", "POST"])
+def api_run_sovereign():
+    """Manually trigger the Sovereign layer for testing (no full 14-agent cycle)."""
+    if not SOVEREIGN_AVAILABLE:
+        return jsonify({"status": "unavailable", "error": "Sovereign layer not loaded"})
+    def _run():
+        scryer.run(shared_state)
+        quant.run(shared_state)
+        risk_master.run(shared_state, send_telegram)
+        post_mortem.run(shared_state)
+        hitl_controller.check_queue_expiry(shared_state, send_telegram)
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"status": "Sovereign cycle triggered", "sovereign_available": SOVEREIGN_AVAILABLE})
+
+# ── END SOVEREIGN ROUTES ──────────────────────────────────────────────────────
 
 @app.route("/")
 def index():
