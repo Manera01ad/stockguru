@@ -1,0 +1,28 @@
+[
+  {
+    "timestamp": "2026-03-01T12:54:46.690150",
+    "last_run": "01 Mar 12:54:33",
+    "run_count": 1,
+    "pcr": null,
+    "max_pain": null,
+    "block_deals": 0,
+    "promoters_scraped": 7,
+    "52w_breakouts": [],
+    "errors": [
+      "52w_breakouts: Expecting value: line 1 column 1 (char 0)"
+    ]
+  },
+  {
+    "timestamp": "2026-03-01T13:00:13.634669",
+    "last_run": "01 Mar 13:00:00",
+    "run_count": 1,
+    "pcr": null,
+    "max_pain": null,
+    "block_deals": 0,
+    "promoters_scraped": 7,
+    "52w_breakouts": [],
+    "errors": [
+      "52w_breakouts: Expecting value: line 1 column 1 (char 0)"
+    ]
+  }
+]

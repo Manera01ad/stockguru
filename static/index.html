@@ -3715,6 +3715,78 @@
           </table>
         </div>
       </div>
+
+      <!-- ── Panel: Synthetic Backtester ─────────────────────────────────── -->
+      <div class="card" style="margin-top:1.5rem">
+        <div class="card-head">
+          <div class="card-title">🧪 Synthetic Backtester — Stress Scenarios</div>
+          <div id="bt-probability" style="font-size:.8rem;color:var(--accent)">Probability: —</div>
+        </div>
+        <div style="font-size:.75rem;color:var(--muted);margin-bottom:.75rem">
+          Simulates FLASH CRASH (-5%), SECTOR SELLOFF (-4%), BLACK SWAN (-10%→+5%) against open positions every 6h.
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem" id="bt-scenarios">
+          <div class="stat-card" style="text-align:center;color:var(--muted);font-size:.82rem">Run pending...</div>
+        </div>
+        <div id="bt-hedge" style="margin-top:.75rem;font-size:.82rem;color:var(--accent4);padding:.5rem;background:rgba(255,255,255,.03);border-radius:6px;display:none"></div>
+        <div id="bt-last-run" style="margin-top:.5rem;font-size:.72rem;color:var(--muted)"></div>
+      </div>
+
+      <!-- ── Panel: Observer Swarm ─────────────────────────────────────────── -->
+      <div class="card" style="margin-top:1.5rem">
+        <div class="card-head">
+          <div class="card-title">👁️ Observer Swarm — NSE + Screener.in</div>
+          <div style="display:flex;align-items:center;gap:.5rem">
+            <span id="obs-last-run" style="font-size:.72rem;color:var(--muted)">—</span>
+            <button onclick="fetch('/api/run-observer',{method:'POST'})" style="font-size:.72rem;padding:.2rem .5rem;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--accent);border-radius:4px">▶ Scan</button>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:.75rem">
+          <div>
+            <div style="font-size:.72rem;color:var(--muted);margin-bottom:.4rem;letter-spacing:.05em">OI RESISTANCE (CE)</div>
+            <div id="obs-ce" style="font-size:.82rem;color:var(--accent4)">—</div>
+          </div>
+          <div>
+            <div style="font-size:.72rem;color:var(--muted);margin-bottom:.4rem;letter-spacing:.05em">MAX PAIN / PCR</div>
+            <div id="obs-pcr" style="font-size:.82rem">—</div>
+          </div>
+          <div>
+            <div style="font-size:.72rem;color:var(--muted);margin-bottom:.4rem;letter-spacing:.05em">BLOCK DEALS TODAY</div>
+            <div id="obs-deals" style="font-size:.82rem">—</div>
+          </div>
+          <div>
+            <div style="font-size:.72rem;color:var(--muted);margin-bottom:.4rem;letter-spacing:.05em">52-WEEK BREAKOUTS</div>
+            <div id="obs-52w" style="font-size:.82rem;color:var(--green)">—</div>
+          </div>
+        </div>
+        <!-- Promoter holdings table -->
+        <div style="margin-top:1rem">
+          <div style="font-size:.72rem;color:var(--muted);margin-bottom:.4rem;letter-spacing:.05em">PROMOTER HOLDINGS</div>
+          <div id="obs-promoters" style="font-size:.8rem;color:var(--muted)">—</div>
+        </div>
+      </div>
+
+      <!-- ── Panel: Builder Agent Proposals ────────────────────────────────── -->
+      <div class="card" style="margin-top:1.5rem">
+        <div class="card-head">
+          <div class="card-title">🏗️ Builder Agent — Dashboard Proposals</div>
+          <button onclick="fetch('/api/run-builder',{method:'POST'})" style="font-size:.72rem;padding:.2rem .5rem;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--accent);border-radius:4px">▶ Run Now</button>
+        </div>
+        <div style="font-size:.75rem;color:var(--muted);margin-bottom:.75rem">
+          Daily at 09:05 IST — analyzes Observer findings and proposes new dashboard panels via Telegram.
+        </div>
+        <div id="builder-proposals-list">
+          <div style="color:var(--muted);font-size:.82rem;padding:.5rem 0">No proposals yet.</div>
+        </div>
+      </div>
+
+      <!-- ══ BUILDER EXTENSIONS (auto-patched by Builder Agent on APPROVE) ═══ -->
+      <div id="builder-extensions" style="margin-top:1.5rem">
+        <!-- BUILDER_START -->
+        <!-- BUILDER_END -->
+      </div>
+      <!-- ════════════════════════════════════════════════════════════════════ -->
+
     </div><!-- /tab-sovereign -->
 
     </footer>
@@ -5199,6 +5271,123 @@
       } catch(e) {}
     }
 
+    // ── PHASE 2 SOVEREIGN FETCH FUNCTIONS ─────────────────────────────────────
+
+    async function fetchSyntheticBacktest() {
+      try {
+        const d = await fetch('/api/synthetic-backtest').then(r => r.json());
+        const bt = d.current || {};
+        // Probability badge
+        const prob = bt.black_swan_probability || '';
+        if (prob) {
+          const col = prob === 'HIGH' ? 'var(--red)' : prob === 'MEDIUM' ? 'var(--gold)' : 'var(--green)';
+          document.getElementById('bt-probability').innerHTML =
+            `Black Swan: <span style="font-weight:700;color:${col}">${prob}</span>`;
+        }
+        // Last run
+        const lr = document.getElementById('bt-last-run');
+        if (lr && bt.last_run) lr.textContent = `Last run: ${bt.last_run}`;
+        // Scenario cards
+        const scenarios = bt.scenarios || {};
+        const icons = { FLASH_CRASH:'⚡', SECTOR_SELLOFF:'📉', BLACK_SWAN:'🦢' };
+        const labels = { FLASH_CRASH:'Flash Crash', SECTOR_SELLOFF:'Sector Selloff', BLACK_SWAN:'Black Swan' };
+        const container = document.getElementById('bt-scenarios');
+        const keys = ['FLASH_CRASH', 'SECTOR_SELLOFF', 'BLACK_SWAN'];
+        if (Object.keys(scenarios).length === 0) {
+          container.innerHTML = '<div style="color:var(--muted);font-size:.82rem;grid-column:1/-1;text-align:center;padding:.75rem">No positions — run will execute when portfolio has open trades.</div>';
+          return;
+        }
+        container.innerHTML = keys.map(k => {
+          const sc = scenarios[k] || {};
+          const dd = Number(sc.drawdown_pct || 0).toFixed(1);
+          const hits = (sc.positions_hit || []).length;
+          const ddColor = Math.abs(dd) > 5 ? 'var(--red)' : Math.abs(dd) > 2 ? 'var(--gold)' : 'var(--accent)';
+          return `<div class="stat-card" style="text-align:center">
+            <div style="font-size:.8rem;color:var(--muted);margin-bottom:.3rem">${icons[k]} ${labels[k]}</div>
+            <div style="font-size:1.4rem;font-weight:700;color:${ddColor}">${dd}%</div>
+            <div style="font-size:.75rem;color:var(--muted);margin-top:.2rem">${hits} SL hit${hits !== 1 ? 's' : ''}</div>
+            <div style="font-size:.72rem;color:var(--accent4);margin-top:.3rem;line-height:1.3">${(sc.narrative||'').slice(0,70)}</div>
+          </div>`;
+        }).join('');
+        // Hedge recommendation
+        const hedgeEl = document.getElementById('bt-hedge');
+        if (hedgeEl && bt.recommended_hedge) {
+          hedgeEl.style.display = 'block';
+          hedgeEl.innerHTML = `💡 <b>Hedge:</b> ${bt.recommended_hedge}`;
+        }
+      } catch(e) { console.warn('fetchSyntheticBacktest:', e); }
+    }
+
+    async function fetchObserverData() {
+      try {
+        const d = await fetch('/api/observer-data').then(r => r.json());
+        const obs = d.observer || {};
+        const oi  = obs.oi_heatmap || {};
+
+        // CE resistance levels
+        const ceTop = (oi.top_ce_resistance || []).slice(0,3)
+          .map(x => `<span style="color:var(--red)">${x.strike}</span> (${(x.oi/1e6).toFixed(1)}M OI)`).join(' · ');
+        document.getElementById('obs-ce').innerHTML = ceTop || '<span style="color:var(--muted)">—</span>';
+
+        // Max pain & PCR
+        const pcrColor = (oi.pcr||0) > 1.3 ? 'var(--green)' : (oi.pcr||0) < 0.7 ? 'var(--red)' : 'var(--accent)';
+        document.getElementById('obs-pcr').innerHTML = oi.max_pain
+          ? `Max Pain: <b>${oi.max_pain}</b> &nbsp;|&nbsp; PCR: <b style="color:${pcrColor}">${(oi.pcr||0).toFixed(2)}</b>`
+          : '<span style="color:var(--muted)">—</span>';
+
+        // Block deals
+        const deals = (obs.block_deals_today || []).slice(0, 4);
+        document.getElementById('obs-deals').innerHTML = deals.length
+          ? deals.map(d => `${d.stock} <span style="color:var(--muted)">${d.buy_sell||''} ${(d.qty/1e5).toFixed(1)}L@₹${d.price}</span>`).join('<br>')
+          : '<span style="color:var(--muted)">None today</span>';
+
+        // 52-week breakouts
+        const bk = obs['52w_breakouts'] || [];
+        document.getElementById('obs-52w').innerHTML = bk.length
+          ? bk.slice(0,6).join(', ')
+          : '<span style="color:var(--muted)">None in breakout zone</span>';
+
+        // Promoter holdings
+        const holdings = obs.promoter_holdings || {};
+        const hKeys = Object.keys(holdings);
+        if (hKeys.length) {
+          document.getElementById('obs-promoters').innerHTML = hKeys.map(name => {
+            const h = holdings[name] || {};
+            const chg = h.change_qtr || 0;
+            const arrow = chg > 0 ? `<span style="color:var(--green)">▲${chg.toFixed(1)}%</span>`
+                        : chg < 0 ? `<span style="color:var(--red)">▼${Math.abs(chg).toFixed(1)}%</span>`
+                        : '';
+            return `<span style="margin-right:1rem"><b>${name}</b>: ${(h.promoter_pct||0).toFixed(1)}% ${arrow}</span>`;
+          }).join('');
+        }
+
+        // Last run
+        if (obs.last_run) document.getElementById('obs-last-run').textContent = obs.last_run;
+      } catch(e) { console.warn('fetchObserverData:', e); }
+    }
+
+    async function fetchBuilderProposals() {
+      try {
+        const d = await fetch('/api/builder-proposals').then(r => r.json());
+        const proposals = d.proposals || [];
+        const list = document.getElementById('builder-proposals-list');
+        if (!proposals.length) {
+          list.innerHTML = '<div style="color:var(--muted);font-size:.82rem;padding:.5rem 0">No proposals yet. Builder runs daily at 09:05 IST.</div>';
+          return;
+        }
+        const statusIcon = { PENDING:'🟡', APPLIED:'✅', REJECTED:'❌', EXPIRED:'⏰' };
+        list.innerHTML = [...proposals].reverse().slice(0, 5).map(p =>
+          `<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:.5rem 0;border-bottom:1px solid var(--border)">
+            <div>
+              <span style="font-size:.82rem;font-weight:600">${p.title||'Proposal'}</span>
+              <div style="font-size:.72rem;color:var(--muted);margin-top:.15rem">${p.why||''}</div>
+            </div>
+            <span style="font-size:.82rem;white-space:nowrap;margin-left:.75rem">${statusIcon[p.status]||'?'} ${p.status}</span>
+          </div>`
+        ).join('');
+      } catch(e) { console.warn('fetchBuilderProposals:', e); }
+    }
+
     // ── END SOVEREIGN FETCH FUNCTIONS ─────────────────────────────────────────
 
     async function fetchAll() {
@@ -5210,7 +5399,8 @@
         fetchChannels(), fetchBacktest(),
         fetchConnectors(), fetchRiskAnalytics(), fetchChartPatterns(),
         fetchAgentScores(),
-        fetchSovereignStatus(), fetchHitlQueue(), fetchPostMortem(), fetchAgentMemory()
+        fetchSovereignStatus(), fetchHitlQueue(), fetchPostMortem(), fetchAgentMemory(),
+        fetchSyntheticBacktest(), fetchObserverData(), fetchBuilderProposals()
       ]);
     }
     fetchAll();

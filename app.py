@@ -60,6 +60,15 @@ except ImportError as _se:
     SOVEREIGN_AVAILABLE = False
     logging.warning(f"⚠️  Sovereign layer not loaded: {_se}")
 
+# ── SOVEREIGN TRADER LAYER (Phase 2) ──────────────────────────────────────────
+try:
+    from sovereign import observer, synthetic_backtester, builder_agent
+    SOVEREIGN_PHASE2_AVAILABLE = True
+    logging.info("✅ Sovereign Phase 2 loaded — Observer, Backtester, Builder active")
+except ImportError as _se2:
+    SOVEREIGN_PHASE2_AVAILABLE = False
+    logging.warning(f"⚠️  Sovereign Phase 2 not loaded: {_se2}")
+
 # ── CHANNELS + BACKTESTING ────────────────────────────────────────────────────
 try:
     from channels import ChannelManager
@@ -174,6 +183,9 @@ shared_state = {
     "hitl_queue_summary": {"pending_count": 0, "oldest_pending_min": 0, "approved_today": 0, "rejected_today": 0},
     "synthetic_backtest": {},
     "post_mortem_llm_note": None,
+    # Sovereign Phase 2
+    "observer_output":  {},
+    "builder_output":   {},
 }
 agent_is_running = False
 
@@ -548,6 +560,18 @@ def run_all_agents():
 
                 _st("post_mortem", "running"); post_mortem.run(shared_state); _st("post_mortem", "done")
                 hitl_controller.check_queue_expiry(shared_state, _send_tg)
+
+                # Phase 2: inline synthetic backtest when positions are open
+                if SOVEREIGN_PHASE2_AVAILABLE:
+                    _port = shared_state.get("paper_portfolio", {})
+                    if _port.get("positions"):
+                        _st("backtester", "running")
+                        try:
+                            synthetic_backtester.run(shared_state)
+                        except Exception as _bte:
+                            log.warning("Backtester inline error: %s", _bte)
+                        _st("backtester", "done")
+
                 _log(f"✅ Sovereign: auto={len(rm_out.get('cleared_auto',[]))} | HITL={len(q_out.get('hitl_candidates',[]))} | debate={len(q_out.get('debate_candidates',[]))}", "done")
             except Exception as _sov_e:
                 log.error("❌ Sovereign layer error: %s", _sov_e, exc_info=True)
@@ -1028,15 +1052,18 @@ def api_sovereign_config():
 def api_telegram_update():
     """
     Telegram webhook receiver.
-    Processes inline-button callbacks (approve/reject/skip) and text commands.
-    Set this as your bot's webhook: https://api.telegram.org/bot{TOKEN}/setWebhook?url=https://your-server/api/telegram-update
-    Or use n8n to poll /getUpdates and POST here.
+    Processes inline-button callbacks (approve/reject/skip and bld_approve/reject) and text commands.
     """
     if not SOVEREIGN_AVAILABLE:
         return jsonify({"ok": False, "error": "Sovereign layer not available"})
     try:
         update = request.get_json(force=True) or {}
-        result = hitl_controller.process_telegram_update(update, shared_state, send_telegram)
+        callback_data = update.get("callback_query", {}).get("data", "")
+        # Route Builder callbacks (prefix "bld_") separately from HITL callbacks
+        if callback_data.startswith("bld_") and SOVEREIGN_PHASE2_AVAILABLE:
+            result = builder_agent.process_callback(callback_data, update, send_telegram)
+        else:
+            result = hitl_controller.process_telegram_update(update, shared_state, send_telegram)
         return jsonify({"ok": True, "result": result})
     except Exception as e:
         log.error("Telegram update handler error: %s", e)
@@ -1056,7 +1083,69 @@ def api_run_sovereign():
     threading.Thread(target=_run, daemon=True).start()
     return jsonify({"status": "Sovereign cycle triggered", "sovereign_available": SOVEREIGN_AVAILABLE})
 
-# ── END SOVEREIGN ROUTES ──────────────────────────────────────────────────────
+# ── SOVEREIGN PHASE 2 API ROUTES ─────────────────────────────────────────────
+
+@app.route("/api/observer-data")
+def api_observer_data():
+    """Latest Observer Swarm findings (OI heatmap, promoter holdings, block deals)."""
+    obs = shared_state.get("observer_output", {})
+    log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "observer_log.json")
+    recent = []
+    try:
+        if os.path.exists(log_path):
+            with open(log_path, "r", encoding="utf-8") as f:
+                recent = json.load(f)[-5:]
+    except Exception:
+        pass
+    return jsonify({"observer": obs, "recent_log": recent, "available": SOVEREIGN_PHASE2_AVAILABLE})
+
+@app.route("/api/synthetic-backtest")
+def api_synthetic_backtest():
+    """Current and historical synthetic backtest scenarios."""
+    bt = shared_state.get("synthetic_backtest", {})
+    sc_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "backtest_scenarios.json")
+    history = []
+    try:
+        if os.path.exists(sc_path):
+            with open(sc_path, "r", encoding="utf-8") as f:
+                h = json.load(f)
+                history = h[-5:] if isinstance(h, list) else []
+    except Exception:
+        pass
+    return jsonify({"current": bt, "history": history, "available": SOVEREIGN_PHASE2_AVAILABLE})
+
+@app.route("/api/builder-proposals")
+def api_builder_proposals():
+    """All Builder Agent proposals with status."""
+    if not SOVEREIGN_PHASE2_AVAILABLE:
+        return jsonify({"proposals": [], "pending": 0, "available": False})
+    proposals = builder_agent.get_proposals_for_api()
+    pending = sum(1 for p in proposals if p.get("status") == "PENDING")
+    return jsonify({"proposals": proposals[-20:], "pending": pending, "available": True})
+
+@app.route("/api/run-builder", methods=["GET", "POST"])
+def api_run_builder():
+    """Manually trigger the Builder Agent."""
+    if not SOVEREIGN_PHASE2_AVAILABLE:
+        return jsonify({"status": "unavailable"})
+    threading.Thread(
+        target=lambda: builder_agent.run(shared_state, send_telegram),
+        daemon=True
+    ).start()
+    return jsonify({"status": "Builder Agent triggered", "available": True})
+
+@app.route("/api/run-observer", methods=["GET", "POST"])
+def api_run_observer():
+    """Manually trigger the Observer Swarm."""
+    if not SOVEREIGN_PHASE2_AVAILABLE:
+        return jsonify({"status": "unavailable"})
+    threading.Thread(
+        target=lambda: observer.run(shared_state),
+        daemon=True
+    ).start()
+    return jsonify({"status": "Observer Swarm triggered", "available": True})
+
+# ── END SOVEREIGN PHASE 2 ROUTES ──────────────────────────────────────────────
 
 @app.route("/")
 def index():
@@ -1069,6 +1158,12 @@ def run_scheduler():
     schedule.every(15).minutes.do(check_alerts)
     if AGENTS_AVAILABLE:
         schedule.every(15).minutes.do(run_all_agents)
+    # Phase 2 sovereign agents (background, scheduled separately)
+    if SOVEREIGN_PHASE2_AVAILABLE:
+        schedule.every(4).hours.do(lambda: observer.run(shared_state))
+        schedule.every(6).hours.do(lambda: synthetic_backtester.run(shared_state))
+        schedule.every().day.at("09:05").do(lambda: builder_agent.run(shared_state, send_telegram))
+        log.info("⏰ Phase 2: Observer every 4h | Backtester every 6h | Builder daily 09:05")
     log.info("⏰ Scheduler started — 14-agent cycle every 15 minutes")
     while True:
         schedule.run_pending()

@@ -1,5 +1,5 @@
 {
-  "name": "StockGuru — Agents + Telegram Insights",
+  "name": "StockGuru — Agents + Telegram Insights (Phase 2: War Room)",
   "nodes": [
     {
       "id": "cron-trigger",
@@ -72,7 +72,7 @@
       "name": "Fetch Claude Analysis",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1130, 220],
+      "position": [1130, 180],
       "parameters": {
         "method": "GET",
         "url": "http://localhost:5000/api/claude-analysis"
@@ -83,7 +83,7 @@
       "name": "Fetch Agent Status",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1130, 380],
+      "position": [1130, 300],
       "parameters": {
         "method": "GET",
         "url": "http://localhost:5000/api/agent-status"
@@ -94,20 +94,66 @@
       "name": "Fetch Sector Rotation",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1130, 540],
+      "position": [1130, 420],
       "parameters": {
         "method": "GET",
         "url": "http://localhost:5000/api/sector-rotation"
       }
     },
     {
+      "id": "check-sovereign",
+      "name": "Fetch Sovereign Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1130, 540],
+      "parameters": {
+        "method": "GET",
+        "url": "http://localhost:5000/api/risk-master-status",
+        "options": { "timeout": 5000 }
+      }
+    },
+    {
+      "id": "black-swan-check",
+      "name": "Black Swan Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1350, 540],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "veto-check",
+              "leftValue": "={{ $('Fetch Sovereign Status').first().json.hard_veto_active }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ],
+          "combinator": "or"
+        }
+      }
+    },
+    {
+      "id": "black-swan-alert",
+      "name": "Emergency BLACK SWAN Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1570, 660],
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "={{ '🚨 *BLACK SWAN ALERT — StockGuru*\\n━━━━━━━━━━━━━━━━━━━━\\n' + 'Reason: ' + ($('Fetch Sovereign Status').first().json.hard_veto_reason || 'Hard veto triggered') + '\\nVIX: ' + ($('Fetch Sovereign Status').first().json.vix_level || '?') + ' | Losses: ' + ($('Fetch Sovereign Status').first().json.consecutive_losses || 0) + ' consecutive\\n\\n⛔ All new entries *BLOCKED*\\n_Review open positions immediately._' }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "credentials": { "telegramApi": { "id": "telegram-creds", "name": "Telegram" } }
+    },
+    {
       "id": "format-message",
       "name": "Format Telegram Message",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1350, 380],
+      "position": [1350, 300],
       "parameters": {
-        "jsCode": "const analysis = $('Fetch Claude Analysis').first().json;\nconst status   = $('Fetch Agent Status').first().json;\nconst sector   = $('Fetch Sector Rotation').first().json;\n\nconst now = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false });\nconst picks = (analysis.conviction_picks || []).filter(p => p.execute_paper_trade);\nconst allPicks = analysis.conviction_picks || [];\n\n// Top sector movers\nconst sectors = (sector.sectors || []).slice(0, 3);\nconst sectorLines = sectors.map(s => {\n  const icon = s.change_pct >= 2 ? '🚀' : s.change_pct >= 0 ? '▲' : '▼';\n  return `  ${icon} ${s.name}: ${s.change_pct >= 0 ? '+' : ''}${(s.change_pct||0).toFixed(1)}%`;\n}).join('\\n');\n\n// Conviction picks\nconst pickLines = picks.slice(0,3).map(p =>\n  `  ✅ *${p.name}* — ${p.signal||'?'} (${p.gates_passed||0}/8 gates)\\n     ${(p.entry_thesis||p.reason||'').slice(0,60)}`\n).join('\\n');\n\n// Agent health\nconst agentCount = Object.values(status.agent_status||{}).filter(s=>s==='done').length;\nconst total = Object.keys(status.agent_status||{}).length || 14;\n\nconst msg = [\n  `🤖 *StockGuru Cycle #${status.cycle_count}*`,\n  `🕐 ${now} IST`,\n  ``,\n  `📊 *Market*: ${analysis.market_condition||'?'} | *Stance*: ${analysis.market_stance||'?'}`,\n  `⚡ *Agents*: ${agentCount}/${total} done | Signals: ${status.signals_count||0}`,\n  ``,\n  sectorLines ? `🏭 *Top Sectors:*\\n${sectorLines}` : '',\n  ``,\n  picks.length\n    ? `🎯 *AI Conviction Picks (${picks.length}):*\\n${pickLines}`\n    : `🔍 No high-conviction picks this cycle (${allPicks.length} reviewed)`,\n  ``,\n  `_⚠️ Simulation only — paper trading mode_`\n].filter(Boolean).join('\\n');\n\nreturn [{ json: { message: msg } }];"
+        "jsCode": "const analysis = $('Fetch Claude Analysis').first().json;\nconst status   = $('Fetch Agent Status').first().json;\nconst sector   = $('Fetch Sector Rotation').first().json;\nconst sov      = $('Fetch Sovereign Status').first().json || {};\n\nconst now = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false });\nconst picks = (analysis.conviction_picks || []).filter(p => p.execute_paper_trade);\nconst allPicks = analysis.conviction_picks || [];\n\n// Top sector movers\nconst sectors = (sector.sectors || []).slice(0, 3);\nconst sectorLines = sectors.map(s => {\n  const icon = s.change_pct >= 2 ? '🚀' : s.change_pct >= 0 ? '▲' : '▼';\n  return `  ${icon} ${s.name}: ${s.change_pct >= 0 ? '+' : ''}${(s.change_pct||0).toFixed(1)}%`;\n}).join('\\n');\n\n// Conviction picks\nconst pickLines = picks.slice(0,3).map(p =>\n  `  ✅ *${p.name}* — ${p.signal||'?'} (${p.gates_passed||0}/8 gates)\\n     ${(p.entry_thesis||p.reason||'').slice(0,60)}`\n).join('\\n');\n\n// Agent health\nconst agentCount = Object.values(status.agent_status||{}).filter(s=>s==='done').length;\nconst total = Object.keys(status.agent_status||{}).length || 14;\n\n// Sovereign status line (Phase 2)\nconst vetoStatus = sov.hard_veto_active ? '🛑 VETO' : '✅ Clear';\nconst hitlPending = sov.hitl_summary?.pending_count || 0;\nconst bsProb = sov.black_swan_probability || '';\nconst vix = sov.vix_level ? `VIX ${sov.vix_level.toFixed(1)}` : '';\nconst sovereignLine = `⚖️ *Sovereign*: ${vetoStatus}` +\n  (vix ? ` | ${vix}` : '') +\n  (hitlPending > 0 ? ` | ${hitlPending} HITL pending` : '') +\n  (bsProb && bsProb !== 'LOW' ? ` | ⚠️ ${bsProb} risk` : '');\n\nconst msg = [\n  `🤖 *StockGuru Cycle #${status.cycle_count}*`,\n  `🕐 ${now} IST`,\n  ``,\n  `📊 *Market*: ${analysis.market_condition||'?'} | *Stance*: ${analysis.market_stance||'?'}`,\n  `⚡ *Agents*: ${agentCount}/${total} done | Signals: ${status.signals_count||0}`,\n  ``,\n  sectorLines ? `🏭 *Top Sectors:*\\n${sectorLines}` : '',\n  ``,\n  picks.length\n    ? `🎯 *AI Conviction Picks (${picks.length}):*\\n${pickLines}`\n    : `🔍 No high-conviction picks this cycle (${allPicks.length} reviewed)`,\n  ``,\n  sovereignLine,\n  ``,\n  `_⚠️ Simulation only — paper trading mode_`\n].filter(Boolean).join('\\n');\n\nreturn [{ json: { message: msg } }];"
       }
     },
     {
@@ -115,7 +161,7 @@
       "name": "Send to Telegram",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [1570, 380],
+      "position": [1570, 300],
       "parameters": {
         "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
         "text": "={{ $json.message }}",
@@ -128,7 +174,7 @@
       "name": "Is it 9:15 AM opening?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1570, 200],
+      "position": [1570, 160],
       "parameters": {
         "conditions": {
           "options": { "leftValue": "", "caseSensitive": true, "typeValidation": "strict" },
@@ -149,10 +195,80 @@
       "name": "Send Morning Brief",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [1790, 200],
+      "position": [1790, 160],
       "parameters": {
         "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
         "text": "={{ '🌅 *StockGuru Morning Brief*\\n🕐 NSE opens in a few minutes\\n\\n' + $('Format Telegram Message').first().json.message }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "credentials": { "telegramApi": { "id": "telegram-creds", "name": "Telegram" } }
+    },
+    {
+      "id": "recovery-monitor-trigger",
+      "name": "Recovery Monitor (every 10min)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 600],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/10 9-16 * * 1-5"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "check-recovery",
+      "name": "Check Recovery Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [470, 600],
+      "parameters": {
+        "method": "GET",
+        "url": "http://localhost:5000/api/risk-master-status",
+        "options": { "timeout": 5000 },
+        "onError": "continueErrorOutput"
+      }
+    },
+    {
+      "id": "all-clear-check",
+      "name": "Market Stabilized?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [690, 600],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "veto-gone",
+              "leftValue": "={{ $json.hard_veto_active }}",
+              "rightValue": false,
+              "operator": { "type": "boolean", "operation": "false" }
+            },
+            {
+              "id": "vix-ok",
+              "leftValue": "={{ $json.vix_level }}",
+              "rightValue": 22,
+              "operator": { "type": "number", "operation": "lt" }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "all-clear-telegram",
+      "name": "Send ALL CLEAR",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [910, 540],
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "={{ '✅ *StockGuru — ALL CLEAR*\\n━━━━━━━━━━━━━━━━━━━━\\nMarket has stabilized.\\nVIX: ' + $json.vix_level + ' | Veto: INACTIVE\\n\\nTrading operations *resumed* normally.\\n_⚠️ Simulation only — paper trading mode_' }}",
         "additionalFields": { "parse_mode": "Markdown" }
       },
       "credentials": { "telegramApi": { "id": "telegram-creds", "name": "Telegram" } }
@@ -175,12 +291,25 @@
       "main": [[
         { "node": "Fetch Claude Analysis",  "type": "main", "index": 0 },
         { "node": "Fetch Agent Status",     "type": "main", "index": 0 },
-        { "node": "Fetch Sector Rotation",  "type": "main", "index": 0 }
+        { "node": "Fetch Sector Rotation",  "type": "main", "index": 0 },
+        { "node": "Fetch Sovereign Status", "type": "main", "index": 0 }
       ]]
     },
     "Fetch Claude Analysis":  { "main": [[{ "node": "Format Telegram Message", "type": "main", "index": 0 }]] },
     "Fetch Agent Status":     { "main": [[{ "node": "Format Telegram Message", "type": "main", "index": 0 }]] },
     "Fetch Sector Rotation":  { "main": [[{ "node": "Format Telegram Message", "type": "main", "index": 0 }]] },
+    "Fetch Sovereign Status": {
+      "main": [
+        [{ "node": "Format Telegram Message", "type": "main", "index": 0 }],
+        [{ "node": "Black Swan Check",        "type": "main", "index": 0 }]
+      ]
+    },
+    "Black Swan Check": {
+      "main": [
+        [{ "node": "Emergency BLACK SWAN Alert", "type": "main", "index": 0 }],
+        []
+      ]
+    },
     "Format Telegram Message": {
       "main": [[
         { "node": "Send to Telegram",       "type": "main", "index": 0 },
@@ -189,6 +318,15 @@
     },
     "Is it 9:15 AM opening?": {
       "main": [[{ "node": "Send Morning Brief", "type": "main", "index": 0 }], []]
+    },
+    "Recovery Monitor (every 10min)": {
+      "main": [[{ "node": "Check Recovery Status", "type": "main", "index": 0 }]]
+    },
+    "Check Recovery Status": {
+      "main": [[{ "node": "Market Stabilized?", "type": "main", "index": 0 }]]
+    },
+    "Market Stabilized?": {
+      "main": [[{ "node": "Send ALL CLEAR", "type": "main", "index": 0 }], []]
     }
   },
   "settings": {
