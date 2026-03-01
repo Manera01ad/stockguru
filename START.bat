@@ -75,10 +75,10 @@ exit /b 1
 echo  Python  : %PYTHON%
 
 :: ════════════════════════════════════════════════════════════════
-::  KILL ANY STALE PROCESS ON PORT 5000
+::  KILL ANY STALE PROCESS ON PORT 5050
 :: ════════════════════════════════════════════════════════════════
-echo  Clearing port 5000...
-for /f "tokens=5" %%a in ('netstat -aon 2^>nul ^| findstr " :5000 "') do (
+echo  Clearing port 5050...
+for /f "tokens=5" %%a in ('netstat -aon 2^>nul ^| findstr " :5050 "') do (
     taskkill /PID %%a /F >nul 2>&1
 )
 timeout /t 2 /nobreak >nul
@@ -87,7 +87,7 @@ timeout /t 2 /nobreak >nul
 ::  WRITE BROWSER-OPENER (polls until server is ready, then opens)
 :: ════════════════════════════════════════════════════════════════
 > "%TEMP%\sg_open.ps1" (
-    echo $url = 'http://localhost:5000'
+    echo $url = 'http://localhost:5050'
     echo for ^($i = 0; $i -lt 60; $i++^) {
     echo     try {
     echo         $null = Invoke-WebRequest "$url/api/status" -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop

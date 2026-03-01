@@ -1196,5 +1196,5 @@ def _startup():
 _startup()
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 5000))   # Railway injects PORT automatically
+    port = int(os.getenv("PORT", 5050))   # Railway injects PORT automatically
     app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
