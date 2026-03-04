@@ -6336,16 +6336,27 @@ setTimeout(initShamrockData, 2000);
 
 var TAB_WORKFLOWS = {
 
-  "tab-watchlist": {
-    title: "OVERVIEW — Market Data Pipeline",
+  "tab-overview": {
+    title: "OVERVIEW — Live Market Data Pipeline",
     nodes: [
-      { id:"ov1", icon:"📡", label:"Yahoo Finance", type:"INPUT",  desc:["^NSEI · ^BSESN","20 symbols","query2 API"] },
-      { id:"ov2", icon:"🔄", label:"Price Cache",   type:"PROCESS",desc:["In-memory store","0.15s interval","20 symbols"] },
-      { id:"ov3", icon:"📊", label:"Index Calc",    type:"PROCESS",desc:["NIFTY · SENSEX","BANK NIFTY · VIX","Change %"] },
-      { id:"ov4", icon:"📈", label:"Overview Cards",type:"OUTPUT", desc:["8 index cards","Ticker bar","Mood meter"] },
-      { id:"ov5", icon:"🔌", label:"WebSocket Push",type:"OUTPUT", desc:["price_update event","Live to browser","6s sync"] }
+      { id:"ov1", icon:"📡", label:"Yahoo Finance",  type:"INPUT",  desc:["^NSEI · ^BSESN","20 symbols","query2 API"] },
+      { id:"ov2", icon:"🔄", label:"Price Cache",    type:"PROCESS",desc:["In-memory store","0.15s interval","20 symbols"] },
+      { id:"ov3", icon:"📊", label:"Index Calc",     type:"PROCESS",desc:["NIFTY · SENSEX","BANK NIFTY · VIX","Change %"] },
+      { id:"ov4", icon:"📈", label:"Overview Cards", type:"OUTPUT", desc:["8 index cards","Ticker bar","Mood meter"] },
+      { id:"ov5", icon:"🔌", label:"WebSocket Push", type:"OUTPUT", desc:["price_update event","Live to browser","6s sync"] }
     ],
     edges: [["ov1","ov2"],["ov2","ov3"],["ov3","ov4"],["ov2","ov5"]]
+  },
+
+  "tab-watchlist": {
+    title: "EQUITIES — Stock Watchlist & Screener",
+    nodes: [
+      { id:"wl1", icon:"🔍", label:"Market Scanner", type:"INPUT",  desc:["8 NSE stocks","Base score filter","Sector map"] },
+      { id:"wl2", icon:"📐", label:"Tech Analysis",  type:"PROCESS",desc:["RSI · MACD · EMA","Bollinger Bands","ATR · Pivot"] },
+      { id:"wl3", icon:"🎯", label:"Signal Scorer",  type:"PROCESS",desc:["0-100 score","Gate pre-check","Conviction rank"] },
+      { id:"wl4", icon:"📋", label:"Watchlist Table",type:"OUTPUT", desc:["Score · Signal","Entry · Target","SL levels"] }
+    ],
+    edges: [["wl1","wl2"],["wl2","wl3"],["wl3","wl4"]]
   },
 
   "tab-commodities": {
