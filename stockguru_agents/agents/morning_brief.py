@@ -232,11 +232,19 @@ def run(shared_state, send_telegram_fn, send_n8n_fn=None, force=False):
     if force or hour == 8:
         log.info("🌅 MorningBrief: Compiling full brief...")
         msg = build_brief(shared_state)
-        send_telegram_fn(msg)
+        try:
+            send_telegram_fn(msg)
+            log.info("✅ MorningBrief: Telegram sent.")
+        except Exception as _te:
+            log.warning("⚠️  MorningBrief: Telegram delivery failed (non-fatal): %s", _te)
         if send_n8n_fn:
-            send_n8n_fn(msg, "morning_brief")
+            try:
+                send_n8n_fn(msg, "morning_brief")
+            except Exception as _ne:
+                log.warning("⚠️  MorningBrief: n8n delivery failed (non-fatal): %s", _ne)
         shared_state["last_morning_brief"] = now.strftime("%d %b %H:%M")
-        log.info("✅ MorningBrief: Sent.")
+        shared_state["morning_brief_text"] = msg
+        log.info("✅ MorningBrief: Complete.")
         return msg
 
     # Intraday update (every 15 min during market hours 9:15 to 15:30)
@@ -244,9 +252,15 @@ def run(shared_state, send_telegram_fn, send_n8n_fn=None, force=False):
         msg = build_intraday_alert(shared_state)
         if msg:
             log.info("⚡ MorningBrief: Sending intraday alert...")
-            send_telegram_fn(msg)
+            try:
+                send_telegram_fn(msg)
+            except Exception as _te:
+                log.warning("⚠️  MorningBrief: Intraday alert Telegram failed (non-fatal): %s", _te)
             if send_n8n_fn:
-                send_n8n_fn(msg, "intraday_alert")
+                try:
+                    send_n8n_fn(msg, "intraday_alert")
+                except Exception as _ne:
+                    log.warning("⚠️  MorningBrief: Intraday n8n failed (non-fatal): %s", _ne)
             return msg
 
     return None

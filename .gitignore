@@ -1,5 +1,8 @@
 # ── Secrets ────────────────────────────────────────────────
 .env
+Api key.txt
+*.key.txt
+*key*.txt
 
 # ── Python cache ───────────────────────────────────────────
 __pycache__/
@@ -30,6 +33,11 @@ Desktop.ini
 
 # ── Logs ───────────────────────────────────────────────────
 *.log
+logs/
+
+# ── Reports (auto-generated, not for git) ──────────────────
+reports/daily/
+reports/LATEST_*.md
 
 # ── IDE / Local tooling ────────────────────────────────────
 .vscode/

@@ -1,3 +1,9 @@
+try:
+    from gevent import monkey
+    monkey.patch_all()
+except ImportError:
+    pass
+
 """
 StockGuru Real-Time Intelligence App — v2.0
 ============================================
@@ -6,8 +12,19 @@ Claude Haiku (primary) + Gemini Flash (parallel) review every cycle.
 Paper trading simulation — ZERO broker connectivity.
 """
 
-from flask import Flask, jsonify, render_template_string, send_from_directory, request
+from flask import Flask, jsonify, render_template_string, send_from_directory, request, g
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from functools import wraps
+
+# ── WEBSOCKET (Flask-SocketIO + gevent) ───────────────────────────────────────
+try:
+    from flask_socketio import SocketIO, emit as sio_emit
+    _SIO_AVAILABLE = True
+except ImportError:
+    _SIO_AVAILABLE = False
+    logging.warning("flask-socketio not installed — WebSocket disabled (pip install flask-socketio gevent gevent-websocket)")
 import requests
 import json
 import os
@@ -18,6 +35,7 @@ import schedule
 from datetime import datetime
 from dotenv import load_dotenv
 import logging
+from logging.handlers import RotatingFileHandler
 
 # ── AGENT IMPORTS ─────────────────────────────────────────────────────────────
 _agents_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stockguru_agents")
@@ -31,6 +49,7 @@ try:
         claude_intelligence, web_researcher,
         sector_rotation, risk_manager,
         pattern_memory, paper_trader, earnings_calendar,
+        spike_detector,
     )
     AGENTS_AVAILABLE = True
 except ImportError as _e:
@@ -102,11 +121,88 @@ except Exception as _conx:
     logging.warning(f"Connectors not loaded: {_conx}")
 
 load_dotenv()
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+
+# ── LOGGING: Rotating file handler + console ──────────────────────────────────
+_log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+os.makedirs(_log_dir, exist_ok=True)
+_log_fmt = logging.Formatter('%(asctime)s [%(levelname)s] %(name)s: %(message)s')
+_file_handler = RotatingFileHandler(
+    os.path.join(_log_dir, "stockguru.log"),
+    maxBytes=5 * 1024 * 1024,  # 5 MB per file
+    backupCount=7               # keep 7 days of logs
+)
+_file_handler.setFormatter(_log_fmt)
+_console_handler = logging.StreamHandler()
+_console_handler.setFormatter(_log_fmt)
+logging.basicConfig(level=logging.INFO, handlers=[_file_handler, _console_handler])
 log = logging.getLogger(__name__)
 
+# ── FLASK APP ─────────────────────────────────────────────────────────────────
 app = Flask(__name__, static_folder='static')
-CORS(app)
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0   # disable static file caching during dev
+
+# ── CORS: configurable origins (set ALLOWED_ORIGINS in .env for production) ───
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "")
+if _raw_origins.strip():
+    _origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+else:
+    # Dev defaults — add your Railway URL to ALLOWED_ORIGINS in production
+    _origins = [
+        "http://localhost:5000", "http://localhost:5050",
+        "http://127.0.0.1:5000", "http://127.0.0.1:5050",
+    ]
+CORS(app, origins=_origins, supports_credentials=True)
+
+# ── SOCKETIO: real-time push (replaces 15-second polling) ─────────────────────
+if _SIO_AVAILABLE:
+    socketio = SocketIO(
+        app,
+        async_mode="gevent",
+        cors_allowed_origins="*",
+        logger=False,
+        engineio_logger=False,
+        ping_timeout=60,
+        ping_interval=25,
+    )
+    log_sio = logging.getLogger("SocketIO")
+    log_sio.info("✅ SocketIO initialised (gevent async_mode)")
+else:
+    socketio = None
+
+# ── RATE LIMITER ──────────────────────────────────────────────────────────────
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["200 per minute"],
+    storage_uri="memory://",
+    strategy="fixed-window",
+)
+
+# ── API KEY AUTH ──────────────────────────────────────────────────────────────
+# Set STOCKGURU_API_KEY in .env to protect write/trigger endpoints.
+# Leave empty to run in open mode (local dev). Strongly recommended for Railway.
+_STOCKGURU_API_KEY = os.getenv("STOCKGURU_API_KEY", "").strip()
+
+def _check_api_key():
+    """Returns True if request is authorised (or auth is disabled)."""
+    if not _STOCKGURU_API_KEY:
+        return True  # Auth disabled — open mode
+    provided = (
+        request.headers.get("X-API-Key", "").strip()
+        or request.args.get("api_key", "").strip()
+        or (request.get_json(silent=True) or {}).get("api_key", "").strip()
+    )
+    return provided == _STOCKGURU_API_KEY
+
+def require_api_key(f):
+    """Decorator — protects write/trigger endpoints with STOCKGURU_API_KEY."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not _check_api_key():
+            log.warning("⛔ Unauthorised request to %s from %s", request.path, request.remote_addr)
+            return jsonify({"error": "Unauthorised — X-API-Key header required"}), 401
+        return f(*args, **kwargs)
+    return decorated
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 TELEGRAM_TOKEN   = os.getenv("TELEGRAM_TOKEN", "")
@@ -148,9 +244,9 @@ WATCHLIST = [
     {"name":"INDIGO",    "symbol":"INDIGO.NS",     "sector":"Aviation",  "pe":14, "roe":82, "de":1.2, "base_score":84},
 ]
 
-price_cache  = {}
+price_cache  = {name: {"price": 0.0, "change": 0.0, "change_pct": 0.0, "symbol": sym, "updated": "Initializing..."} for name, sym in YAHOO_SYMBOLS.items()}
 alert_log    = []
-last_update  = None
+last_update  = "Initializing..."
 shared_state = {
     # Original state
     "scanner_results": [], "full_scan": [], "news_results": [],
@@ -215,10 +311,21 @@ def fetch_all_prices():
             price_cache[name] = {**data, "symbol": symbol, "updated": datetime.now().strftime("%H:%M:%S")}
             if name in ("NIFTY 50", "SENSEX", "BANK NIFTY", "INDIA VIX"):
                 shared_state["index_prices"][name] = data
-        time.sleep(0.3)
-    last_update              = datetime.now().strftime("%d %b %Y %H:%M:%S IST")
+            
+            # --- REAL-TIME TICKER EMIT (Like a Real Broker) ---
+            if socketio:
+                socketio.emit("price_update", {
+                    "prices": {name: price_cache[name]},
+                    "last_update": datetime.now().strftime("%H:%M:%S"),
+                    "event": "tick_update"
+                })
+        
+        if last_update != "Initializing...":
+            time.sleep(0.3)
+    
+    last_update = datetime.now().strftime("%d %b %Y %H:%M:%S IST")
     shared_state["_price_cache"] = price_cache
-    log.info(f"✅ Price cache updated at {last_update}")
+    log.info(f"✅ Price feed cycle complete at {last_update}")
 
     # Check signal outcomes every price cycle
     if LEARNING_AVAILABLE:
@@ -233,6 +340,74 @@ def fetch_all_prices():
             paper_trader.run(shared_state, price_cache)
         except Exception as e:
             log.debug("paper_trader monitor failed: %s", e)
+
+    # ── Push price update to all connected WebSocket clients ──────────────────
+    _ws_emit_prices()
+
+# ── WEBSOCKET EMITTERS ────────────────────────────────────────────────────────
+def _ws_emit_prices():
+    """Push live price update to all connected clients."""
+    if not socketio:
+        return
+    try:
+        payload = {
+            "prices":      price_cache,
+            "last_update": last_update,
+            "event":       "price_update",
+        }
+        socketio.emit("price_update", payload)
+        log.debug("WS: emitted price_update (%d symbols)", len(price_cache))
+    except Exception as _we:
+        log.debug("WS emit price_update failed: %s", _we)
+
+
+def _ws_emit_agents():
+    """Push agent cycle completion to all connected clients (compact payload)."""
+    if not socketio:
+        return
+    try:
+        port = shared_state.get("paper_portfolio", {})
+        payload = {
+            "event":            "agents_update",
+            "scanner_count":    len(shared_state.get("scanner_results", [])),
+            "signal_count":     len(shared_state.get("signal_results", [])),
+            "top_signals":      shared_state.get("signal_results", [])[:5],
+            "alerts":           shared_state.get("ai_alerts", [])[:3],
+            "morning_brief":    shared_state.get("morning_brief", ""),
+            "market_mood":      shared_state.get("market_mood", {}),
+            "paper_portfolio":  {
+                "capital":          port.get("capital", 0),
+                "available_cash":   port.get("available_cash", 0),
+                "realized_pnl":     port.get("realized_pnl", 0),
+                "unrealized_pnl":   port.get("unrealized_pnl", 0),
+                "daily_pnl":        port.get("daily_pnl", 0),
+            },
+            "builder_output":   shared_state.get("builder_output", {}),
+            "observer_run_count": shared_state.get("observer_output", {}).get("run_count", 0),
+            "agent_cycle_ts":   datetime.now().strftime("%H:%M:%S"),
+        }
+        socketio.emit("agents_update", payload)
+        log.info("WS: emitted agents_update")
+    except Exception as _we:
+        log.debug("WS emit agents_update failed: %s", _we)
+
+
+# ── SOCKETIO EVENT HANDLERS ───────────────────────────────────────────────────
+if _SIO_AVAILABLE:
+    @socketio.on("connect")
+    def _ws_on_connect():
+        """On fresh client connect — immediately push current state."""
+        log.debug("WS: client connected")
+        _ws_emit_prices()
+
+    @socketio.on("disconnect")
+    def _ws_on_disconnect():
+        log.debug("WS: client disconnected")
+
+    @socketio.on("ping_server")
+    def _ws_on_ping(data=None):
+        """Lightweight keepalive from client."""
+        sio_emit("pong_server", {"ts": datetime.now().strftime("%H:%M:%S")})
 
 # ── SCORING ENGINE ────────────────────────────────────────────────────────────
 def calculate_score(stock):
@@ -408,6 +583,16 @@ def run_all_agents():
         _log(f"   News sentiment: {shared_state.get('market_sentiment_score',0):+.0f} | {len(shared_state.get('news_results',[]))} headlines | {'LLM+keyword' if any(n.get('scored_by')=='llm+keyword' for n in shared_state.get('news_results',[])) else 'keyword'}")
         _st("scanner",    "running"); market_scanner.run(shared_state);          _st("scanner",    "done")
         _log(f"   Scanner: {len(shared_state.get('scanner_results',[]))} stocks ranked")
+        # Spike detection — runs immediately after price_cache is populated by market_scanner
+        try:
+            spike_detector.run(shared_state, _send_tg)
+            spikes = shared_state.get("spike_alerts", [])
+            if spikes:
+                _log(f"   🚨 SpikeDetector: {len(spikes)} alert(s) — {', '.join(s.get('symbol','?') for s in spikes)}", "warn")
+            else:
+                _log("   ⚡ SpikeDetector: clean cycle")
+        except Exception as e:
+            log.warning("spike_detector failed: %s", e)
         _st("calendar",   "running")
         try:    earnings_calendar.run(shared_state); _st("calendar", "done"); _log(f"   Events calendar: {shared_state.get('events_calendar',{}).get('total_events',0)} events | {len(shared_state.get('events_calendar',{}).get('watchlist_alerts',[]))} watchlist matches")
         except Exception as e: log.warning("earnings_calendar: %s", e); _st("calendar", "error")
@@ -420,6 +605,13 @@ def run_all_agents():
             try:    agent_mod.run(shared_state); _st(agent_name, "done")
             except Exception as e:
                 log.error("%s failed: %s", agent_name, e); _st(agent_name, "error")
+
+        # ── OI WALL APPROACH TELEGRAM ALERTS ─────────────────────────────────
+        for wall_alert in shared_state.get("oi_wall_alerts", []):
+            try:
+                send_telegram(f"⚠️ *OI WALL ALERT — {wall_alert.get('index','INDEX')}*\n{wall_alert['approach_msg']}")
+            except Exception as e:
+                log.warning("OI wall Telegram alert failed: %s", e)
 
         # ── AGENT ROUTER: decide whether to run LLM this cycle ───────────────
         routing = {"run_llm": True, "routing_reason": "Router not available"}
@@ -588,6 +780,9 @@ def run_all_agents():
                  len([p for p in portfolio.get("positions", {}).values() if p.get("status") == "OPEN"]),
                  portfolio.get("stats", {}).get("win_rate", 0) * 100)
 
+        # Push full agent update to WebSocket clients
+        _ws_emit_agents()
+
     except Exception as e:
         log.error("❌ Agent cycle failed: %s", e, exc_info=True)
         for k in shared_state["agent_status"]:
@@ -629,6 +824,8 @@ def api_indices():
     return jsonify(shared_state.get("index_prices", {}))
 
 @app.route("/api/run-now", methods=["GET","POST"])
+@limiter.limit("10 per minute")
+@require_api_key
 def api_run_now():
     threading.Thread(target=run_all_agents, daemon=True).start()
     return jsonify({"status": "14-agent cycle triggered", "agents_available": AGENTS_AVAILABLE})
@@ -656,6 +853,55 @@ def api_agent_status():
 def api_agent_log():
     return jsonify({"log": shared_state.get("agent_cycle_log", [])[-100:]})
 
+@app.route("/api/health")
+def api_health():
+    """M1 Health Check — system status, agent health, API connectivity."""
+    import platform
+    agent_statuses = shared_state.get("agent_status", {})
+    failed_agents   = [k for k, v in agent_statuses.items() if v == "error"]
+    running_agents  = [k for k, v in agent_statuses.items() if v == "running"]
+    ok_agents       = [k for k, v in agent_statuses.items() if v == "done"]
+
+    # Calculate overall health score
+    total_agents = max(len(agent_statuses), 1)
+    health_pct   = round((len(ok_agents) / total_agents) * 100, 1)
+
+    # Check data files
+    data_dir   = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+    key_files  = ["paper_portfolio.json", "accuracy_stats.json", "signal_history.json"]
+    files_ok   = all(os.path.exists(os.path.join(data_dir, f)) for f in key_files)
+
+    overall = "healthy"
+    if failed_agents:          overall = "degraded"
+    if len(failed_agents) > 3: overall = "critical"
+    if not AGENTS_AVAILABLE:   overall = "no-agents"
+
+    return jsonify({
+        "status":           overall,
+        "health_pct":       health_pct,
+        "timestamp":        datetime.now().isoformat(),
+        "version":          "StockGuru v2.0",
+        "python":           platform.python_version(),
+        "agents": {
+            "available":    AGENTS_AVAILABLE,
+            "sovereign":    SOVEREIGN_AVAILABLE,
+            "ok":           ok_agents,
+            "running":      running_agents,
+            "failed":       failed_agents,
+            "total":        total_agents,
+        },
+        "apis": {
+            "claude":       bool(ANTHROPIC_API_KEY),
+            "gemini":       bool(GEMINI_API_KEY),
+            "telegram":     bool(TELEGRAM_TOKEN and TELEGRAM_CHAT_ID),
+            "auth_enabled": bool(_STOCKGURU_API_KEY),
+        },
+        "data_files_ok":    files_ok,
+        "cycle_running":    agent_is_running,
+        "last_cycle":       shared_state.get("last_cycle_time", "never"),
+        "paper_trading":    "ACTIVE (live trading permanently disabled)",
+    })
+
 @app.route("/api/claude-analysis")
 def api_claude_analysis():
     return jsonify(shared_state.get("claude_analysis", {}))
@@ -671,7 +917,18 @@ def api_institutional_flow():
 
 @app.route("/api/options-flow")
 def api_options_flow():
-    return jsonify(shared_state.get("options_flow", {}))
+    payload = dict(shared_state.get("options_flow", {}))
+    payload["india_vix"]      = shared_state.get("india_vix", {})
+    payload["oi_wall_alerts"] = shared_state.get("oi_wall_alerts", [])
+    return jsonify(payload)
+
+@app.route("/api/spike-alerts")
+def api_spike_alerts():
+    return jsonify({
+        "spike_alerts":          shared_state.get("spike_alerts", []),
+        "spike_detector_active": shared_state.get("spike_detector_active", False),
+        "last_spike_ts":         shared_state.get("last_spike_ts"),
+    })
 
 @app.route("/api/market-intelligence")
 def api_market_intelligence():
@@ -876,6 +1133,8 @@ def api_alerts():
     return jsonify(alert_log[-20:])
 
 @app.route("/api/refresh")
+@limiter.limit("20 per minute")
+@require_api_key
 def api_refresh():
     threading.Thread(target=fetch_all_prices, daemon=True).start()
     return jsonify({"status": "Refresh triggered"})
@@ -886,6 +1145,8 @@ def api_test_telegram():
     return jsonify({"status": "sent" if ok else "failed"})
 
 @app.route("/api/update-keys", methods=["POST"])
+@limiter.limit("5 per minute")
+@require_api_key
 def api_update_keys():
     global TELEGRAM_TOKEN, TELEGRAM_CHAT_ID
     global ANTHROPIC_API_KEY, GEMINI_API_KEY
@@ -1070,6 +1331,8 @@ def api_telegram_update():
         return jsonify({"ok": False, "error": str(e)})
 
 @app.route("/api/run-sovereign", methods=["GET", "POST"])
+@limiter.limit("10 per minute")
+@require_api_key
 def api_run_sovereign():
     """Manually trigger the Sovereign layer for testing (no full 14-agent cycle)."""
     if not SOVEREIGN_AVAILABLE:
@@ -1124,6 +1387,8 @@ def api_builder_proposals():
     return jsonify({"proposals": proposals[-20:], "pending": pending, "available": True})
 
 @app.route("/api/run-builder", methods=["GET", "POST"])
+@limiter.limit("10 per minute")
+@require_api_key
 def api_run_builder():
     """Manually trigger the Builder Agent."""
     if not SOVEREIGN_PHASE2_AVAILABLE:
@@ -1135,6 +1400,8 @@ def api_run_builder():
     return jsonify({"status": "Builder Agent triggered", "available": True})
 
 @app.route("/api/run-observer", methods=["GET", "POST"])
+@limiter.limit("10 per minute")
+@require_api_key
 def api_run_observer():
     """Manually trigger the Observer Swarm."""
     if not SOVEREIGN_PHASE2_AVAILABLE:
@@ -1149,10 +1416,17 @@ def api_run_observer():
 
 @app.route("/")
 def index():
-    return send_from_directory("static", "index.html")
+    """Serve index.html with no-cache headers so browser always gets the latest version."""
+    from flask import make_response
+    resp = make_response(send_from_directory("static", "index.html"))
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"]        = "no-cache"
+    resp.headers["Expires"]       = "0"
+    return resp
 
 def run_scheduler():
-    schedule.every(5).minutes.do(fetch_all_prices)
+    # Like a real broker terminal, we want frequent background updates
+    schedule.every(30).seconds.do(fetch_all_prices)
     schedule.every().day.at("08:00").do(send_morning_brief)
     schedule.every().day.at("16:00").do(send_evening_debrief)
     schedule.every(15).minutes.do(check_alerts)
@@ -1177,6 +1451,10 @@ def _startup():
     log.info("🧠 Claude AI: %s | Gemini AI: %s",
              "✅ configured" if ANTHROPIC_API_KEY else "❌ NOT SET — add ANTHROPIC_API_KEY to .env",
              "✅ configured" if GEMINI_API_KEY    else "⚠️  not set (optional but recommended)")
+    log.info("🔑 API Auth: %s",
+             "✅ ENABLED (STOCKGURU_API_KEY set)" if _STOCKGURU_API_KEY else "⚠️  DISABLED — set STOCKGURU_API_KEY in .env for production")
+    log.info("🌐 CORS Origins: %s", _origins)
+    log.info("📝 Logs: %s", os.path.join(_log_dir, 'stockguru.log'))
 
     threading.Thread(target=fetch_all_prices, daemon=True).start()
     if AGENTS_AVAILABLE:
@@ -1192,9 +1470,210 @@ def _startup():
     log.info("📈 Learning → /api/learning-stats")
     log.info("🔑 Add API keys in dashboard Settings tab")
 
-# Run startup for both gunicorn (Railway) and direct python app.py
-_startup()
+
+# ── SHAMROCK SIMULATION ENDPOINTS ────────────────────────────────────────────
+
+@app.route("/api/shamrock-simulate", methods=["POST"])
+@limiter.limit("30 per minute")
+def api_shamrock_simulate():
+    """SHAMROCK simulation: full_cycle | force_trade | eval_gates | export_excel"""
+    import random, json, os
+    req = request.get_json(silent=True) or {}
+    mode = req.get("mode", "full_cycle")
+
+    # Helper: load paper data
+    def _load_trades():
+        try:
+            p = os.path.join("data", "paper_trades.json")
+            if os.path.exists(p):
+                with open(p) as f:
+                    return json.load(f)
+        except Exception:
+            pass
+        return []
+
+    def _load_portfolio():
+        try:
+            p = os.path.join("data", "paper_portfolio.json")
+            if os.path.exists(p):
+                with open(p) as f:
+                    return json.load(f)
+        except Exception:
+            pass
+        return {"capital": 500000, "positions": {}}
+
+    # Build gate evaluation from shared_state
+    def _eval_gates_data():
+        gates = [False] * 8
+        passed = 0
+        watchlist = WATCHLIST if "WATCHLIST" in dir() else []
+        if watchlist:
+            sym = watchlist[0].get("symbol", "RELIANCE.NS") if watchlist else "RELIANCE.NS"
+            price = price_cache.get(sym, {})
+            if isinstance(price, dict):
+                rsi = price.get("rsi", 50)
+                vol_ratio = price.get("volume_ratio", 1.0)
+            else:
+                rsi = 50
+                vol_ratio = 1.0
+            gates[0] = 35 <= rsi <= 68       # RSI zone
+            gates[1] = vol_ratio >= 1.3       # Volume
+            gates[2] = True                   # EMA trend (sim)
+            gates[3] = True                   # MACD (sim)
+            gates[4] = True                   # News gate (sim)
+            gates[5] = True                   # FII gate (sim)
+            gates[6] = True                   # PCR gate (sim)
+            # Score gate from shared_state
+            score = 0
+            if "signals" in shared_state:
+                sigs = shared_state["signals"]
+                if sigs:
+                    score = sigs[0].get("score", 0) if isinstance(sigs[0], dict) else 0
+            gates[7] = score >= 88
+        else:
+            # All sim
+            gates = [True, True, True, True, True, True, True, False]
+        passed = sum(1 for g in gates if g)
+        return gates, passed
+
+    # Build signals from shared_state or sim
+    def _build_signals():
+        raw = shared_state.get("signals", []) if shared_state else []
+        out = []
+        for s in raw[:6]:
+            if isinstance(s, dict):
+                out.append({
+                    "symbol": s.get("symbol", "?"),
+                    "action": s.get("action", "BUY"),
+                    "entry": s.get("entry_price", s.get("price", 0)),
+                    "target": s.get("target", 0),
+                    "sl": s.get("stop_loss", 0),
+                    "score": s.get("score", 0),
+                    "pnl": s.get("pnl", 0)
+                })
+        # Supplement with sim data if few signals
+        sim_syms = [("RELIANCE.NS","RELIANCE"), ("INFY.NS","INFY"), ("TCS.NS","TCS"),
+                    ("HDFCBANK.NS","HDFCBANK"), ("TATAMOTORS.NS","TATAMOTORS")]
+        for ysym, sym in sim_syms:
+            if len(out) >= 5:
+                break
+            base = price_cache.get(ysym, {})
+            price = base.get("price", base) if isinstance(base, dict) else (base or random.uniform(1000, 3000))
+            price = float(price) if price else random.uniform(1000, 3000)
+            score = random.randint(72, 95)
+            out.append({
+                "symbol": sym,
+                "action": random.choice(["BUY", "BUY", "SELL"]),
+                "entry": round(price, 2),
+                "target": round(price * 1.03, 2),
+                "sl": round(price * 0.98, 2),
+                "score": score,
+                "pnl": round(random.uniform(-500, 2000), 0)
+            })
+        return out
+
+    if mode == "full_cycle":
+        # Run agent cycle if available
+        agent_statuses = {}
+        try:
+            if AGENTS_AVAILABLE:
+                threading.Thread(target=lambda: _run_one_cycle(), daemon=True).start()
+                agent_statuses = {a: "ok" for a in ["market_scanner","technical_analysis",
+                                   "pattern_memory","news_sentiment","trade_signal","paper_trader"]}
+        except Exception as e:
+            agent_statuses = {"error": str(e)}
+        gates, passed = _eval_gates_data()
+        signals = _build_signals()
+        return jsonify({
+            "status": "ok",
+            "mode": "full_cycle",
+            "agents": agent_statuses,
+            "signals": signals,
+            "gates": gates,
+            "gates_passed": passed,
+            "trades": _load_trades()[-5:]
+        })
+
+    elif mode == "force_trade":
+        # Force a simulated paper trade
+        import datetime, uuid
+        portfolio = _load_portfolio()
+        trades = _load_trades()
+        signals = _build_signals()
+        if signals:
+            sig = signals[0]
+            qty = max(1, int(10000 / (sig["entry"] or 100)))
+            trade = {
+                "id": str(uuid.uuid4())[:8],
+                "symbol": sig["symbol"],
+                "action": sig["action"],
+                "entry_price": sig["entry"],
+                "target": sig["target"],
+                "stop_loss": sig["sl"],
+                "qty": qty,
+                "score": sig["score"],
+                "timestamp": datetime.datetime.now().isoformat(),
+                "status": "SIMULATED",
+                "pnl": 0
+            }
+            trades.append(trade)
+            try:
+                with open(os.path.join("data", "paper_trades.json"), "w") as f:
+                    json.dump(trades, f, indent=2)
+            except Exception:
+                pass
+            return jsonify({"status": "ok", "mode": "force_trade",
+                            "message": f"Simulated {trade['action']} {trade['symbol']} x{qty} @ ₹{trade['entry_price']}",
+                            "trade": trade, "signals": signals})
+        return jsonify({"status": "ok", "mode": "force_trade", "message": "No signals available for trade"})
+
+    elif mode == "eval_gates":
+        gates, passed = _eval_gates_data()
+        return jsonify({"status": "ok", "mode": "eval_gates",
+                        "gates": gates, "passed": passed,
+                        "will_trade": passed >= 6})
+
+    elif mode == "export_excel":
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["python3", "shamrock_excel_export.py"],
+                capture_output=True, text=True, timeout=30, cwd="."
+            )
+            if result.returncode == 0:
+                return jsonify({"status": "ok", "mode": "export_excel",
+                                "message": "Excel file generated: shamrock_trades.xlsx",
+                                "file": "shamrock_trades.xlsx"})
+            else:
+                return jsonify({"status": "error", "message": result.stderr[:200]})
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)})
+
+    return jsonify({"status": "error", "message": f"Unknown mode: {mode}"})
+
+
+@app.route("/api/download-excel")
+def api_download_excel():
+    """Download the generated SHAMROCK Excel trade log."""
+    import os
+    from flask import send_file
+    path = os.path.join(os.path.dirname(__file__), "shamrock_trades.xlsx")
+    if os.path.exists(path):
+        return send_file(path, as_attachment=True, download_name="shamrock_trades.xlsx")
+    return jsonify({"error": "Excel file not found. Run export first."}), 404
+
+
+# ── END SHAMROCK ──────────────────────────────────────────────────────────────
+
 
 if __name__ == "__main__":
+    _startup()
     port = int(os.getenv("PORT", 5050))   # Railway injects PORT automatically
-    app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
+    print(f"\n>>> StockGuru v2.0 starting on http://localhost:{port}")
+    print(">>> 14 Agents scheduled & price feed connected.")
+    if socketio:
+        # WebSocket-enabled: use socketio.run() with gevent server
+        socketio.run(app, host="0.0.0.0", port=port, debug=False, use_reloader=False)
+    else:
+        # Fallback to plain Flask (no WebSocket)
+        app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)

@@ -203,7 +203,10 @@ def compute_iv_expected_move(records, current_price):
         return None
 
 def find_unusual_oi(records, threshold=1.5):
-    """Find strikes with unusually high OI buildup (institutional positioning)."""
+    """
+    Find strikes with unusually high OI buildup (institutional positioning).
+    Returns top 8 walls enriched with vs_avg_pct and gamma_risk flag.
+    """
     if not records:
         return []
 
@@ -218,24 +221,74 @@ def find_unusual_oi(records, threshold=1.5):
             continue
         ce_oi = item.get("CE", {}).get("openInterest", 0) if item.get("CE") else 0
         pe_oi = item.get("PE", {}).get("openInterest", 0) if item.get("PE") else 0
+        ce_iv = item.get("CE", {}).get("impliedVolatility", 0) if item.get("CE") else 0
+        pe_iv = item.get("PE", {}).get("impliedVolatility", 0) if item.get("PE") else 0
         call_ois.append(ce_oi)
         put_ois.append(pe_oi)
-        items_map[strike] = {"call_oi": ce_oi, "put_oi": pe_oi}
+        items_map[strike] = {
+            "call_oi": ce_oi, "put_oi": pe_oi,
+            "call_iv": ce_iv, "put_iv": pe_iv,
+        }
 
-    avg_call_oi = sum(call_ois) / len(call_ois) if call_ois else 0
-    avg_put_oi  = sum(put_ois)  / len(put_ois)  if put_ois  else 0
+    avg_call_oi = sum(call_ois) / len(call_ois) if call_ois else 1
+    avg_put_oi  = sum(put_ois)  / len(put_ois)  if put_ois  else 1
 
     unusual = []
     for strike, ois in items_map.items():
         if ois["call_oi"] > avg_call_oi * threshold * 2:
-            unusual.append({"strike": strike, "type": "CALL", "oi": ois["call_oi"],
-                            "note": f"Major call resistance at {strike}"})
+            vs_avg = round((ois["call_oi"] / avg_call_oi - 1) * 100)
+            unusual.append({
+                "strike":     strike,
+                "type":       "CALL",
+                "oi":         ois["call_oi"],
+                "iv":         ois["call_iv"],
+                "vs_avg_pct": vs_avg,
+                "signal":     "🔴 RESISTANCE",
+                "note":       f"Major call wall at {strike:,} ({vs_avg}% above avg OI)",
+                "gamma_risk": vs_avg > 300,   # extreme = gamma squeeze risk
+            })
         if ois["put_oi"] > avg_put_oi * threshold * 2:
-            unusual.append({"strike": strike, "type": "PUT", "oi": ois["put_oi"],
-                            "note": f"Major put support at {strike}"})
+            vs_avg = round((ois["put_oi"] / avg_put_oi - 1) * 100)
+            unusual.append({
+                "strike":     strike,
+                "type":       "PUT",
+                "oi":         ois["put_oi"],
+                "iv":         ois["put_iv"],
+                "vs_avg_pct": vs_avg,
+                "signal":     "🟢 SUPPORT",
+                "note":       f"Major put wall at {strike:,} ({vs_avg}% above avg OI)",
+                "gamma_risk": vs_avg > 300,
+            })
 
     unusual.sort(key=lambda x: -x["oi"])
-    return unusual[:5]
+    return unusual[:8]
+
+
+def check_oi_wall_approach(unusual_oi: list, current_price: float,
+                           approach_pct: float = 0.5) -> list:
+    """
+    Returns walls that LTP is approaching within `approach_pct`% distance.
+    Used to fire early Telegram alerts before a gamma squeeze develops.
+    """
+    if not unusual_oi or not current_price:
+        return []
+    alerts = []
+    for wall in unusual_oi:
+        strike = wall["strike"]
+        dist_pct = abs(current_price - strike) / current_price * 100
+        if dist_pct <= approach_pct:
+            alerts.append({
+                **wall,
+                "current_price": current_price,
+                "dist_pct":      round(dist_pct, 2),
+                "approach_msg":  (
+                    f"⚠️ LTP ₹{current_price:,.0f} approaching "
+                    f"{wall['type']} wall @ {strike:,} "
+                    f"(OI={wall['oi']:,}, {dist_pct:.1f}% away) — "
+                    f"{'GAMMA SQUEEZE RISK 🔥' if wall.get('gamma_risk') else 'Monitor closely'}"
+                ),
+            })
+    return alerts
 
 def interpret_vix(vix_level):
     """Classify India VIX into regime + alert."""
@@ -440,11 +493,12 @@ def run(shared_state):
         "banknifty_pcr":     None,
         "nifty_max_pain":    None,
         "banknifty_max_pain": None,
-        "nifty_unusual_oi":  [],
-        "market_bias":       "NEUTRAL",
-        "bias_reason":       "Options data unavailable",
-        "options_gate":      True,  # default pass if no data
-        "last_run":          datetime.now().strftime("%d %b %H:%M:%S"),
+        "nifty_unusual_oi":     [],
+        "banknifty_unusual_oi": [],
+        "market_bias":          "NEUTRAL",
+        "bias_reason":          "Options data unavailable",
+        "options_gate":         True,  # default pass if no data
+        "last_run":             datetime.now().strftime("%d %b %H:%M:%S"),
     }
 
     # ── SHARED SESSION (reused for all NSE calls incl. rollover) ─────────────
@@ -478,6 +532,7 @@ def run(shared_state):
     except Exception:
         nifty_records = None
 
+    nifty_ltp    = nifty_records.get("underlyingValue") if nifty_records else None
     nifty_atm_iv = None
     if nifty_records:
         pcr_result = compute_pcr(nifty_records)
@@ -518,12 +573,14 @@ def run(shared_state):
     except Exception:
         bn_records = None
 
+    bn_ltp    = bn_records.get("underlyingValue") if bn_records else None
     bn_atm_iv = None
     if bn_records:
         pcr_bn = compute_pcr(bn_records)
         if pcr_bn:
-            result["banknifty_pcr"]  = pcr_bn[0]
-        result["banknifty_max_pain"] = compute_max_pain(bn_records)
+            result["banknifty_pcr"]       = pcr_bn[0]
+        result["banknifty_max_pain"]      = compute_max_pain(bn_records)
+        result["banknifty_unusual_oi"]    = find_unusual_oi(bn_records)
 
         bn_atm   = result["banknifty_max_pain"]
         bn_iv_move = compute_iv_expected_move(bn_records, bn_atm)
@@ -555,11 +612,28 @@ def run(shared_state):
                  rollover["avg_rollover_30d"],
                  rollover["strength"])
 
+    # ── OI WALL APPROACH DETECTION ────────────────────────────────────────────
+    wall_alerts = []
+    if nifty_ltp and result["nifty_unusual_oi"]:
+        alerts = check_oi_wall_approach(result["nifty_unusual_oi"], nifty_ltp)
+        for a in alerts:
+            a["index"] = "NIFTY"
+            wall_alerts.append(a)
+            log.warning("⚠️ NIFTY OI WALL APPROACH: %s", a["approach_msg"])
+    if bn_ltp and result["banknifty_unusual_oi"]:
+        alerts = check_oi_wall_approach(result["banknifty_unusual_oi"], bn_ltp)
+        for a in alerts:
+            a["index"] = "BANKNIFTY"
+            wall_alerts.append(a)
+            log.warning("⚠️ BANKNIFTY OI WALL APPROACH: %s", a["approach_msg"])
+    shared_state["oi_wall_alerts"] = wall_alerts
+
     shared_state["options_flow"]      = result
     shared_state["options_last_run"]  = result["last_run"]
-    log.info("✅ OptionsFlow: Nifty PCR=%.3f | Gate=%s | Bias=%s | VIX=%.1f(%s)",
+    log.info("✅ OptionsFlow: Nifty PCR=%.3f | Gate=%s | Bias=%s | VIX=%.1f(%s) | Walls=%d approach",
              result["nifty_pcr"] or 0,
              "PASS" if result["options_gate"] else "FAIL",
              result["market_bias"],
-             vix_level or 0, vix_regime)
+             vix_level or 0, vix_regime,
+             len(wall_alerts))
     return result

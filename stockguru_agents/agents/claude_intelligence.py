@@ -81,6 +81,64 @@ def _load_top_patterns(shared_state):
         for i, p in enumerate(patterns[:5])
     ])
 
+_PM_LOG_PATH = os.path.join(_BASE, "data", "post_mortem_log.json")
+
+def _load_post_mortem_context(shared_state) -> str:
+    """
+    Build a compact post-mortem brief for the LLM prompt.
+
+    Sources (in priority order):
+      1. shared_state["post_mortem_output"] — latest cycle summary
+      2. shared_state["post_mortem_llm_note"] — LLM-generated global lesson
+      3. data/post_mortem_log.json — last 3 failure reflexions
+    """
+    lines = []
+
+    # ── LLM global lesson (written by post_mortem when it runs its own LLM) ──
+    llm_note = shared_state.get("post_mortem_llm_note")
+    if llm_note:
+        lines.append(f"GLOBAL LESSON (post-mortem LLM): {llm_note}")
+
+    # ── Latest cycle summary ──────────────────────────────────────────────────
+    pm_out = shared_state.get("post_mortem_output", {})
+    if pm_out.get("analyzed_this_cycle", 0) > 0:
+        failures = ", ".join(pm_out.get("new_failures", []))
+        adj_count = len(pm_out.get("adjustments_made", []))
+        lines.append(
+            f"This cycle: {pm_out['analyzed_this_cycle']} new failures ({failures}) "
+            f"→ {adj_count} weight/config adjustments made."
+        )
+        llm_diag = pm_out.get("llm_diagnosis")
+        if llm_diag:
+            lines.append(f"Root diagnosis: {llm_diag}")
+    elif pm_out.get("total_analyzed", 0) > 0:
+        lines.append(
+            f"No new failures this cycle. "
+            f"Total post-mortems in history: {pm_out['total_analyzed']}."
+        )
+
+    # ── Last 3 failure reflexions from disk ───────────────────────────────────
+    try:
+        with open(_PM_LOG_PATH) as f:
+            pm_log = json.load(f)
+        # Most recent failures first
+        failures_only = [r for r in pm_log if r.get("outcome") == "FAILURE"]
+        recent = failures_only[-3:][::-1]
+        if recent:
+            lines.append("RECENT FAILURE REFLEXIONS:")
+            for r in recent:
+                ticker     = r.get("ticker", "?")
+                root_cause = r.get("root_cause", "unknown")
+                reflexion  = r.get("reflexion", "")[:120]  # cap length in prompt
+                lines.append(f"  • {ticker} | cause={root_cause} | {reflexion}")
+    except Exception:
+        pass  # No log file yet — first run
+
+    if not lines:
+        return "No post-mortem data yet — system is learning from live results."
+
+    return "\n".join(lines)
+
 # ── PROMPT BUILDER ────────────────────────────────────────────────────────────
 def _build_data_summary(shared_state):
     """Build a compact JSON summary of all agent data for the prompt."""
@@ -164,6 +222,9 @@ Input data includes: FII/DII flows, PCR, India VIX, IV Rank, rollover data, Adva
 
 {accuracy}
 
+RECENT POST-MORTEM INSIGHTS (failures analyzed by the learning engine):
+{post_mortem}
+
 TOP PROVEN PATTERNS:
 {patterns}
 
@@ -227,9 +288,10 @@ def _call_claude(data_summary, shared_state):
         import anthropic
         client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         system = SYSTEM_PROMPT.format(
-            skills   = _load_trading_skills(),
-            accuracy = _load_accuracy_context(shared_state),
-            patterns = _load_top_patterns(shared_state),
+            skills      = _load_trading_skills(),
+            accuracy    = _load_accuracy_context(shared_state),
+            post_mortem = _load_post_mortem_context(shared_state),
+            patterns    = _load_top_patterns(shared_state),
         )
         msg = client.messages.create(
             model      = CLAUDE_MODEL,

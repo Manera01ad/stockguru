@@ -47,10 +47,27 @@ log = logging.getLogger("PaperTrader")
 # ══════════════════════════════════════════════════════════════════════════════
 # 🔒 SAFETY LOCKS — These are permanent. NEVER remove or bypass these.
 # ══════════════════════════════════════════════════════════════════════════════
-LIVE_TRADING_ENABLED   = False   # HARDCODED — never change this
-PAPER_TRADING_ONLY     = True    # HARDCODED — this is always a simulation
-BROKER_CONNECTOR_EXISTS = False  # No broker connector file exists in this version
+LIVE_TRADING_ENABLED    = False   # HARDCODED — never change this
+PAPER_TRADING_ONLY      = True    # HARDCODED — this is always a simulation
+BROKER_CONNECTOR_EXISTS = True    # broker_connector.py now available (paper mode only)
 # ══════════════════════════════════════════════════════════════════════════════
+
+# ── Broker Connector Import ───────────────────────────────────────────────────
+# Import the broker interface so paper_trader uses proper terminal-grade structures.
+# broker_connector.LIVE_TRADING_ENABLED is also False — double lock.
+try:
+    import sys as _sys, os as _os
+    _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+    from broker_connector import (
+        get_broker, OrderBuilder, PaperBroker,
+        OrderType, ProductCode, TransactionType, Exchange, Validity,
+        OrderStatus, compute_costs,
+    )
+    _BROKER_AVAILABLE = True
+except ImportError as _e:
+    log.warning("broker_connector not found (%s) — falling back to legacy engine", _e)
+    _BROKER_AVAILABLE = False
+# ─────────────────────────────────────────────────────────────────────────────
 
 _BASE           = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 PORTFOLIO_FILE  = os.path.join(_BASE, "data", "paper_portfolio.json")
@@ -494,6 +511,72 @@ def _update_daily_pnl(portfolio):
     portfolio["total_pnl"]             = round(portfolio.get("realized_pnl", 0), 2)
     portfolio["total_return_pct"]      = round((portfolio["total_pnl"] / capital) * 100, 2)
 
+# ── BROKER-INTEGRATED EXECUTION ──────────────────────────────────────────────
+def execute_signal_via_broker(broker: "PaperBroker", signal: dict,
+                               shared_state: dict) -> dict:
+    """
+    Convert a StockGuru trade signal into a broker terminal order.
+    Uses OrderBuilder for clean signal→order mapping.
+    Returns the Order as a dict (JSON-serialisable) or None if rejected.
+
+    Signal expected keys:
+      symbol, action (BUY/SELL), entry, target1, target2, stop_loss,
+      confidence, gates_passed, gates_total
+    """
+    if not _BROKER_AVAILABLE:
+        return None
+
+    portfolio_info = broker.get_margins()
+    available_cash = portfolio_info["available_cash"]
+    entry_price    = float(signal.get("entry", 0))
+
+    if entry_price <= 0:
+        log.warning("execute_signal_via_broker: no entry price for %s", signal.get("symbol"))
+        return None
+
+    # Position sizing: 10% of available capital (capped by MAX_SINGLE_TRADE_PCT)
+    alloc_pct = min(0.10, broker.MAX_SINGLE_TRADE_PCT)
+    alloc     = available_cash * alloc_pct
+    qty       = max(1, int(alloc / entry_price))
+
+    try:
+        order = (
+            OrderBuilder(broker)
+            .from_signal(signal)
+            .with_quantity_from_capital(available_cash, entry_price, alloc_pct)
+            .with_product(ProductCode.CNC)      # delivery (change to MIS for intraday)
+            .with_order_type(OrderType.MARKET)  # market entry (LIMIT in M2 upgrade)
+            .with_validity(Validity.DAY)
+            .build()
+        )
+
+        if order.status == OrderStatus.REJECTED:
+            log.warning("execute_signal_via_broker: rejected %s — %s",
+                        signal.get("symbol"), order.rejection_reason)
+            return None
+
+        log.info("🏦 BrokerOrder | %s %s×%s [%s] | T1=₹%.0f T2=₹%.0f SL=₹%.0f",
+                 order.transaction.value if hasattr(order.transaction, 'value')
+                 else order.transaction,
+                 order.quantity, signal.get("symbol", ""),
+                 order.order_id,
+                 signal.get("target1", 0), signal.get("target2", 0),
+                 signal.get("stop_loss", 0))
+
+        return order.to_dict()
+
+    except Exception as e:
+        log.error("execute_signal_via_broker error for %s: %s", signal.get("symbol"), e)
+        return None
+
+
+def get_broker_instance() -> "PaperBroker":
+    """Return the singleton PaperBroker for this process."""
+    if not _BROKER_AVAILABLE:
+        return None
+    return get_broker(portfolio_file=PORTFOLIO_FILE, trades_file=TRADES_FILE)
+
+
 # ── MAIN AGENT ────────────────────────────────────────────────────────────────
 def run(shared_state, price_cache=None):
     """
@@ -623,6 +706,25 @@ def run(shared_state, price_cache=None):
     # ── SAVE STATE ────────────────────────────────────────────────────────────
     _save_portfolio(portfolio)
     shared_state["paper_portfolio"] = portfolio
+
+    # ── BROKER CONNECTOR TICK (process SL/T1/T2 via terminal-grade engine) ───
+    if _BROKER_AVAILABLE and pc:
+        try:
+            broker = get_broker_instance()
+            changed_orders = broker.tick(pc)
+            if changed_orders:
+                # Merge broker's portfolio snapshot into shared_state
+                broker_snap = broker.portfolio_snapshot()
+                shared_state["paper_portfolio"].update({
+                    "broker_order_count": len(broker.get_order_book()),
+                    "broker_open_orders": broker_snap.get("open_orders", 0),
+                    "broker_realised_pnl": broker_snap.get("realised_pnl", 0),
+                })
+            shared_state["broker_order_book"] = [
+                o.to_dict() for o in broker.get_order_book()[-20:]  # last 20
+            ]
+        except Exception as _be:
+            log.warning("Broker tick failed (non-fatal): %s", _be)
 
     total_val = (portfolio["capital"] + portfolio["realized_pnl"] + portfolio["unrealized_pnl"])
     log.info(
