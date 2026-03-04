@@ -43,3 +43,5 @@ reports/LATEST_*.md
 .vscode/
 .idea/
 .claude/
+ghp_*.pub
+ghp_*
