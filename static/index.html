@@ -6551,6 +6551,19 @@ var TAB_WORKFLOWS = {
       { id:"lc4", icon:"📈", label:"Learning Report", type:"OUTPUT", desc:["Win rates","Best agents","Strategy rank"] }
     ],
     edges: [["lc1","lc2"],["lc2","lc3"],["lc3","lc4"]]
+  },
+
+  "tab-shamrock": {
+    title: "SHAMROCK — 4-Phase AI Trading Pipeline",
+    nodes: [
+      { id:"sh1", icon:"📡", label:"Market Data",    type:"INPUT",  desc:["Yahoo Finance","20 symbols","OHLCV + Volume"] },
+      { id:"sh2", icon:"🔍", label:"Pattern Isolation",type:"PROCESS",desc:["Phase 1: Scanner","Tech Analysis","Pattern Memory"] },
+      { id:"sh3", icon:"🧠", label:"Deep Analysis",  type:"PROCESS",desc:["Phase 2: News · FII","Options Flow","Claude AI Intel"] },
+      { id:"sh4", icon:"🎯", label:"Prediction",     type:"PROCESS",desc:["Phase 3: Signal Gen","Debate Engine","Agent Scorer"] },
+      { id:"sh5", icon:"🔒", label:"8-Gate Filter",  type:"PROCESS",desc:["Score≥88 · RSI · Vol","EMA · MACD · News","FII · PCR  6/8 min"] },
+      { id:"sh6", icon:"📋", label:"Paper Execution",type:"OUTPUT", desc:["Sim trade entry","Trade log","Excel export"] }
+    ],
+    edges: [["sh1","sh2"],["sh2","sh3"],["sh3","sh4"],["sh4","sh5"],["sh5","sh6"]]
   }
 };
 
