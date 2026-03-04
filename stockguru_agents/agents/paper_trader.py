@@ -78,6 +78,12 @@ DEFAULT_CAPITAL = float(os.getenv("PAPER_CAPITAL", "500000"))  # ₹5L default
 # ── REALISTIC COST MODEL (Indian Equity Delivery) ────────────────────────────
 # Matches Zerodha/Upstox/Angel One discount broker structure
 SLIPPAGE_PCT      = 0.0005    # 0.05% slippage (realistic for mid-cap)
+
+# ── AUTO TRAILING STOP LOSS ────────────────────────────────────────────────────
+# When TSL is enabled on a position, every time price moves up by TSL_STEP_PCT
+# the stop-loss is ratcheted up by the same amount (locks in profit).
+TSL_STEP_PCT      = 0.005    # 0.5% step — ratchet SL up every 0.5% price gain
+TSL_MIN_GAIN_PCT  = 0.01     # Only start trailing after price is 1% above entry
 BROKERAGE_FLAT    = 20.0      # ₹20 flat per order (discount broker model)
 STT_PCT           = 0.001     # 0.1% STT — on BOTH buy & sell for delivery equity
 STT_INTRADAY_PCT  = 0.00025   # 0.025% STT — sell side only for intraday (not used here)
@@ -317,7 +323,9 @@ def _enter_position(signal, gates_passed, gate_detail, portfolio, price_cache, s
         "target1":          t1,
         "target2":          t2,
         "stop_loss":        sl_orig,
-        "trailing_sl":      sl_orig,    # moves up after T1 hit
+        "trailing_sl":      sl_orig,    # moves up after T1 hit / TSL
+        "tsl_enabled":      True,       # Auto Trailing SL — on by default
+        "tsl_high_water":   entry_price,# highest price seen since entry
         "t1_booked":        False,      # has T1 partial booking happened?
         "shares_remaining": shares,
         "status":           "OPEN",
@@ -381,6 +389,26 @@ def _monitor_positions(portfolio, price_cache):
         t2         = pos["target2"]
         trail_sl   = pos["trailing_sl"]
         t1_booked  = pos["t1_booked"]
+
+        # ── AUTO TRAILING SL (TSL) ────────────────────────────────────────────
+        # If TSL is enabled: ratchet SL up whenever price makes a new high
+        # (by at least TSL_STEP_PCT above last recorded high water mark)
+        if pos.get("tsl_enabled", False):
+            hw = pos.get("tsl_high_water", entry)
+            if price > hw * (1 + TSL_STEP_PCT):
+                # How many TSL_STEP_PCT steps above entry?
+                gain_pct   = (price - entry) / entry
+                steps      = int(gain_pct / TSL_STEP_PCT)
+                # Only start trailing after TSL_MIN_GAIN_PCT above entry
+                if gain_pct >= TSL_MIN_GAIN_PCT and steps > 0:
+                    # New SL = entry + (steps-1) * TSL_STEP_PCT  (keep one step below current)
+                    new_sl = round(entry * (1 + (steps - 1) * TSL_STEP_PCT), 2)
+                    if new_sl > trail_sl:
+                        pos["trailing_sl"]    = new_sl
+                        pos["tsl_high_water"] = price
+                        trail_sl              = new_sl
+                        log.info("📈 TSL UPDATE: %s | new SL=₹%.2f (price=₹%.2f, gain=%.1f%%)",
+                                 name, new_sl, price, gain_pct * 100)
 
         # ── T2 HIT (remaining shares → full exit at T2)
         if price >= t2 and t1_booked and t2 > 0:
@@ -575,6 +603,137 @@ def get_broker_instance() -> "PaperBroker":
     if not _BROKER_AVAILABLE:
         return None
     return get_broker(portfolio_file=PORTFOLIO_FILE, trades_file=TRADES_FILE)
+
+
+# ── PUBLIC SAHI-STYLE API HELPERS ─────────────────────────────────────────────
+
+def set_tsl_enabled(symbol: str, enabled: bool) -> dict:
+    """Toggle Auto Trailing SL on an open position. Called from SAHI UI toggle."""
+    portfolio = _load_portfolio()
+    pos = portfolio["positions"].get(symbol)
+    if not pos:
+        return {"ok": False, "error": f"{symbol} not found in open positions"}
+    pos["tsl_enabled"] = bool(enabled)
+    _save_portfolio(portfolio)
+    state = "ON" if enabled else "OFF"
+    log.info("TSL %s for %s", state, symbol)
+    return {"ok": True, "symbol": symbol, "tsl_enabled": enabled}
+
+
+def quick_enter(symbol: str, action: str, entry_price: float,
+                sl_pct: float = 2.0, target_pct: float = 4.0,
+                alloc_pct: float = 5.0) -> dict:
+    """
+    SAHI-style 1-click paper trade entry.
+    symbol     : e.g. "RELIANCE.NS"
+    action     : "BUY" or "SELL"
+    entry_price: CMP from price_cache
+    sl_pct     : stop-loss distance % from entry (default 2%)
+    target_pct : target % above entry for T1 (default 4%)
+    alloc_pct  : % of available cash to deploy (default 5%)
+    Returns position dict or error dict.
+    """
+    if LIVE_TRADING_ENABLED:
+        return {"ok": False, "error": "Live trading is disabled"}
+
+    portfolio = _load_portfolio()
+    if symbol in portfolio["positions"]:
+        return {"ok": False, "error": f"Position already open for {symbol}"}
+
+    avail = portfolio["available_cash"]
+    alloc = avail * (alloc_pct / 100.0)
+    shares = max(1, int(alloc / entry_price))
+
+    sl     = round(entry_price * (1 - sl_pct / 100), 2)
+    t1     = round(entry_price * (1 + target_pct / 100), 2)
+    t2     = round(entry_price * (1 + target_pct * 2 / 100), 2)
+
+    signal = {
+        "name":       symbol,
+        "signal":     action,
+        "price":      entry_price,
+        "entry":      entry_price,
+        "target1":    t1,
+        "target2":    t2,
+        "stop_loss":  sl,
+        "score":      88,         # quick trade gets pass-through score
+        "sector":     "Manual",
+        "vol_surge":  1.5,
+        "confidence": "MEDIUM",
+    }
+
+    # Minimal gate pass (override gates for manual quick-trade)
+    pos = _enter_position(signal, gates_passed=6,
+                          gate_detail={"manual_quick_trade": True},
+                          portfolio=portfolio, price_cache={}, shared_state={})
+
+    if pos:
+        _save_portfolio(portfolio)
+        log.info("🟢 QUICK ENTER: %s %s @ ₹%.2f | SL=₹%.2f T1=₹%.2f T2=₹%.2f",
+                 action, symbol, entry_price, sl, t1, t2)
+        return {"ok": True, "position": pos}
+    return {"ok": False, "error": "Entry failed — check cash or duplicate position"}
+
+
+def get_live_positions(price_cache: dict = None) -> list:
+    """
+    Return all open positions with live P&L calculated against price_cache.
+    Used by the SAHI panel's live P&L table (refreshed every 30s).
+    """
+    portfolio = _load_portfolio()
+    pc = price_cache or {}
+    result = []
+    for name, pos in portfolio["positions"].items():
+        if pos.get("status") != "OPEN":
+            continue
+        cached = pc.get(name, {})
+        cmp    = cached.get("price", 0)
+        entry  = pos.get("entry_price", 0)
+        shares = pos.get("shares_remaining", pos.get("shares", 0))
+        unreal_pnl     = round((cmp - entry) * shares, 2) if cmp and entry else 0
+        unreal_pnl_pct = round(((cmp - entry) / entry) * 100, 2) if cmp and entry else 0
+        result.append({
+            "symbol":       name,
+            "shares":       shares,
+            "entry_price":  entry,
+            "cmp":          cmp,
+            "target1":      pos.get("target1", 0),
+            "target2":      pos.get("target2", 0),
+            "stop_loss":    pos.get("stop_loss", 0),
+            "trailing_sl":  pos.get("trailing_sl", 0),
+            "tsl_enabled":  pos.get("tsl_enabled", True),
+            "t1_booked":    pos.get("t1_booked", False),
+            "unreal_pnl":   unreal_pnl,
+            "unreal_pnl_pct": unreal_pnl_pct,
+            "gates_passed": pos.get("gates_passed", 0),
+            "entry_time":   pos.get("entry_time", ""),
+            "signal_type":  pos.get("signal_type", "BUY"),
+        })
+    result.sort(key=lambda x: abs(x["unreal_pnl_pct"]), reverse=True)
+    return result
+
+
+def close_position_manual(symbol: str, price_cache: dict = None) -> dict:
+    """Manually close an open position at current market price (SAHI exit button)."""
+    portfolio = _load_portfolio()
+    pos = portfolio["positions"].get(symbol)
+    if not pos or pos.get("status") != "OPEN":
+        return {"ok": False, "error": f"{symbol} not found in open positions"}
+    pc    = price_cache or {}
+    price = pc.get(symbol, {}).get("price") or pos.get("entry_price", 0)
+    shares = pos.get("shares_remaining", pos.get("shares", 0))
+    trades = _load_trades()
+    sell_costs = _compute_costs(price, shares, "SELL")
+    pnl     = round(((price * (1 - SLIPPAGE_PCT)) - pos["entry_price"]) * shares - sell_costs, 2)
+    pnl_pct = round(((price - pos["entry_price"]) / pos["entry_price"]) * 100, 2) if pos["entry_price"] else 0
+    _close_position(portfolio, symbol, "MANUAL_EXIT", price, shares, pnl, pnl_pct, trades)
+    portfolio["positions"].pop(symbol, None)
+    _rebuild_stats(portfolio)
+    _update_daily_pnl(portfolio)
+    _save_portfolio(portfolio)
+    _save_trades(trades)
+    log.info("🔴 MANUAL EXIT: %s @ ₹%.2f | P&L: ₹%.0f (%.1f%%)", symbol, price, pnl, pnl_pct)
+    return {"ok": True, "symbol": symbol, "exit_price": price, "pnl": pnl, "pnl_pct": pnl_pct}
 
 
 # ── MAIN AGENT ────────────────────────────────────────────────────────────────

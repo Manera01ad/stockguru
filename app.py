@@ -56,6 +56,15 @@ except ImportError as _e:
     AGENTS_AVAILABLE = False
     logging.warning(f"Agents not loaded: {_e}")
 
+# ── MARKET SESSION AGENT ───────────────────────────────────────────────────────
+try:
+    from agents.market_session_agent import session_agent, SEGMENTS, STATE_OPEN, STATE_CLOSED
+    SESSION_AGENT_AVAILABLE = True
+except ImportError as _se:
+    SESSION_AGENT_AVAILABLE = False
+    session_agent = None
+    logging.warning(f"market_session_agent not loaded: {_se}")
+
 # ── LEARNING IMPORTS ──────────────────────────────────────────────────────────
 try:
     from learning import signal_tracker, weight_adjuster
@@ -1521,6 +1530,36 @@ def index():
     resp.headers["Expires"]       = "0"
     return resp
 
+def _on_market_open(segment, seg_def, agent, **kwargs):
+    """Fires when any market segment opens — triggers agent scan + Telegram alert."""
+    msg = f"🟢 {seg_def['icon']} {seg_def['name']} OPENED — Running agent scan..."
+    log.info("[SessionAgent] %s", msg)
+    send_telegram(msg)
+    if AGENTS_AVAILABLE:
+        threading.Thread(target=run_all_agents, daemon=True).start()
+
+
+def _on_market_close(segment, seg_def, agent, **kwargs):
+    """Fires when any market segment closes — runs paper trade P&L check + report."""
+    active_still = agent.get_active_segments()
+    msg = (f"🔴 {seg_def['icon']} {seg_def['name']} CLOSED — "
+           f"Checking P&L... Active: {', '.join(active_still) or 'None'}")
+    log.info("[SessionAgent] %s", msg)
+    send_telegram(msg)
+    # Monitor positions for this session's closure
+    if AGENTS_AVAILABLE:
+        try:
+            paper_trader.run(shared_state, shared_state.get("_price_cache", {}))
+        except Exception as _e:
+            log.error("Post-close paper_trader run failed: %s", _e)
+
+
+def _on_pre_open(segment, seg_def, agent, **kwargs):
+    """Fires during pre-open — fetch fresh prices, warm up agents."""
+    log.info("[SessionAgent] Pre-open: %s — fetching prices", seg_def["name"])
+    threading.Thread(target=fetch_all_prices, daemon=True).start()
+
+
 def run_scheduler():
     # Like a real broker terminal, we want frequent background updates
     schedule.every(30).seconds.do(fetch_all_prices)
@@ -1529,6 +1568,10 @@ def run_scheduler():
     schedule.every(15).minutes.do(check_alerts)
     if AGENTS_AVAILABLE:
         schedule.every(15).minutes.do(run_all_agents)
+    # Market session tick — check for open/close transitions every 60 seconds
+    if SESSION_AGENT_AVAILABLE:
+        schedule.every(60).seconds.do(lambda: session_agent.tick())
+        log.info("⏰ Market session agent ticking every 60s")
     # Phase 2 sovereign agents (background, scheduled separately)
     if SOVEREIGN_PHASE2_AVAILABLE:
         schedule.every(4).hours.do(lambda: observer.run(shared_state))
@@ -1559,6 +1602,16 @@ def _startup():
         threading.Thread(target=run_all_agents, daemon=True).start()
     else:
         log.warning("⚠️  Agents not available — run from stockguru/ directory")
+
+    # Register market session callbacks
+    if SESSION_AGENT_AVAILABLE:
+        for seg_key in SEGMENTS:
+            session_agent.on_open(seg_key, _on_market_open)
+            session_agent.on_close(seg_key, _on_market_close)
+            session_agent.on_pre_open(seg_key, _on_pre_open)
+        session_agent.tick()  # initial tick to set baseline states
+        log.info("📅 Market session agent initialised — %s", session_agent.status_summary())
+
     threading.Thread(target=run_scheduler, daemon=True).start()
 
     log.info("✅ Server ready")
@@ -1761,6 +1814,104 @@ def api_download_excel():
 
 
 # ── END SHAMROCK ──────────────────────────────────────────────────────────────
+
+# ── SAHI PANEL ENDPOINTS ──────────────────────────────────────────────────────
+
+@app.route("/api/market-sessions")
+def api_market_sessions():
+    """Return live market session states for all 4 segments."""
+    if not SESSION_AGENT_AVAILABLE:
+        return jsonify({"error": "Market session agent not available", "states": {}})
+    states = session_agent.get_all_states()
+    return jsonify({
+        "states":      states,
+        "any_open":    session_agent.any_market_open(),
+        "active":      session_agent.get_active_segments(),
+        "summary":     session_agent.status_summary(),
+        "timestamp":   session_agent.now_ist().isoformat(),
+    })
+
+
+@app.route("/api/live-positions")
+def api_live_positions():
+    """Return all open paper positions with live P&L (for SAHI panel)."""
+    if not AGENTS_AVAILABLE:
+        return jsonify({"positions": [], "portfolio": {}})
+    pc = shared_state.get("_price_cache", {})
+    positions = paper_trader.get_live_positions(pc)
+    portfolio_data = paper_trader._load_portfolio()
+    return jsonify({
+        "positions": positions,
+        "portfolio": {
+            "capital":        portfolio_data.get("capital", 500000),
+            "available_cash": portfolio_data.get("available_cash", 500000),
+            "invested":       portfolio_data.get("invested", 0),
+            "unrealized_pnl": portfolio_data.get("unrealized_pnl", 0),
+            "realized_pnl":   portfolio_data.get("realized_pnl", 0),
+            "total_pnl":      portfolio_data.get("total_pnl", 0),
+            "total_return_pct": portfolio_data.get("total_return_pct", 0),
+            "win_rate":       portfolio_data.get("stats", {}).get("win_rate", 0),
+            "total_trades":   portfolio_data.get("stats", {}).get("total_trades", 0),
+        },
+        "timestamp": __import__("datetime").datetime.now().isoformat(),
+    })
+
+
+@app.route("/api/quick-trade", methods=["POST"])
+@limiter.limit("10 per minute")
+def api_quick_trade():
+    """
+    SAHI-style 1-click paper trade entry.
+    Body: {symbol, action, sl_pct, target_pct, alloc_pct}
+    action is ignored if the position already exists (use /api/close-position instead).
+    """
+    if not AGENTS_AVAILABLE:
+        return jsonify({"ok": False, "error": "Paper trader not available"}), 503
+    req = request.get_json(silent=True) or {}
+    symbol = req.get("symbol", "").upper().strip()
+    if not symbol:
+        return jsonify({"ok": False, "error": "symbol required"}), 400
+    action      = req.get("action", "BUY").upper()
+    sl_pct      = float(req.get("sl_pct",     2.0))
+    target_pct  = float(req.get("target_pct", 4.0))
+    alloc_pct   = float(req.get("alloc_pct",  5.0))
+    # Get entry price from live cache
+    pc    = shared_state.get("_price_cache", {})
+    entry = pc.get(symbol, {}).get("price") or req.get("entry_price", 0)
+    if not entry:
+        return jsonify({"ok": False, "error": f"No live price for {symbol}. Try refreshing prices."}), 400
+    result = paper_trader.quick_enter(symbol, action, float(entry), sl_pct, target_pct, alloc_pct)
+    return jsonify(result)
+
+
+@app.route("/api/close-position", methods=["POST"])
+@limiter.limit("10 per minute")
+def api_close_position():
+    """Manually close an open paper position at CMP."""
+    if not AGENTS_AVAILABLE:
+        return jsonify({"ok": False, "error": "Paper trader not available"}), 503
+    req    = request.get_json(silent=True) or {}
+    symbol = req.get("symbol", "").upper().strip()
+    if not symbol:
+        return jsonify({"ok": False, "error": "symbol required"}), 400
+    pc     = shared_state.get("_price_cache", {})
+    result = paper_trader.close_position_manual(symbol, pc)
+    return jsonify(result)
+
+
+@app.route("/api/toggle-tsl", methods=["POST"])
+@limiter.limit("20 per minute")
+def api_toggle_tsl():
+    """Toggle Auto Trailing SL on a position. Body: {symbol, enabled}"""
+    if not AGENTS_AVAILABLE:
+        return jsonify({"ok": False, "error": "Paper trader not available"}), 503
+    req     = request.get_json(silent=True) or {}
+    symbol  = req.get("symbol", "").upper().strip()
+    enabled = bool(req.get("enabled", True))
+    if not symbol:
+        return jsonify({"ok": False, "error": "symbol required"}), 400
+    result = paper_trader.set_tsl_enabled(symbol, enabled)
+    return jsonify(result)
 
 
 # ── Auto-startup when loaded by gunicorn (Railway) ───────────────────────────

@@ -2576,101 +2576,154 @@
         <!-- ══════════════════ PAPER TRADE ══════════════════ -->
         <div class="section" id="tab-paper">
           <div style="margin-top:22px">
-            <div class="sec-title">🎯 PAPER TRADE PORTFOLIO TRACKER</div>
-            <div class="g4" style="margin-bottom:20px">
+            <div class="sec-title">🎯 SAHI PAPER TRADE TERMINAL</div>
+
+            <!-- ── Market Session Status Bar ── -->
+            <div id="sahi-session-bar" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px">
+              <div class="sahi-seg" id="seg-NSE_EQUITY">
+                <div class="sahi-seg-icon">📈</div>
+                <div class="sahi-seg-name">NSE EQUITY</div>
+                <div class="sahi-seg-time">9:15 – 15:30</div>
+                <div class="sahi-seg-state" id="seg-state-NSE_EQUITY">LOADING</div>
+                <div class="sahi-seg-next" id="seg-next-NSE_EQUITY"></div>
+              </div>
+              <div class="sahi-seg" id="seg-NSE_FNO">
+                <div class="sahi-seg-icon">📊</div>
+                <div class="sahi-seg-name">NSE F&amp;O</div>
+                <div class="sahi-seg-time">9:15 – 15:30</div>
+                <div class="sahi-seg-state" id="seg-state-NSE_FNO">LOADING</div>
+                <div class="sahi-seg-next" id="seg-next-NSE_FNO"></div>
+              </div>
+              <div class="sahi-seg" id="seg-MCX">
+                <div class="sahi-seg-icon">🥇</div>
+                <div class="sahi-seg-name">MCX COMMODITY</div>
+                <div class="sahi-seg-time">9:00 – 23:30</div>
+                <div class="sahi-seg-state" id="seg-state-MCX">LOADING</div>
+                <div class="sahi-seg-next" id="seg-next-MCX"></div>
+              </div>
+              <div class="sahi-seg" id="seg-NSE_CURRENCY">
+                <div class="sahi-seg-icon">💱</div>
+                <div class="sahi-seg-name">NSE CURRENCY</div>
+                <div class="sahi-seg-time">9:00 – 17:00</div>
+                <div class="sahi-seg-state" id="seg-state-NSE_CURRENCY">LOADING</div>
+                <div class="sahi-seg-next" id="seg-next-NSE_CURRENCY"></div>
+              </div>
+            </div>
+
+            <!-- ── Portfolio Summary Tiles ── -->
+            <div class="g4" style="margin-bottom:18px">
               <div class="paper-stat">
                 <div class="paper-stat-label">VIRTUAL CAPITAL</div>
-                <div class="paper-stat-value flat">₹10L</div>
+                <div class="paper-stat-value flat" id="pt-capital">₹5L</div>
               </div>
               <div class="paper-stat">
-                <div class="paper-stat-label">CURRENT VALUE</div>
-                <div class="paper-stat-value up">₹10.62L</div>
+                <div class="paper-stat-label">AVAILABLE CASH</div>
+                <div class="paper-stat-value up" id="pt-cash">--</div>
               </div>
               <div class="paper-stat">
                 <div class="paper-stat-label">TOTAL P&amp;L</div>
-                <div class="paper-stat-value up">+₹62,400</div>
+                <div class="paper-stat-value flat" id="pt-total-pnl">--</div>
               </div>
               <div class="paper-stat">
-                <div class="paper-stat-label">RETURN %</div>
-                <div class="paper-stat-value up">+6.24%</div>
+                <div class="paper-stat-label">WIN RATE</div>
+                <div class="paper-stat-value flat" id="pt-winrate">--%</div>
               </div>
             </div>
+
+            <!-- ── 1-Click Quick Trade Panel ── -->
             <div class="card" style="margin-bottom:18px">
               <div class="card-head">
-                <div class="card-title">SIMULATED HOLDINGS</div>
-                <div class="badge bg">PAPER ONLY</div>
+                <div class="card-title">⚡ 1-CLICK QUICK TRADE</div>
+                <div class="badge" style="background:rgba(255,61,113,.15);color:#ff3d71">PAPER ONLY</div>
               </div>
-              <table>
-                <thead>
-                  <tr>
-                    <th>STOCK</th>
-                    <th>QTY</th>
-                    <th>BUY PRICE</th>
-                    <th>CMP</th>
-                    <th>P&amp;L</th>
-                    <th>P&amp;L %</th>
-                    <th>ACTION</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>
-                      <div class="sname">BHARTI AIRTEL</div>
-                    </td>
-                    <td style="font-family:'Space Mono';font-size:11px">9</td>
-                    <td style="font-family:'Space Mono';font-size:11px">₹1,670</td>
-                    <td style="font-family:'Space Mono';font-size:11px" id="pt-airtel">₹1,998</td>
-                    <td class="up" style="font-family:'Space Mono';font-size:11px">+₹2,952</td>
-                    <td class="up" style="font-family:'Space Mono';font-size:11px">+19.6%</td>
-                    <td><span class="sig sig-h">HOLD</span></td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <div class="sname">HDFC BANK</div>
-                    </td>
-                    <td style="font-family:'Space Mono';font-size:11px">9</td>
-                    <td style="font-family:'Space Mono';font-size:11px">₹850</td>
-                    <td style="font-family:'Space Mono';font-size:11px" id="pt-hdfc">₹920</td>
-                    <td class="up" style="font-family:'Space Mono';font-size:11px">+₹630</td>
-                    <td class="up" style="font-family:'Space Mono';font-size:11px">+8.2%</td>
-                    <td><span class="sig sig-h">HOLD</span></td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <div class="sname">BEL</div>
-                    </td>
-                    <td style="font-family:'Space Mono';font-size:11px">300</td>
-                    <td style="font-family:'Space Mono';font-size:11px">₹380</td>
-                    <td style="font-family:'Space Mono';font-size:11px" id="pt-bel">₹436</td>
-                    <td class="up" style="font-family:'Space Mono';font-size:11px">+₹16,800</td>
-                    <td class="up" style="font-family:'Space Mono';font-size:11px">+14.7%</td>
-                    <td><span class="sig sig-h">HOLD</span></td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <div class="sname">MUTHOOT FIN</div>
-                    </td>
-                    <td style="font-family:'Space Mono';font-size:11px">6</td>
-                    <td style="font-family:'Space Mono';font-size:11px">₹2,800</td>
-                    <td style="font-family:'Space Mono';font-size:11px" id="pt-muthoot">₹3,470</td>
-                    <td class="up" style="font-family:'Space Mono';font-size:11px">+₹4,020</td>
-                    <td class="up" style="font-family:'Space Mono';font-size:11px">+23.9%</td>
-                    <td><span class="sig sig-h">HOLD</span></td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <div class="sname">ZOMATO</div>
-                    </td>
-                    <td style="font-family:'Space Mono';font-size:11px">450</td>
-                    <td style="font-family:'Space Mono';font-size:11px">₹228</td>
-                    <td style="font-family:'Space Mono';font-size:11px" id="pt-zomato">--</td>
-                    <td class="down" style="font-family:'Space Mono';font-size:11px">Pending</td>
-                    <td class="down" style="font-family:'Space Mono';font-size:11px">--</td>
-                    <td><span class="sig sig-w">WATCH SL</span></td>
-                  </tr>
-                </tbody>
-              </table>
+              <div style="padding:16px 18px">
+                <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr auto auto;gap:10px;align-items:end">
+                  <div>
+                    <div style="font-family:'Space Mono';font-size:9px;color:var(--muted);margin-bottom:4px">SYMBOL (e.g. RELIANCE.NS)</div>
+                    <input id="qt-symbol" type="text" placeholder="RELIANCE.NS"
+                      style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);
+                             border-radius:6px;padding:8px 10px;font-family:'Space Mono';font-size:12px;outline:none">
+                  </div>
+                  <div>
+                    <div style="font-family:'Space Mono';font-size:9px;color:var(--muted);margin-bottom:4px">SL %</div>
+                    <input id="qt-sl" type="number" value="2" min="0.5" max="10" step="0.5"
+                      style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);
+                             border-radius:6px;padding:8px 10px;font-family:'Space Mono';font-size:12px;outline:none">
+                  </div>
+                  <div>
+                    <div style="font-family:'Space Mono';font-size:9px;color:var(--muted);margin-bottom:4px">TARGET %</div>
+                    <input id="qt-target" type="number" value="4" min="1" max="30" step="0.5"
+                      style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);
+                             border-radius:6px;padding:8px 10px;font-family:'Space Mono';font-size:12px;outline:none">
+                  </div>
+                  <div>
+                    <div style="font-family:'Space Mono';font-size:9px;color:var(--muted);margin-bottom:4px">ALLOC %</div>
+                    <input id="qt-alloc" type="number" value="5" min="1" max="20" step="1"
+                      style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);
+                             border-radius:6px;padding:8px 10px;font-family:'Space Mono';font-size:12px;outline:none">
+                  </div>
+                  <div>
+                    <div style="font-family:'Space Mono';font-size:9px;color:var(--muted);margin-bottom:4px">TSL AUTO</div>
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:8px">
+                      <input type="checkbox" id="qt-tsl" checked style="accent-color:var(--accent);width:16px;height:16px">
+                      <span style="font-size:11px;color:var(--text)">ON</span>
+                    </label>
+                  </div>
+                  <div>
+                    <button onclick="sahiBuy()" id="qt-buy-btn"
+                      style="width:100%;background:linear-gradient(135deg,#00E676,#00C853);color:#000;
+                             font-family:'Space Mono';font-size:11px;font-weight:700;letter-spacing:1px;
+                             border:none;border-radius:8px;padding:10px 4px;cursor:pointer;transition:opacity .2s">
+                      ▲ BUY
+                    </button>
+                  </div>
+                  <div>
+                    <button onclick="sahiSell()" id="qt-sell-btn"
+                      style="width:100%;background:linear-gradient(135deg,#ff3d71,#c0003c);color:#fff;
+                             font-family:'Space Mono';font-size:11px;font-weight:700;letter-spacing:1px;
+                             border:none;border-radius:8px;padding:10px 4px;cursor:pointer;transition:opacity .2s">
+                      ▼ SELL
+                    </button>
+                  </div>
+                </div>
+                <div id="qt-status" style="margin-top:10px;font-family:'Space Mono';font-size:11px;color:var(--muted);min-height:18px"></div>
+              </div>
             </div>
+
+            <!-- ── Live Positions Table ── -->
+            <div class="card" style="margin-bottom:18px">
+              <div class="card-head">
+                <div class="card-title">📊 LIVE POSITIONS</div>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <span id="sahi-refresh-badge" style="font-family:'Space Mono';font-size:10px;color:var(--muted)">auto-refresh 30s</span>
+                  <button onclick="loadLivePositions()" class="btn" style="padding:4px 12px;font-size:11px">↻ Refresh</button>
+                </div>
+              </div>
+              <div id="sahi-positions-wrap">
+                <table id="sahi-pos-table">
+                  <thead>
+                    <tr>
+                      <th>SYMBOL</th>
+                      <th>QTY</th>
+                      <th>ENTRY ₹</th>
+                      <th>CMP ₹</th>
+                      <th>SL ₹</th>
+                      <th>TSL ₹</th>
+                      <th>T1 ₹</th>
+                      <th>UNREALISED</th>
+                      <th>P&amp;L %</th>
+                      <th>TSL</th>
+                      <th>EXIT</th>
+                    </tr>
+                  </thead>
+                  <tbody id="sahi-pos-body">
+                    <tr><td colspan="11" style="text-align:center;color:var(--muted);padding:20px">Loading positions...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- ── Paper Trade Rules ── -->
             <div class="card">
               <div class="card-head">
                 <div class="card-title">📚 PAPER TRADE RULES</div>
@@ -2678,18 +2731,254 @@
               </div>
               <div style="padding:16px 20px;display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                 <div style="font-size:13px;color:var(--text);line-height:1.8">✅ Set stop-loss before every entry<br>✅
-                  Max
-                  10% per stock allocation<br>✅ Write your THESIS before buying<br>✅ Review every Friday evening<br>✅
-                  Track
-                  win rate weekly (target >60%)</div>
+                  Max 10% per stock allocation<br>✅ TSL auto-activated on entry<br>✅ Review every Friday evening<br>✅
+                  Track win rate weekly (target >60%)</div>
                 <div style="font-size:13px;color:var(--text);line-height:1.8">❌ Never average down without fresh
                   analysis<br>❌ Never hold past −8% without review<br>❌ Don't chase stocks already up 5%+ today<br>❌
-                  Don't
-                  overtrade — max 2–3 positions/week<br>❌ Never invest in a stock you can't explain in 2 lines</div>
+                  Don't overtrade — max 2–3 positions/week<br>❌ Never invest in a stock you can't explain in 2 lines</div>
               </div>
             </div>
+
           </div>
         </div>
+
+        <style>
+        /* ── SAHI Terminal Styles ── */
+        .sahi-seg {
+          background: var(--bg2);
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          padding: 12px 14px;
+          text-align: center;
+          transition: border-color .3s, box-shadow .3s;
+        }
+        .sahi-seg.open  { border-color: #00E676; box-shadow: 0 0 10px rgba(0,230,118,.15); }
+        .sahi-seg.pre   { border-color: #FFD700; box-shadow: 0 0 10px rgba(255,215,0,.12); }
+        .sahi-seg.closing { border-color: #FF9800; box-shadow: 0 0 10px rgba(255,152,0,.12); }
+        .sahi-seg-icon  { font-size: 20px; margin-bottom: 4px; }
+        .sahi-seg-name  { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--muted); letter-spacing: 1px; }
+        .sahi-seg-time  { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--text); margin: 2px 0; }
+        .sahi-seg-state { font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 700; margin-top: 6px; }
+        .sahi-seg-state.open    { color: #00E676; }
+        .sahi-seg-state.pre     { color: #FFD700; }
+        .sahi-seg-state.closing { color: #FF9800; }
+        .sahi-seg-state.closed  { color: #555; }
+        .sahi-seg-next  { font-size: 10px; color: var(--muted); margin-top: 3px; min-height: 14px; }
+        .tsl-toggle {
+          position: relative; display: inline-block; width: 36px; height: 20px;
+        }
+        .tsl-toggle input { opacity: 0; width: 0; height: 0; }
+        .tsl-slider {
+          position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+          background: #333; transition: .3s; border-radius: 20px;
+        }
+        .tsl-slider:before {
+          position: absolute; content: ""; height: 14px; width: 14px;
+          left: 3px; bottom: 3px; background: #888; transition: .3s; border-radius: 50%;
+        }
+        input:checked + .tsl-slider { background: rgba(0,230,118,.3); border: 1px solid #00E676; }
+        input:checked + .tsl-slider:before { transform: translateX(16px); background: #00E676; }
+        </style>
+
+        <script>
+        // ── SAHI Panel Logic ──────────────────────────────────────────────────
+        (function() {
+          var _posRefreshTimer = null;
+          var _sessionRefreshTimer = null;
+
+          // Format currency
+          function fmtINR(v) {
+            if (v == null || v === 0) return '--';
+            var abs = Math.abs(v);
+            var s = abs >= 100000 ? '₹' + (abs/100000).toFixed(2) + 'L'
+                  : abs >= 1000   ? '₹' + abs.toLocaleString('en-IN', {maximumFractionDigits:0})
+                  : '₹' + abs.toFixed(2);
+            return (v < 0 ? '-' : '') + s;
+          }
+
+          // Load market sessions
+          function loadSessions() {
+            fetch('/api/market-sessions')
+              .then(function(r){ return r.json(); })
+              .then(function(d) {
+                var states = d.states || {};
+                Object.keys(states).forEach(function(seg) {
+                  var info = states[seg];
+                  var stateEl = document.getElementById('seg-state-' + seg);
+                  var nextEl  = document.getElementById('seg-next-' + seg);
+                  var segEl   = document.getElementById('seg-' + seg);
+                  if (!stateEl) return;
+                  var st = info.state;
+                  var cls = st === 'OPEN' ? 'open' : st === 'PRE_OPEN' ? 'pre' : st === 'CLOSING' ? 'closing' : 'closed';
+                  stateEl.textContent = st.replace('_', ' ');
+                  stateEl.className = 'sahi-seg-state ' + cls;
+                  segEl.className   = 'sahi-seg ' + cls;
+                  if (nextEl) nextEl.textContent = info.next_event_label || '';
+                });
+              })
+              .catch(function(){});
+          }
+
+          // Load live positions
+          window.loadLivePositions = function() {
+            fetch('/api/live-positions')
+              .then(function(r){ return r.json(); })
+              .then(function(d) {
+                // Portfolio summary
+                var p = d.portfolio || {};
+                var capEl = document.getElementById('pt-capital');
+                var cashEl = document.getElementById('pt-cash');
+                var pnlEl  = document.getElementById('pt-total-pnl');
+                var wrEl   = document.getElementById('pt-winrate');
+                if (capEl)  capEl.textContent  = fmtINR(p.capital || 0);
+                if (cashEl) cashEl.textContent  = fmtINR(p.available_cash || 0);
+                if (pnlEl) {
+                  var pnl = p.total_pnl || 0;
+                  pnlEl.textContent = (pnl >= 0 ? '+' : '') + fmtINR(pnl);
+                  pnlEl.className   = 'paper-stat-value ' + (pnl > 0 ? 'up' : pnl < 0 ? 'down' : 'flat');
+                }
+                if (wrEl) {
+                  var wr = (p.win_rate || 0) * 100;
+                  wrEl.textContent = wr.toFixed(1) + '%';
+                  wrEl.className   = 'paper-stat-value ' + (wr >= 60 ? 'up' : wr >= 40 ? 'flat' : 'down');
+                }
+
+                // Positions table
+                var tbody = document.getElementById('sahi-pos-body');
+                if (!tbody) return;
+                var positions = d.positions || [];
+                if (positions.length === 0) {
+                  tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:20px">No open positions. Use Quick Trade above to enter.</td></tr>';
+                  return;
+                }
+                var rows = positions.map(function(pos) {
+                  var pnlCls = pos.unreal_pnl > 0 ? 'up' : pos.unreal_pnl < 0 ? 'down' : 'flat';
+                  var pnlSign = pos.unreal_pnl >= 0 ? '+' : '';
+                  var tslChk = pos.tsl_enabled ? 'checked' : '';
+                  var t1Hit  = pos.t1_booked ? '<span style="color:#FFD700;font-size:10px"> ✓T1</span>' : '';
+                  return '<tr>' +
+                    '<td><div class="sname">' + pos.symbol + '</div></td>' +
+                    '<td style="font-family:\'Space Mono\';font-size:11px">' + pos.shares + '</td>' +
+                    '<td style="font-family:\'Space Mono\';font-size:11px">₹' + (pos.entry_price||0).toLocaleString('en-IN',{maximumFractionDigits:2}) + '</td>' +
+                    '<td style="font-family:\'Space Mono\';font-size:11px;color:var(--accent)">' + (pos.cmp ? '₹'+pos.cmp.toLocaleString('en-IN',{maximumFractionDigits:2}) : '--') + '</td>' +
+                    '<td style="font-family:\'Space Mono\';font-size:11px;color:#ff3d71">₹' + (pos.stop_loss||0).toLocaleString('en-IN',{maximumFractionDigits:2}) + '</td>' +
+                    '<td style="font-family:\'Space Mono\';font-size:11px;color:#FF9800">₹' + (pos.trailing_sl||0).toLocaleString('en-IN',{maximumFractionDigits:2}) + '</td>' +
+                    '<td style="font-family:\'Space Mono\';font-size:11px;color:#00E676">₹' + (pos.target1||0).toLocaleString('en-IN',{maximumFractionDigits:2}) + t1Hit + '</td>' +
+                    '<td class="' + pnlCls + '" style="font-family:\'Space Mono\';font-size:11px">' + pnlSign + fmtINR(pos.unreal_pnl) + '</td>' +
+                    '<td class="' + pnlCls + '" style="font-family:\'Space Mono\';font-size:11px">' + pnlSign + (pos.unreal_pnl_pct||0).toFixed(2) + '%</td>' +
+                    '<td><label class="tsl-toggle"><input type="checkbox" ' + tslChk + ' onchange="toggleTSL(\'' + pos.symbol + '\',this.checked)"><span class="tsl-slider"></span></label></td>' +
+                    '<td><button onclick="sahibExit(\'' + pos.symbol + '\')" style="background:rgba(255,61,113,.15);border:1px solid #ff3d71;color:#ff3d71;font-size:10px;font-family:\'Space Mono\';border-radius:5px;padding:4px 8px;cursor:pointer">EXIT</button></td>' +
+                    '</tr>';
+                });
+                tbody.innerHTML = rows.join('');
+              })
+              .catch(function() {});
+          };
+
+          // 1-click BUY
+          window.sahiBuy = function() {
+            sahibExecute('BUY');
+          };
+          window.sahiSell = function() {
+            sahibExecute('SELL');
+          };
+
+          function sahibExecute(action) {
+            var sym    = (document.getElementById('qt-symbol').value || '').trim().toUpperCase();
+            var slPct  = parseFloat(document.getElementById('qt-sl').value) || 2;
+            var tgtPct = parseFloat(document.getElementById('qt-target').value) || 4;
+            var alloc  = parseFloat(document.getElementById('qt-alloc').value) || 5;
+            var tsl    = document.getElementById('qt-tsl').checked;
+            var statusEl = document.getElementById('qt-status');
+            if (!sym) { statusEl.textContent = '⚠ Enter a symbol first'; statusEl.style.color='#FFD700'; return; }
+            statusEl.textContent = '⏳ Placing ' + action + ' order for ' + sym + '...';
+            statusEl.style.color = 'var(--muted)';
+            fetch('/api/quick-trade', {
+              method: 'POST',
+              headers: {'Content-Type':'application/json'},
+              body: JSON.stringify({symbol:sym, action:action, sl_pct:slPct, target_pct:tgtPct, alloc_pct:alloc})
+            })
+            .then(function(r){ return r.json(); })
+            .then(function(d) {
+              if (d.ok) {
+                statusEl.style.color = '#00E676';
+                var pos = d.position || {};
+                statusEl.textContent = '✅ ' + action + ' ' + sym + ' entered @ ₹' + (pos.entry_price||'').toLocaleString('en-IN',{maximumFractionDigits:2}) + ' | SL ₹' + (pos.stop_loss||'').toLocaleString('en-IN',{maximumFractionDigits:2}) + ' | T1 ₹' + (pos.target1||'').toLocaleString('en-IN',{maximumFractionDigits:2});
+                setTimeout(loadLivePositions, 600);
+              } else {
+                statusEl.style.color = '#ff3d71';
+                statusEl.textContent = '❌ ' + (d.error || 'Order failed');
+              }
+            })
+            .catch(function(e) { statusEl.style.color='#ff3d71'; statusEl.textContent='❌ Network error'; });
+          }
+
+          // Manual exit button
+          window.sahibExit = function(sym) {
+            if (!confirm('Exit position: ' + sym + '?')) return;
+            fetch('/api/close-position', {
+              method: 'POST',
+              headers: {'Content-Type':'application/json'},
+              body: JSON.stringify({symbol: sym})
+            })
+            .then(function(r){ return r.json(); })
+            .then(function(d) {
+              if (d.ok) {
+                alert('✅ Exited ' + sym + ' @ ₹' + (d.exit_price||0).toLocaleString('en-IN',{maximumFractionDigits:2}) + ' | P&L: ₹' + (d.pnl||0).toLocaleString('en-IN',{maximumFractionDigits:0}) + ' (' + (d.pnl_pct||0).toFixed(2) + '%)');
+                loadLivePositions();
+              } else {
+                alert('❌ ' + (d.error || 'Exit failed'));
+              }
+            });
+          };
+
+          // TSL toggle
+          window.toggleTSL = function(sym, enabled) {
+            fetch('/api/toggle-tsl', {
+              method: 'POST',
+              headers: {'Content-Type':'application/json'},
+              body: JSON.stringify({symbol: sym, enabled: enabled})
+            })
+            .then(function(r){ return r.json(); })
+            .then(function(d) {
+              if (!d.ok) console.warn('TSL toggle failed:', d.error);
+            });
+          };
+
+          // Auto-refresh
+          function startAutoRefresh() {
+            if (_posRefreshTimer)     clearInterval(_posRefreshTimer);
+            if (_sessionRefreshTimer) clearInterval(_sessionRefreshTimer);
+            _posRefreshTimer     = setInterval(loadLivePositions, 30000);
+            _sessionRefreshTimer = setInterval(loadSessions, 60000);
+          }
+
+          // Init when Paper tab is shown
+          var _sahibInited = false;
+          function initSahi() {
+            if (_sahibInited) return;
+            _sahibInited = true;
+            loadSessions();
+            loadLivePositions();
+            startAutoRefresh();
+          }
+
+          // Hook into showTab — init when paper tab is opened
+          var _origShowTab = window.showTab;
+          window.showTab = function(name, el) {
+            if (_origShowTab) _origShowTab(name, el);
+            if (name === 'paper') initSahi();
+          };
+
+          // Also init if paper tab is already visible on page load
+          document.addEventListener('DOMContentLoaded', function() {
+            if (document.getElementById('tab-paper') &&
+                document.getElementById('tab-paper').style.display !== 'none') {
+              initSahi();
+            }
+          });
+        })();
+        </script>
 
         <!-- ══════════════════ ALERTS ══════════════════ -->
         <div class="section" id="tab-alerts">
