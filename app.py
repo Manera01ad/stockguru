@@ -1763,8 +1763,24 @@ def api_download_excel():
 # ── END SHAMROCK ──────────────────────────────────────────────────────────────
 
 
-if __name__ == "__main__":
+# ── Auto-startup when loaded by gunicorn (Railway) ───────────────────────────
+# gunicorn imports this module as "app", not "__main__", so _startup() was
+# never called on Railway — prices stayed 0 forever. This fixes that.
+_started = False
+def _ensure_started():
+    global _started
+    if _started:
+        return
+    _started = True
     _startup()
+
+# Gunicorn worker import path (Railway) — start in background thread
+if __name__ != "__main__":
+    import threading as _th
+    _th.Thread(target=_ensure_started, daemon=True).start()
+
+if __name__ == "__main__":
+    _ensure_started()
     port = int(os.getenv("PORT", 5050))   # Railway injects PORT automatically
     print(f"\n>>> StockGuru v2.0 starting on http://localhost:{port}")
     print(">>> 14 Agents scheduled & price feed connected.")
