@@ -1,13 +1,15 @@
 # nixpacks.toml — Railway build config for StockGuru
-# Ensures correct Python version and pip install flags
+# Uses a virtualenv to avoid the Nix externally-managed-environment error
 
 [phases.setup]
 nixPkgs = ["python310", "python310Packages.pip"]
 
 [phases.install]
 cmds = [
-  "pip install -r requirements.txt --no-cache-dir"
+  "python3 -m venv /opt/venv",
+  "/opt/venv/bin/pip install --upgrade pip --no-cache-dir",
+  "/opt/venv/bin/pip install -r requirements.txt --no-cache-dir"
 ]
 
 [start]
-cmd = "gunicorn app:app --config gunicorn.conf.py"
+cmd = "/opt/venv/bin/gunicorn app:app --config gunicorn.conf.py"
