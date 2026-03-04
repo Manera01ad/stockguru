@@ -6327,6 +6327,367 @@ setTimeout(initShamrockData, 2000);
 
 // END SHAMROCK
 </script>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+//  STOCKGURU — TAB WORKFLOW VISUALIZATION ENGINE
+//  Injects a collapsible N8N-style workflow panel into every tab
+// ═══════════════════════════════════════════════════════════════════════════
+
+var TAB_WORKFLOWS = {
+
+  "tab-watchlist": {
+    title: "OVERVIEW — Market Data Pipeline",
+    nodes: [
+      { id:"ov1", icon:"📡", label:"Yahoo Finance", type:"INPUT",  desc:["^NSEI · ^BSESN","20 symbols","query2 API"] },
+      { id:"ov2", icon:"🔄", label:"Price Cache",   type:"PROCESS",desc:["In-memory store","0.15s interval","20 symbols"] },
+      { id:"ov3", icon:"📊", label:"Index Calc",    type:"PROCESS",desc:["NIFTY · SENSEX","BANK NIFTY · VIX","Change %"] },
+      { id:"ov4", icon:"📈", label:"Overview Cards",type:"OUTPUT", desc:["8 index cards","Ticker bar","Mood meter"] },
+      { id:"ov5", icon:"🔌", label:"WebSocket Push",type:"OUTPUT", desc:["price_update event","Live to browser","6s sync"] }
+    ],
+    edges: [["ov1","ov2"],["ov2","ov3"],["ov3","ov4"],["ov2","ov5"]]
+  },
+
+  "tab-commodities": {
+    title: "COMMODITIES — MCX & COMEX Feed",
+    nodes: [
+      { id:"cm1", icon:"🛢️", label:"COMEX/MCX",    type:"INPUT",  desc:["Gold · Silver","Crude · Nat Gas","GC=F CL=F"] },
+      { id:"cm2", icon:"💱", label:"Currency Layer",type:"PROCESS",desc:["USD→INR convert","INR=X live rate","MCX premium"] },
+      { id:"cm3", icon:"📉", label:"Spot Calc",     type:"PROCESS",desc:["Spot vs Futures","Basis tracking","Contango/Back"] },
+      { id:"cm4", icon:"🥇", label:"Commodity View",type:"OUTPUT", desc:["4 price tiles","% change","Trend arrows"] }
+    ],
+    edges: [["cm1","cm2"],["cm2","cm3"],["cm3","cm4"]]
+  },
+
+  "tab-crypto": {
+    title: "CRYPTO — Multi-Source Price Feed",
+    nodes: [
+      { id:"cr1", icon:"🌐", label:"CoinGecko",    type:"INPUT",  desc:["BTC · ETH · SOL","INR pairs","24h change"] },
+      { id:"cr2", icon:"📡", label:"Yahoo Crypto", type:"INPUT",  desc:["BTC-INR · ETH-INR","SOL-INR","Fallback feed"] },
+      { id:"cr3", icon:"🔀", label:"Aggregator",   type:"PROCESS",desc:["Best price pick","Deduplicate","INR normalize"] },
+      { id:"cr4", icon:"₿",  label:"Crypto Cards", type:"OUTPUT", desc:["Live prices","% changes","Volume"] }
+    ],
+    edges: [["cr1","cr3"],["cr2","cr3"],["cr3","cr4"]]
+  },
+
+  "tab-fno": {
+    title: "F&O — Options & Derivatives Analysis",
+    nodes: [
+      { id:"fn1", icon:"📋", label:"NSE Options",  type:"INPUT",  desc:["OI data","Strike chain","Expiry dates"] },
+      { id:"fn2", icon:"📐", label:"PCR Engine",   type:"PROCESS",desc:["Put-Call ratio","OI buildup","CE vs PE"] },
+      { id:"fn3", icon:"⚡", label:"IV Calculator",type:"PROCESS",desc:["Implied volatility","IV rank","VIX compare"] },
+      { id:"fn4", icon:"🎯", label:"Gate 7",        type:"PROCESS",desc:["PCR < 1.2 gate","8-gate input","Trade filter"] },
+      { id:"fn5", icon:"📊", label:"F&O Dashboard",type:"OUTPUT", desc:["Max pain","OI chart","Expiry P&L"] }
+    ],
+    edges: [["fn1","fn2"],["fn1","fn3"],["fn2","fn4"],["fn3","fn5"],["fn4","fn5"]]
+  },
+
+  "tab-market": {
+    title: "MARKETS — Global Market Overview",
+    nodes: [
+      { id:"mk1", icon:"🌍", label:"Global Feeds",  type:"INPUT",  desc:["Dow · S&P · DAX","Nikkei · HSI","FTSE"] },
+      { id:"mk2", icon:"💵", label:"Forex Layer",   type:"INPUT",  desc:["USD/INR · EUR/INR","GBP · JPY · CNH","Real-time"] },
+      { id:"mk3", icon:"🏦", label:"Bond Yields",   type:"INPUT",  desc:["US 10Y · IN 10Y","Yield spread","Rate watch"] },
+      { id:"mk4", icon:"🔗", label:"Correlation",   type:"PROCESS",desc:["India vs Global","FII flow link","Risk-on/off"] },
+      { id:"mk5", icon:"🗺️", label:"Markets View",  type:"OUTPUT", desc:["Multi-asset grid","Heat map","Correlation"] }
+    ],
+    edges: [["mk1","mk4"],["mk2","mk4"],["mk3","mk4"],["mk4","mk5"]]
+  },
+
+  "tab-daily": {
+    title: "DAILY BRIEF — AI Morning Report",
+    nodes: [
+      { id:"db1", icon:"🤖", label:"14 Agents",     type:"INPUT",  desc:["shared_state","All signals","Overnight data"] },
+      { id:"db2", icon:"🌐", label:"Web Scraper",   type:"INPUT",  desc:["News headlines","Corp events","Global cues"] },
+      { id:"db3", icon:"🧠", label:"Claude AI",     type:"PROCESS",desc:["GPT synthesis","Conviction picks","Risk flags"] },
+      { id:"db4", icon:"✍️", label:"Brief Writer",  type:"PROCESS",desc:["08:00 AM trigger","Markdown format","Key levels"] },
+      { id:"db5", icon:"📱", label:"Telegram Bot",  type:"OUTPUT", desc:["Push to channel","HTML format","Link to dash"] }
+    ],
+    edges: [["db1","db3"],["db2","db3"],["db3","db4"],["db4","db5"]]
+  },
+
+  "tab-agents": {
+    title: "AGENTS — 14-Agent Orchestration",
+    nodes: [
+      { id:"ag1", icon:"⏱️", label:"Scheduler",      type:"INPUT",  desc:["Every 15 min","Market hours","APScheduler"] },
+      { id:"ag2", icon:"📡", label:"Data Agents",    type:"PROCESS",desc:["Scanner · Tech","News · Options","Web · Morning"] },
+      { id:"ag3", icon:"🧠", label:"AI Agents",      type:"PROCESS",desc:["Claude Intel","Gemini Boost","Cross-validate"] },
+      { id:"ag4", icon:"👑", label:"Sovereign Layer",type:"PROCESS",desc:["Observer · HITL","Debate Engine","Risk Master"] },
+      { id:"ag5", icon:"📊", label:"Shared State",   type:"OUTPUT", desc:["signals[]","agent_outputs{}","Memory store"] }
+    ],
+    edges: [["ag1","ag2"],["ag2","ag3"],["ag3","ag4"],["ag4","ag5"]]
+  },
+
+  "tab-intelligence": {
+    title: "INTELLIGENCE — AI Research Engine",
+    nodes: [
+      { id:"in1", icon:"🌐", label:"Web Researcher",type:"INPUT",  desc:["BSE filings","News APIs","Economic data"] },
+      { id:"in2", icon:"🧠", label:"Claude 3.5",    type:"PROCESS",desc:["Conviction picks","Bull/Bear thesis","Risk flags"] },
+      { id:"in3", icon:"✨", label:"Gemini AI",     type:"PROCESS",desc:["Sentiment score","Pattern match","Validation"] },
+      { id:"in4", icon:"🔀", label:"Consensus",     type:"PROCESS",desc:["AI vote tally","Confidence %","Final verdict"] },
+      { id:"in5", icon:"📝", label:"Intel Report",  type:"OUTPUT", desc:["Top 5 picks","Reasoning","Confidence score"] }
+    ],
+    edges: [["in1","in2"],["in1","in3"],["in2","in4"],["in3","in4"],["in4","in5"]]
+  },
+
+  "tab-paper": {
+    title: "PAPER TRADE — Conviction Execution Engine",
+    nodes: [
+      { id:"pt1", icon:"🎯", label:"Signal Gen",    type:"INPUT",  desc:["Score ≥ 72","BUY/SELL/SHORT","T1·T2·SL levels"] },
+      { id:"pt2", icon:"🔒", label:"8-Gate Filter", type:"PROCESS",desc:["Need 6/8 gates","RSI·Vol·MACD","Score≥88 gate"] },
+      { id:"pt3", icon:"📐", label:"Position Sizer",type:"PROCESS",desc:["2% risk rule","ATR-based SL","Qty calc"] },
+      { id:"pt4", icon:"📋", label:"Paper Executor",type:"PROCESS",desc:["₹5L capital","No live orders","Sim only"] },
+      { id:"pt5", icon:"📒", label:"Trade Log",     type:"OUTPUT", desc:["paper_trades.json","P&L tracking","Excel export"] }
+    ],
+    edges: [["pt1","pt2"],["pt2","pt3"],["pt3","pt4"],["pt4","pt5"]]
+  },
+
+  "tab-portfolio": {
+    title: "PORTFOLIO — Position & Risk Monitor",
+    nodes: [
+      { id:"pf1", icon:"📋", label:"Open Positions",type:"INPUT",  desc:["paper_portfolio","Entry prices","Qty · Symbol"] },
+      { id:"pf2", icon:"💹", label:"Mark-to-Market",type:"PROCESS",desc:["Live price × qty","Unrealised P&L","Daily MTM"] },
+      { id:"pf3", icon:"⚠️", label:"Risk Engine",   type:"PROCESS",desc:["SL monitoring","Portfolio VaR","Drawdown %"] },
+      { id:"pf4", icon:"📊", label:"Portfolio View",type:"OUTPUT", desc:["Positions table","P&L chart","Risk metrics"] }
+    ],
+    edges: [["pf1","pf2"],["pf2","pf3"],["pf3","pf4"]]
+  },
+
+  "tab-alerts": {
+    title: "ALERTS — Real-Time Price & Signal Alerts",
+    nodes: [
+      { id:"al1", icon:"📡", label:"Price Monitor",  type:"INPUT",  desc:["All 20 symbols","Every 30s","WebSocket feed"] },
+      { id:"al2", icon:"📏", label:"Alert Rules",    type:"PROCESS",desc:["Price crossing","% move alert","Pattern break"] },
+      { id:"al3", icon:"⚡", label:"Trigger Engine", type:"PROCESS",desc:["Threshold check","Dedup · Cooldown","Priority rank"] },
+      { id:"al4", icon:"📱", label:"Telegram Push",  type:"OUTPUT", desc:["Instant notify","HTML message","Alert log"] }
+    ],
+    edges: [["al1","al2"],["al2","al3"],["al3","al4"]]
+  },
+
+  "tab-learn": {
+    title: "LEARN — Trading Education Module",
+    nodes: [
+      { id:"lrn1", icon:"📚", label:"Content Library",type:"INPUT",  desc:["Patterns · Setups","Indicators","Strategy docs"] },
+      { id:"lrn2", icon:"🧠", label:"Claude Tutor",   type:"PROCESS",desc:["Explain signals","Q&A engine","Live examples"] },
+      { id:"lrn3", icon:"📈", label:"Live Examples",  type:"PROCESS",desc:["Current signals","Real chart data","Context link"] },
+      { id:"lrn4", icon:"🎓", label:"Learn Dashboard",type:"OUTPUT", desc:["Lessons","Quiz","Progress track"] }
+    ],
+    edges: [["lrn1","lrn2"],["lrn3","lrn2"],["lrn2","lrn4"]]
+  },
+
+  "tab-tools": {
+    title: "TOOLS — Strategy & Calculation Utilities",
+    nodes: [
+      { id:"tl1", icon:"🔢", label:"Calculator",  type:"INPUT",  desc:["Position size","Risk/reward","Brokerage calc"] },
+      { id:"tl2", icon:"📐", label:"Pivot Engine",type:"PROCESS",desc:["Classic · CPR","Fibonacci","Support/Resist"] },
+      { id:"tl3", icon:"🧪", label:"Strategy Lab",type:"PROCESS",desc:["Custom screener","Parameter sweep","Walk-forward"] },
+      { id:"tl4", icon:"📊", label:"Tools Output",type:"OUTPUT", desc:["Charts · Tables","Export CSV","Save strategy"] }
+    ],
+    edges: [["tl1","tl2"],["tl2","tl3"],["tl3","tl4"]]
+  },
+
+  "tab-channels": {
+    title: "CHANNELS — Broker & Data Connectors",
+    nodes: [
+      { id:"ch1", icon:"🏦", label:"Zerodha Kite",  type:"INPUT",  desc:["API key auth","Order gateway","Live data"] },
+      { id:"ch2", icon:"🦙", label:"Alpaca",         type:"INPUT",  desc:["US markets","Paper account","REST + WS"] },
+      { id:"ch3", icon:"🔀", label:"Channel Mgr",   type:"PROCESS",desc:["Route orders","Failover logic","Status check"] },
+      { id:"ch4", icon:"📋", label:"Order Manager", type:"OUTPUT", desc:["Order log","Fill report","P&L reconcile"] }
+    ],
+    edges: [["ch1","ch3"],["ch2","ch3"],["ch3","ch4"]]
+  },
+
+  "tab-backtest": {
+    title: "BACKTEST — Historical Strategy Testing",
+    nodes: [
+      { id:"bt1", icon:"🗄️", label:"OHLCV Data",    type:"INPUT",  desc:["yfinance fetch","1D · 1H · 15M","5 years max"] },
+      { id:"bt2", icon:"⚙️", label:"Strategy Engine",type:"PROCESS",desc:["EMA cross","RSI · MACD","Custom logic"] },
+      { id:"bt3", icon:"📐", label:"Trade Simulator",type:"PROCESS",desc:["Slippage model","Brokerage cost","Position size"] },
+      { id:"bt4", icon:"📊", label:"Performance",   type:"OUTPUT", desc:["Sharpe · CAGR","Max drawdown","Win rate chart"] }
+    ],
+    edges: [["bt1","bt2"],["bt2","bt3"],["bt3","bt4"]]
+  },
+
+  "tab-apikeys": {
+    title: "API KEYS — Credentials & Integration",
+    nodes: [
+      { id:"ak1", icon:"🔑", label:"Key Store",      type:"INPUT",  desc:[".env file","Railway vars","Encrypted at rest"] },
+      { id:"ak2", icon:"✅", label:"Validator",      type:"PROCESS",desc:["Test each key","Health check","Expiry alert"] },
+      { id:"ak3", icon:"🚦", label:"Rate Limiter",   type:"PROCESS",desc:["Per-key limits","Quota tracker","Auto-backoff"] },
+      { id:"ak4", icon:"📊", label:"API Status",     type:"OUTPUT", desc:["Green/Red status","Usage stats","Last tested"] }
+    ],
+    edges: [["ak1","ak2"],["ak2","ak3"],["ak3","ak4"]]
+  },
+
+  "tab-sovereign": {
+    title: "SOVEREIGN — Self-Evolving Meta Layer",
+    nodes: [
+      { id:"sv1", icon:"👁️", label:"Observer",       type:"INPUT",  desc:["Monitor all agents","Drift detection","Anomaly flag"] },
+      { id:"sv2", icon:"🧪", label:"Backtester",     type:"PROCESS",desc:["Synthetic data","Strategy test","Walk-forward"] },
+      { id:"sv3", icon:"⚡", label:"Debate Engine",  type:"PROCESS",desc:["Bull vs Bear","3-agent vote","Consensus score"] },
+      { id:"sv4", icon:"🔨", label:"Builder Agent",  type:"PROCESS",desc:["Auto-improve","New strategies","Self-modify"] },
+      { id:"sv5", icon:"👑", label:"Sovereign Out",  type:"OUTPUT", desc:["Proposals queue","HITL approval","Deploy changes"] }
+    ],
+    edges: [["sv1","sv3"],["sv2","sv3"],["sv3","sv4"],["sv4","sv5"]]
+  },
+
+  "tab-learning": {
+    title: "LEARNING — Signal Outcome Tracker",
+    nodes: [
+      { id:"lc1", icon:"📋", label:"Signal History",type:"INPUT",  desc:["All past signals","Entry · Exit","Timestamped"] },
+      { id:"lc2", icon:"📊", label:"Outcome Tracker",type:"PROCESS",desc:["Hit T1/T2/SL","Days held","Result tag"] },
+      { id:"lc3", icon:"🧠", label:"ML Weight Engine",type:"PROCESS",desc:["Agent accuracy","Update weights","Bayesian adj"] },
+      { id:"lc4", icon:"📈", label:"Learning Report", type:"OUTPUT", desc:["Win rates","Best agents","Strategy rank"] }
+    ],
+    edges: [["lc1","lc2"],["lc2","lc3"],["lc3","lc4"]]
+  }
+};
+
+// ── Renderer ─────────────────────────────────────────────────────────────────
+function _wfColor(type) {
+  return type === 'INPUT'   ? '#0a4a2a' :
+         type === 'OUTPUT'  ? '#2a1a4a' :
+         type === 'PROCESS' ? '#0a2a3a' : '#1a2a1a';
+}
+function _wfBorder(type) {
+  return type === 'INPUT'   ? '#00E676' :
+         type === 'OUTPUT'  ? '#9B59B6' :
+         type === 'PROCESS' ? '#00C4CC' : '#FFD700';
+}
+
+function renderWorkflow(tabId) {
+  var cfg = TAB_WORKFLOWS[tabId];
+  if (!cfg) return '<div style="color:#888;padding:20px">No workflow defined for this tab.</div>';
+
+  var nodeMap = {};
+  cfg.nodes.forEach(function(n) { nodeMap[n.id] = n; });
+
+  var nodeHTML = cfg.nodes.map(function(n) {
+    var bg  = _wfColor(n.type);
+    var brd = _wfBorder(n.type);
+    return '<div style="display:flex;flex-direction:column;align-items:center;min-width:140px">' +
+      '<div style="background:' + bg + ';border:1.5px solid ' + brd + ';border-radius:10px;' +
+           'padding:12px 14px;width:138px;box-shadow:0 2px 12px rgba(0,0,0,.4);position:relative">' +
+        '<div style="position:absolute;top:-9px;left:50%;transform:translateX(-50%);' +
+             'background:' + brd + ';color:#000;font-size:9px;font-weight:700;padding:1px 7px;border-radius:4px;letter-spacing:.5px">' +
+          n.type + '</div>' +
+        '<div style="font-size:20px;text-align:center;margin:6px 0 4px">' + n.icon + '</div>' +
+        '<div style="color:#fff;font-size:11px;font-weight:700;text-align:center;letter-spacing:.5px;margin-bottom:6px">' + n.label + '</div>' +
+        '<div style="border-top:1px solid rgba(255,255,255,.08);padding-top:6px">' +
+          n.desc.map(function(d) {
+            return '<div style="color:#aaa;font-size:9.5px;text-align:center;line-height:1.6">' + d + '</div>';
+          }).join('') +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  });
+
+  var arrowHTML = cfg.edges.map(function() {
+    return '<div style="display:flex;align-items:center;padding:0 4px;color:#00C4CC;font-size:18px;opacity:.7">&#8594;</div>';
+  });
+
+  // Build row: interleave nodes with arrows based on edges
+  // Simple linear layout — nodes in order with arrows between consecutive ones
+  var rowParts = [];
+  cfg.nodes.forEach(function(n, i) {
+    rowParts.push(nodeHTML[i]);
+    if (i < cfg.nodes.length - 1) {
+      rowParts.push('<div style="display:flex;align-items:center;padding:0 6px;color:#00C4CC;font-size:22px;opacity:.6">&#8594;</div>');
+    }
+  });
+
+  // Check for any branch edges (non-linear) and show them as a note
+  var linearPairs = cfg.nodes.map(function(n, i) {
+    if (i < cfg.nodes.length - 1) return [n.id, cfg.nodes[i+1].id];
+    return null;
+  }).filter(Boolean);
+
+  var branchEdges = cfg.edges.filter(function(e) {
+    return !linearPairs.some(function(lp) { return lp[0] === e[0] && lp[1] === e[1]; });
+  });
+
+  var branchNote = '';
+  if (branchEdges.length) {
+    branchNote = '<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;">' +
+      branchEdges.map(function(e) {
+        var from = nodeMap[e[0]], to = nodeMap[e[1]];
+        return '<div style="background:rgba(0,196,204,.08);border:1px solid rgba(0,196,204,.2);' +
+               'border-radius:6px;padding:4px 10px;font-size:10px;color:#00C4CC">' +
+               (from ? from.icon + ' ' + from.label : e[0]) + ' &#8594; ' +
+               (to   ? to.icon   + ' ' + to.label   : e[1]) +
+               '</div>';
+      }).join('') +
+    '</div>';
+  }
+
+  return '<div style="overflow-x:auto;padding:4px 0">' +
+    '<div style="display:flex;align-items:flex-start;gap:0;min-width:max-content;padding:8px 0">' +
+      rowParts.join('') +
+    '</div>' +
+    branchNote +
+  '</div>';
+}
+
+// ── Inject toggle button into every tab ──────────────────────────────────────
+function injectWorkflowPanels() {
+  Object.keys(TAB_WORKFLOWS).forEach(function(tabId) {
+    var section = document.getElementById(tabId);
+    if (!section) return;
+
+    var cfg = TAB_WORKFLOWS[tabId];
+
+    var panel = document.createElement('div');
+    panel.id = 'wf-panel-' + tabId;
+    panel.style.cssText = 'margin:0 0 18px 0;border-radius:12px;overflow:hidden;' +
+      'border:1px solid rgba(0,196,204,.2);background:rgba(0,20,16,.6)';
+
+    // Header row (always visible)
+    var header = document.createElement('div');
+    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;' +
+      'padding:10px 16px;cursor:pointer;user-select:none;' +
+      'background:rgba(0,45,34,.8);border-bottom:1px solid rgba(0,196,204,.1)';
+    header.innerHTML =
+      '<div style="display:flex;align-items:center;gap:10px">' +
+        '<span style="color:#00C4CC;font-size:14px">⬡</span>' +
+        '<span style="color:#00C4CC;font-size:11px;font-weight:700;letter-spacing:1px">WORKFLOW</span>' +
+        '<span style="color:#888;font-size:10px">&#xb7; ' + cfg.title + '</span>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:8px">' +
+        '<span style="background:rgba(0,196,204,.12);color:#00C4CC;font-size:9px;' +
+              'padding:2px 8px;border-radius:4px;border:1px solid rgba(0,196,204,.25)">' +
+          cfg.nodes.length + ' nodes · ' + cfg.edges.length + ' connections</span>' +
+        '<span id="wf-arrow-' + tabId + '" style="color:#00C4CC;font-size:12px;transition:transform .3s">&#9660;</span>' +
+      '</div>';
+
+    // Body (collapsed by default)
+    var body = document.createElement('div');
+    body.id = 'wf-body-' + tabId;
+    body.style.cssText = 'padding:16px 18px;display:none';
+    body.innerHTML = renderWorkflow(tabId);
+
+    // Toggle
+    var open = false;
+    header.addEventListener('click', function() {
+      open = !open;
+      body.style.display = open ? 'block' : 'none';
+      var arrow = document.getElementById('wf-arrow-' + tabId);
+      if (arrow) arrow.style.transform = open ? 'rotate(180deg)' : '';
+    });
+
+    panel.appendChild(header);
+    panel.appendChild(body);
+
+    // Insert as first child of the section
+    section.insertBefore(panel, section.firstChild);
+  });
+}
+
+// Boot after DOM settles
+setTimeout(injectWorkflowPanels, 1500);
+
+// END TAB WORKFLOWS
+</script>
+
 </body>
 
 </html>
