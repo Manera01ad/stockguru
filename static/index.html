@@ -7164,10 +7164,10 @@ setTimeout(injectWorkflowPanels, 1500);
 
   <!-- Quick suggestions -->
   <div id="sg-suggestions">
-    <span class="sg-sugg" onclick="sgSuggestion(this)">📊 Show open positions</span>
-    <span class="sg-sugg" onclick="sgSuggestion(this)">⚡ Top signals now</span>
-    <span class="sg-sugg" onclick="sgSuggestion(this)">🎯 NIFTY outlook today</span>
-    <span class="sg-sugg" onclick="sgSuggestion(this)">📉 Any SL at risk?</span>
+    <span class="sg-sugg" onclick="sgSuggestion(this)">🛡 Should I hold my positions or tighten stops today?</span>
+    <span class="sg-sugg" onclick="sgSuggestion(this)">📊 NIFTY 24500 PE buying — what does this mean for tomorrow?</span>
+    <span class="sg-sugg" onclick="sgSuggestion(this)">⚡ Which signal has the best risk:reward right now?</span>
+    <span class="sg-sugg" onclick="sgSuggestion(this)">📉 Any of my stop losses at risk?</span>
   </div>
 
   <!-- Input -->
@@ -7325,6 +7325,208 @@ setTimeout(injectWorkflowPanels, 1500);
       .replace(/`(.+?)`/g,'<code style="background:#2a2a2a;padding:1px 5px;border-radius:3px;font-size:11px">$1</code>')
       .replace(/\n/g,'<br>');
   }
+})();
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TAB-SPECIFIC AI QUESTION BARS
+     Injected into each agent tab so you can ask relevant
+     questions directly from context — opens the floating chat
+     ═══════════════════════════════════════════════════════════ -->
+<style>
+.sg-tab-ask {
+  margin: 18px 0 4px;
+  background: rgba(0,229,160,.04);
+  border: 1px solid rgba(0,229,160,.12);
+  border-radius: 12px;
+  padding: 10px 14px;
+}
+.sg-tab-ask-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px; letter-spacing: 1px;
+  color: #00E5A0; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 6px;
+}
+.sg-tab-ask-chips {
+  display: flex; flex-wrap: wrap; gap: 7px;
+}
+.sg-tab-chip {
+  font-size: 12px; color: #aaa;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 20px; padding: 5px 13px;
+  cursor: pointer; transition: all .2s;
+  display: flex; align-items: center; gap: 5px;
+}
+.sg-tab-chip:hover {
+  background: rgba(0,229,160,.1);
+  color: #00E5A0;
+  border-color: rgba(0,229,160,.35);
+  transform: translateY(-1px);
+}
+.sg-tab-chip-icon { font-size: 13px; }
+</style>
+
+<script>
+(function() {
+
+  // ── Per-tab question definitions ─────────────────────────────────────────
+  // Each tab has 3-4 questions relevant to what's on that tab.
+  // The question text is sent to the AI chat as-is.
+  var TAB_AI_QUESTIONS = {
+    'tab-overview': [
+      { icon:'🌐', q:'What is the overall market condition right now?' },
+      { icon:'📋', q:'Top 3 stocks to watch today based on agent signals?' },
+      { icon:'🎯', q:'Which signal has the best risk:reward right now?' },
+    ],
+    'tab-watchlist': [
+      { icon:'📈', q:'Which watchlist stock has the strongest breakout setup today?' },
+      { icon:'🔍', q:'Any volume surges worth entering on the watchlist?' },
+      { icon:'⚡', q:'Which signal has the best risk:reward right now?' },
+    ],
+    'tab-commodities': [
+      { icon:'🥇', q:'Gold vs Crude — which has better momentum today?' },
+      { icon:'📊', q:'Any commodity showing OI buildup or unusual moves?' },
+      { icon:'🌐', q:'How is global risk sentiment affecting Indian commodities?' },
+    ],
+    'tab-crypto': [
+      { icon:'₿',  q:'BTC trend today — bullish or bearish based on current data?' },
+      { icon:'📉', q:'Any crypto showing RSI oversold or volume breakout right now?' },
+      { icon:'🔗', q:'How is crypto correlating with NIFTY today?' },
+    ],
+    'tab-fno': [
+      { icon:'📊', q:'NIFTY 24500 PE buying — what does this mean for tomorrow?' },
+      { icon:'🎯', q:'What is the PCR saying about market direction today?' },
+      { icon:'💡', q:'Which F&O strike has the heaviest OI buildup — key level?' },
+      { icon:'⚠️', q:'Any unusual options activity signalling a big move?' },
+    ],
+    'tab-market': [
+      { icon:'🏦', q:'FII vs DII flow today — who is dominating and what does it mean?' },
+      { icon:'📰', q:'What macro factor is most likely to move NIFTY this week?' },
+      { icon:'🌍', q:'How is global market sentiment impacting Indian equities?' },
+    ],
+    'tab-daily': [
+      { icon:'🌅', q:'What are the key levels for NIFTY and SENSEX today?' },
+      { icon:'📋', q:'Morning brief — what should I focus on for today\'s trading session?' },
+      { icon:'🎯', q:'Which stocks are worth watching for intraday moves today?' },
+    ],
+    'tab-agents': [
+      { icon:'🤖', q:'Which agent has the highest conviction pick right now?' },
+      { icon:'⚠️', q:'Is any agent flagging a risk warning I should know about?' },
+      { icon:'🔄', q:'When did agents last run and what was the outcome?' },
+    ],
+    'tab-intelligence': [
+      { icon:'🧠', q:'What is Claude\'s current market stance and why?' },
+      { icon:'📊', q:'Which signal has the best risk:reward right now?' },
+      { icon:'🔮', q:'What is the biggest risk to the market this week according to AI?' },
+    ],
+    'tab-paper': [
+      { icon:'🛡', q:'Should I hold my positions or tighten stops today?' },
+      { icon:'📉', q:'Any of my stop losses at risk of being hit?' },
+      { icon:'💰', q:'Which open position has the best unrealised gain to book?' },
+      { icon:'🎯', q:'Is there a new setup worth entering in paper trade right now?' },
+    ],
+    'tab-portfolio': [
+      { icon:'💼', q:'What is my overall paper portfolio P&L and win rate?' },
+      { icon:'📊', q:'Should I book profits on any open position now?' },
+      { icon:'⚖️', q:'Am I over-concentrated in any sector or stock?' },
+    ],
+    'tab-alerts': [
+      { icon:'🔔', q:'Are any of my positions near their stop loss level right now?' },
+      { icon:'📲', q:'What triggered the last Telegram alert?' },
+      { icon:'⚡', q:'Which stock is closest to generating a STRONG BUY signal?' },
+    ],
+    'tab-learn': [
+      { icon:'📚', q:'Explain PCR (Put-Call Ratio) and how to use it for trading?' },
+      { icon:'📈', q:'What is trailing stop loss and how does the TSL work in StockGuru?' },
+      { icon:'🧠', q:'Explain the 8-gate conviction system — what does each gate check?' },
+    ],
+    'tab-tools': [
+      { icon:'🔧', q:'Which tool should I use to analyse a new stock I am interested in?' },
+      { icon:'📊', q:'How do I read the conviction gate output for a signal?' },
+    ],
+    'tab-backtest': [
+      { icon:'📉', q:'What does the backtest say about the current strategy\'s win rate?' },
+      { icon:'🔍', q:'Which market condition did the strategy perform best in historically?' },
+      { icon:'📊', q:'What is the Sharpe ratio and max drawdown in the backtest results?' },
+    ],
+    'tab-sovereign': [
+      { icon:'👑', q:'What is the sovereign agent\'s current market view and stance?' },
+      { icon:'🎯', q:'Any high-conviction trade queued by the sovereign layer?' },
+      { icon:'⚠️', q:'Is the sovereign agent in risk-off or risk-on mode right now?' },
+    ],
+    'tab-learning': [
+      { icon:'🧠', q:'How is the learning system adjusting weights based on recent trades?' },
+      { icon:'📊', q:'Which signals have been most accurate according to the signal tracker?' },
+      { icon:'🔄', q:'What pattern is the system learning from recent wins and losses?' },
+    ],
+    'tab-channels': [
+      { icon:'📡', q:'What is the current market narrative from Telegram channels?' },
+      { icon:'📰', q:'Any fresh news or sentiment shift I should know about?' },
+    ],
+    'tab-apikeys': [
+      { icon:'🔑', q:'How do I add my Anthropic API key to enable full AI analysis?' },
+      { icon:'📲', q:'How do I set up Telegram alerts for this system?' },
+    ],
+    'tab-shamrock': [
+      { icon:'🍀', q:'Run SHAMROCK analysis — what is the current 8-gate status?' },
+      { icon:'📊', q:'Which gate is most likely to block a SHAMROCK trade entry today?' },
+      { icon:'🎯', q:'SHAMROCK conviction score — should I force a trade?' },
+    ],
+  };
+
+  // ── Inject question bars into all tabs ────────────────────────────────────
+  function injectTabAskBars() {
+    Object.keys(TAB_AI_QUESTIONS).forEach(function(tabId) {
+      var tabEl = document.getElementById(tabId);
+      if (!tabEl) return;
+      var qs = TAB_AI_QUESTIONS[tabId];
+
+      // Build chips HTML
+      var chips = qs.map(function(item) {
+        var escaped = item.q.replace(/'/g, "\\'");
+        return '<span class="sg-tab-chip" onclick="sgAskFromTab(\'' + escaped + '\')">' +
+               '<span class="sg-tab-chip-icon">' + item.icon + '</span>' +
+               item.q +
+               '</span>';
+      }).join('');
+
+      var bar = document.createElement('div');
+      bar.className = 'sg-tab-ask';
+      bar.innerHTML =
+        '<div class="sg-tab-ask-label">🤖 ASK AI AGENT</div>' +
+        '<div class="sg-tab-ask-chips">' + chips + '</div>';
+
+      // Insert as first child of tab's inner div (after workflow panel if present)
+      var inner = tabEl.querySelector('div');
+      if (inner) {
+        inner.insertBefore(bar, inner.firstChild);
+      } else {
+        tabEl.insertBefore(bar, tabEl.firstChild);
+      }
+    });
+  }
+
+  // ── Global: open chat + fire question from any tab ────────────────────────
+  window.sgAskFromTab = function(question) {
+    // Open the chat panel if not already open
+    var panel = document.getElementById('sg-chat-panel');
+    if (!panel.classList.contains('open')) {
+      window.sgChatToggle();
+    }
+    // Pre-fill and send
+    var inp = document.getElementById('sg-chat-input');
+    if (inp) inp.value = question;
+    setTimeout(function() { window.sgChatSend(); }, 120);
+  };
+
+  // Run after DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', injectTabAskBars);
+  } else {
+    setTimeout(injectTabAskBars, 600);
+  }
+
 })();
 </script>
 
