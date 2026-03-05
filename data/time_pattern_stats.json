@@ -1,0 +1,32 @@
+{
+  "regime:BULL_TREND": {
+    "win_rate": 1.0,
+    "count": 7,
+    "avg_pnl": 3.99
+  },
+  "session:MID_SESSION": {
+    "win_rate": 1.0,
+    "count": 6,
+    "avg_pnl": 3.84
+  },
+  "day:THU": {
+    "win_rate": 0.75,
+    "count": 8,
+    "avg_pnl": 2.39
+  },
+  "week:NORMAL": {
+    "win_rate": 0.75,
+    "count": 8,
+    "avg_pnl": 2.39
+  },
+  "day:THU|session:MID_SESSION": {
+    "win_rate": 1.0,
+    "count": 6,
+    "avg_pnl": 3.84
+  },
+  "regime:BULL_TREND|session:MID_SESSION": {
+    "win_rate": 1.0,
+    "count": 6,
+    "avg_pnl": 3.84
+  }
+}

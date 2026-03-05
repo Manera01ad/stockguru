@@ -361,6 +361,83 @@ def _enter_position(signal, gates_passed, gate_detail, portfolio, price_cache, s
     except Exception as e:
         log.debug("signal_tracker record failed: %s", e)
 
+    # ── ATLAS: Log full multi-dimensional entry context ──────────────────────
+    try:
+        from atlas.core import log_trade_entry
+        from atlas.volume_classifier import classify_volume
+        from atlas.regime_detector import get_time_context
+        from atlas.news_impact_mapper import classify_news_event
+
+        # Extract signal metadata
+        meta      = signal.get("meta", {}) or {}
+        opts_data = shared_state.get("options_flow", {}) if shared_state else {}
+        nifty_opts = opts_data.get("nifty", {}) if isinstance(opts_data.get("nifty"), dict) else {}
+        bnf_opts   = opts_data.get("banknifty", {}) if isinstance(opts_data.get("banknifty"), dict) else {}
+        fii_data  = shared_state.get("institutional_flow", {}) if shared_state else {}
+        news_data = shared_state.get("news_sentiment", {}) if shared_state else {}
+        ta_data   = signal.get("technical", {}) or {}
+
+        # Volume classification
+        vol_data   = meta.get("volume_data", {}) or {}
+        vol_result = classify_volume(
+            ticker                  = name,
+            current_volume          = vol_data.get("current_volume", 0),
+            avg_volume_20d          = vol_data.get("avg_volume", 1),
+            price_change_pct        = vol_data.get("price_change_pct", 0),
+            price_vs_high_52w       = meta.get("price_vs_52w_high", 100),
+            price_vs_resistance     = meta.get("vs_resistance_pct", 0),
+            is_near_corporate_event = meta.get("near_earnings", False),
+        ) if vol_data.get("current_volume") else {"volume_class": None, "volume_ratio": None, "signal": None}
+
+        # Time context
+        time_ctx = get_time_context()
+
+        # ATLAS entry log
+        atlas_event_id = f"ATLAS_{name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        log_trade_entry(
+            event_id     = atlas_event_id,
+            ticker       = name,
+            sector       = sector,
+            entry_price  = entry_price,
+            signal_type  = signal.get("signal", "BUY"),
+            entry_score  = score,
+            gates_passed = gates_passed,
+            # Technical
+            rsi          = ta_data.get("rsi") or meta.get("rsi"),
+            macd_cross   = "BULL" if ta_data.get("macd_bullish") else ("BEAR" if ta_data.get("macd_bullish") is False else None),
+            ema_position = meta.get("ema_position"),
+            trend_strength = meta.get("trend_strength"),
+            # Options
+            pcr_nifty    = nifty_opts.get("pcr"),
+            pcr_banknifty = bnf_opts.get("pcr"),
+            max_pain_nifty = nifty_opts.get("max_pain"),
+            iv_percentile = nifty_opts.get("iv_percentile"),
+            options_signal = nifty_opts.get("signal"),
+            # News
+            news_sentiment_score  = news_data.get("overall_score"),
+            news_event_type       = news_data.get("top_event_type"),
+            news_impact_magnitude = news_data.get("impact_magnitude"),
+            # Volume
+            volume_class   = vol_result.get("volume_class"),
+            volume_ratio   = vol_result.get("volume_ratio"),
+            volume_signal  = vol_result.get("signal"),
+            # Regime / Time
+            regime         = shared_state.get("market_regime", {}).get("regime") if shared_state else None,
+            regime_strength = shared_state.get("market_regime", {}).get("strength") if shared_state else None,
+            market_session = time_ctx.get("session"),
+            day_of_week    = time_ctx.get("day_of_week"),
+            week_type      = time_ctx.get("week_type"),
+            # Fundamental
+            fii_flow       = fii_data.get("fii_flow"),
+            dii_flow       = fii_data.get("dii_flow"),
+            sector_momentum = shared_state.get("sector_momentum", {}).get(sector) if shared_state else None,
+        )
+        # Store ATLAS event_id on position for outcome tracking later
+        position["atlas_event_id"] = atlas_event_id
+        log.debug("🧠 ATLAS: Entry logged for %s [%s]", name, atlas_event_id)
+    except Exception as e:
+        log.debug("ATLAS entry log failed: %s", e)
+
     return position
 
 # ── POSITION MONITOR & EXIT ───────────────────────────────────────────────────
@@ -486,6 +563,30 @@ def _close_position(portfolio, name, outcome, exit_price, shares, pnl, pnl_pct, 
     pos["outcome"]    = outcome
     pos["final_pnl"]  = pnl
     pos["final_pnl_pct"] = pnl_pct
+
+    # ── ATLAS: Record trade outcome for knowledge learning ───────────────────
+    atlas_event_id = pos.get("atlas_event_id")
+    if atlas_event_id:
+        try:
+            from atlas.core import update_trade_outcome
+            entry_time = pos.get("entry_time")
+            hold_hrs   = None
+            if entry_time:
+                try:
+                    delta = datetime.now() - datetime.fromisoformat(entry_time)
+                    hold_hrs = round(delta.total_seconds() / 3600, 1)
+                except Exception:
+                    pass
+            update_trade_outcome(
+                event_id          = atlas_event_id,
+                outcome           = outcome,
+                exit_price        = exit_price,
+                pnl_pct           = pnl_pct,
+                hold_duration_hrs = hold_hrs,
+            )
+            log.debug("🧠 ATLAS: Outcome logged %s → %s %.1f%%", atlas_event_id, outcome, pnl_pct)
+        except Exception as e:
+            log.debug("ATLAS outcome log failed: %s", e)
 
     trades.append({
         "name":      name,

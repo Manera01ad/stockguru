@@ -97,6 +97,23 @@ except ImportError as _se2:
     SOVEREIGN_PHASE2_AVAILABLE = False
     logging.warning(f"⚠️  Sovereign Phase 2 not loaded: {_se2}")
 
+# ── ATLAS — SELF-LEARNING KNOWLEDGE ENGINE ────────────────────────────────────
+try:
+    import sys as _sys_atlas, os as _os_atlas
+    _sys_atlas.path.insert(0, _os_atlas.path.join(_os_atlas.path.dirname(__file__), "stockguru_agents"))
+    from atlas.core import ATLASCore, get_knowledge_stats, get_best_patterns, get_active_rules
+    from atlas.self_upgrader import run_upgrade, get_upgrade_status, run_quick_context_refresh
+    from atlas.options_flow_memory import record_options_snapshot, get_options_context
+    from atlas.news_impact_mapper import classify_news_event, record_news_event
+    from atlas.regime_detector import detect_regime, get_time_context
+    from atlas.volume_classifier import classify_volume
+    from atlas.causal_engine import analyze_trade_cause
+    ATLAS_AVAILABLE = True
+    logging.info("✅ ATLAS Knowledge Engine loaded — 6 learning modules active")
+except Exception as _ae:
+    ATLAS_AVAILABLE = False
+    logging.warning(f"⚠️  ATLAS not loaded: {_ae}")
+
 # ── CHANNELS + BACKTESTING ────────────────────────────────────────────────────
 try:
     from channels import ChannelManager
@@ -1578,6 +1595,11 @@ def run_scheduler():
         schedule.every(6).hours.do(lambda: synthetic_backtester.run(shared_state))
         schedule.every().day.at("09:05").do(lambda: builder_agent.run(shared_state, send_telegram))
         log.info("⏰ Phase 2: Observer every 4h | Backtester every 6h | Builder daily 09:05")
+    # ATLAS Self-Learning Knowledge Engine
+    if ATLAS_AVAILABLE:
+        schedule.every(15).minutes.do(lambda: run_quick_context_refresh(shared_state))
+        schedule.every().day.at("21:00").do(lambda: run_upgrade(shared_state, use_llm=True))
+        log.info("⏰ ATLAS: Context refresh every 15min | Full upgrade daily 21:00")
     log.info("⏰ Scheduler started — 14-agent cycle every 15 minutes")
     while True:
         schedule.run_pending()
@@ -2114,6 +2136,177 @@ def api_chat():
                  "to enable full AI chat. I can still answer questions about positions, signals, and prices.")
 
     return jsonify({"ok": True, "reply": reply, "model": "Rule Engine"})
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ATLAS API ENDPOINTS — Self-Learning Knowledge Engine
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.route("/api/atlas/stats")
+def api_atlas_stats():
+    """ATLAS knowledge base statistics for dashboard panel."""
+    if not ATLAS_AVAILABLE:
+        return jsonify({"available": False, "message": "ATLAS not loaded"})
+    try:
+        stats    = get_knowledge_stats()
+        upgrade  = get_upgrade_status()
+        time_ctx = get_time_context()
+        return jsonify({
+            "available":   True,
+            "stats":       stats,
+            "upgrade":     upgrade,
+            "time_context": time_ctx,
+            "atlas_context": shared_state.get("atlas_context", {}),
+        })
+    except Exception as e:
+        return jsonify({"available": True, "error": str(e)}), 500
+
+
+@app.route("/api/atlas/patterns")
+def api_atlas_patterns():
+    """Top GOLD and SILVER patterns discovered by ATLAS."""
+    if not ATLAS_AVAILABLE:
+        return jsonify({"available": False})
+    try:
+        quality = request.args.get("quality", "GOLD")
+        limit   = int(request.args.get("limit", 15))
+        patterns = get_best_patterns(quality=quality, limit=limit)
+        return jsonify({"available": True, "patterns": patterns, "quality": quality})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/atlas/rules")
+def api_atlas_rules():
+    """Active auto-generated trading rules."""
+    if not ATLAS_AVAILABLE:
+        return jsonify({"available": False})
+    try:
+        rule_type = request.args.get("type")
+        rules     = get_active_rules(rule_type=rule_type)
+        return jsonify({"available": True, "rules": rules, "count": len(rules)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/atlas/lessons")
+def api_atlas_lessons():
+    """Recent lessons from closed trades with causal analysis."""
+    if not ATLAS_AVAILABLE:
+        return jsonify({"available": False})
+    try:
+        from atlas.core import get_recent_lessons_atlas
+        ticker = request.args.get("ticker")
+        limit  = int(request.args.get("limit", 10))
+        lessons = get_recent_lessons_atlas(ticker=ticker, limit=limit)
+        return jsonify({"available": True, "lessons": lessons})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/atlas/query")
+def api_atlas_query():
+    """
+    Query ATLAS: what happened historically when conditions were like now?
+    Params: regime, pcr_zone, volume_class, sector, news_type
+    """
+    if not ATLAS_AVAILABLE:
+        return jsonify({"available": False})
+    try:
+        from atlas.core import query_similar_conditions
+        regime       = request.args.get("regime")
+        pcr_zone     = request.args.get("pcr_zone")
+        volume_class = request.args.get("volume_class")
+        sector       = request.args.get("sector")
+        news_type    = request.args.get("news_type")
+        limit        = int(request.args.get("limit", 10))
+        results = query_similar_conditions(
+            regime=regime, pcr_zone=pcr_zone,
+            volume_class=volume_class, sector=sector,
+            news_type=news_type, limit=limit,
+        )
+        return jsonify({"available": True, "results": results, "count": len(results)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/atlas/upgrade", methods=["GET", "POST"])
+def api_atlas_upgrade():
+    """
+    Trigger a manual ATLAS self-upgrade cycle.
+    Runs full synthesis: patterns, rules, causal analysis, LLM insights.
+    """
+    if not ATLAS_AVAILABLE:
+        return jsonify({"available": False, "message": "ATLAS not loaded"})
+    try:
+        use_llm = request.args.get("llm", "true").lower() != "false"
+        log.info("🧠 ATLAS: Manual upgrade triggered via API (llm=%s)", use_llm)
+        results = run_upgrade(shared_state=shared_state, use_llm=use_llm)
+        return jsonify({
+            "available": True,
+            "ok":        True,
+            "run_id":    results.get("run_id"),
+            "duration":  results.get("duration_secs"),
+            "steps":     results.get("steps", {}),
+            "top_insight": results.get("top_insight"),
+        })
+    except Exception as e:
+        log.error("ATLAS upgrade API error: %s", e)
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/atlas/classify-volume", methods=["POST"])
+def api_atlas_classify_volume():
+    """Classify a volume event in real time."""
+    if not ATLAS_AVAILABLE:
+        return jsonify({"available": False})
+    req = request.get_json(silent=True) or {}
+    try:
+        result = classify_volume(
+            ticker                 = req.get("ticker", ""),
+            current_volume         = req.get("current_volume", 0),
+            avg_volume_20d         = req.get("avg_volume_20d", 1),
+            price_change_pct       = req.get("price_change_pct", 0),
+            price_vs_high_52w      = req.get("price_vs_high_52w", 100),
+            price_vs_resistance    = req.get("price_vs_resistance", 0),
+            is_near_corporate_event = req.get("is_near_corporate_event", False),
+        )
+        return jsonify({"available": True, **result})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/atlas/news-context")
+def api_atlas_news_context():
+    """Get learned historical impact of a news event type."""
+    if not ATLAS_AVAILABLE:
+        return jsonify({"available": False})
+    try:
+        from atlas.news_impact_mapper import get_news_context
+        event_type = request.args.get("event_type", "EARNINGS")
+        sector     = request.args.get("sector")
+        ctx = get_news_context(event_type=event_type, sector=sector)
+        return jsonify({"available": True, **ctx})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/atlas/options-context")
+def api_atlas_options_context():
+    """Get current options intelligence context."""
+    if not ATLAS_AVAILABLE:
+        return jsonify({"available": False})
+    try:
+        opts  = shared_state.get("options_flow", {})
+        nifty = opts.get("nifty", {}) if isinstance(opts.get("nifty"), dict) else {}
+        ctx   = get_options_context(
+            pcr_nifty    = nifty.get("pcr"),
+            pcr_banknifty = opts.get("banknifty", {}).get("pcr") if isinstance(opts.get("banknifty"), dict) else None,
+            iv_percentile = nifty.get("iv_percentile"),
+        )
+        return jsonify({"available": True, **ctx})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # ── Auto-startup when loaded by gunicorn (Railway) ───────────────────────────

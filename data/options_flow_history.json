@@ -1,0 +1,27 @@
+[
+  {
+    "timestamp": "2026-03-05T15:04:24.036694",
+    "symbol": "NIFTY",
+    "pcr": 0.78,
+    "pcr_zone": "BULLISH",
+    "pcr_signal": "BUY",
+    "max_pain": 22100,
+    "spot_price": 22250,
+    "max_pain_dist_pct": -0.67,
+    "iv_percentile": 35,
+    "iv_signal": "NORMAL",
+    "call_oi": 8500000,
+    "put_oi": 10200000,
+    "unusual_oi_strikes": [
+      {
+        "strike": 22200,
+        "side": "CALL",
+        "oi_spike_ratio": 3.2
+      }
+    ],
+    "has_unusual_oi": true,
+    "expiry_days": 7,
+    "market_regime": "BULL_TREND",
+    "composite_signal": "BUY"
+  }
+]

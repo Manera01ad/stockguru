@@ -1,0 +1,30 @@
+{
+  "by_cause": {
+    "VOLUME_SIGNAL": {
+      "win_rate": 1.0,
+      "count": 1,
+      "avg_pnl": 4.85
+    },
+    "TECHNICAL": {
+      "win_rate": 1.0,
+      "count": 6,
+      "avg_pnl": 3.84
+    },
+    "NONE_CLEAR": {
+      "win_rate": 0.0,
+      "count": 2,
+      "avg_pnl": -1.95
+    }
+  },
+  "by_failure": {
+    "SECTOR_DRAG": {
+      "count": 1,
+      "avg_pnl": -1.8
+    },
+    "WRONG_REGIME": {
+      "count": 1,
+      "avg_pnl": -2.1
+    }
+  },
+  "updated_at": "2026-03-05T15:03:55.477385"
+}
