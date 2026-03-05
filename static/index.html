@@ -1717,6 +1717,9 @@
             style="display:none;margin-left:5px;background:#f59e0b;color:#000;font-size:8px;padding:1px 5px;border-radius:8px;font-weight:700">NEW</span></button>
         <button class="tab-btn" data-label="SHAMROCK" onclick="showTab('shamrock',this)"> <span
             class="tab-icon">🍀</span><span class="tab-label">SHAMROCK</span></button>
+        <button class="tab-btn" data-label="ATLAS" onclick="showTab('atlas',this);loadAtlas()"> <span
+            class="tab-icon">🧠</span><span class="tab-label">ATLAS</span><span id="atlas-badge"
+            style="display:none;margin-left:5px;background:#06b6d4;color:#000;font-size:8px;padding:1px 5px;border-radius:8px;font-weight:700">LIVE</span></button>
       </div>
 
     </aside>
@@ -4528,6 +4531,175 @@
           </div><!-- /padding -->
         </div><!-- /tab-shamrock -->
 
+        <!-- ══════════════════ ATLAS — KNOWLEDGE ENGINE ══════════════════ -->
+        <div class="section" id="tab-atlas">
+          <div class="container" style="padding-top:22px">
+            <!-- Header -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px">
+              <div>
+                <div class="sec-title" style="margin-bottom:4px">🧠 ATLAS — ADAPTIVE TRADING &amp; LEARNING SYSTEM</div>
+                <div style="font-size:12px;color:var(--muted)">Self-upgrading cognitive knowledge engine · Learns from every trade, options flow, news, volume spike and market regime</div>
+              </div>
+              <button onclick="runAtlasUpgrade()" id="atlas-upgrade-btn"
+                style="background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;border:none;padding:10px 22px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:1px;flex-shrink:0">
+                ⚡ RUN UPGRADE
+              </button>
+            </div>
+
+            <!-- Stats Row -->
+            <div class="g4" style="margin-bottom:18px">
+              <div class="stat" style="border-color:#06b6d4">
+                <div class="stat-label">KNOWLEDGE EVENTS</div>
+                <div class="stat-val" id="atlas-total-events" style="color:#06b6d4">--</div>
+                <div class="stat-chg flat" id="atlas-open-events">-- open</div>
+              </div>
+              <div class="stat g">
+                <div class="stat-label">ATLAS WIN RATE</div>
+                <div class="stat-val up" id="atlas-win-rate">--</div>
+                <div class="stat-chg flat">across all recorded trades</div>
+              </div>
+              <div class="stat y">
+                <div class="stat-label">PATTERNS FOUND</div>
+                <div class="stat-val" id="atlas-patterns-count" style="color:#f59e0b">--</div>
+                <div class="stat-chg flat" id="atlas-pattern-quality">🥇 Gold · 🥈 Silver</div>
+              </div>
+              <div class="stat b">
+                <div class="stat-label">ACTIVE RULES</div>
+                <div class="stat-val" id="atlas-rules-count" style="color:#818cf8">--</div>
+                <div class="stat-chg flat">auto-generated from patterns</div>
+              </div>
+            </div>
+
+            <!-- Context + Last Upgrade -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">
+              <div class="card">
+                <div class="card-head">
+                  <div class="card-title">⏰ CURRENT MARKET CONTEXT</div>
+                  <span style="font-size:11px;color:var(--muted)">Live conditions ATLAS is observing</span>
+                </div>
+                <div style="padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                  <div style="text-align:center;padding:10px;background:rgba(6,182,212,0.08);border-radius:8px;border:1px solid rgba(6,182,212,0.2)">
+                    <div style="font-size:10px;color:var(--muted);margin-bottom:4px">SESSION</div>
+                    <div id="atlas-session" style="font-size:15px;font-weight:700;color:#06b6d4">--</div>
+                  </div>
+                  <div style="text-align:center;padding:10px;background:rgba(6,182,212,0.08);border-radius:8px;border:1px solid rgba(6,182,212,0.2)">
+                    <div style="font-size:10px;color:var(--muted);margin-bottom:4px">WEEK TYPE</div>
+                    <div id="atlas-week-type" style="font-size:15px;font-weight:700;color:#06b6d4">--</div>
+                  </div>
+                  <div style="text-align:center;padding:10px;background:rgba(6,182,212,0.08);border-radius:8px;border:1px solid rgba(6,182,212,0.2)">
+                    <div style="font-size:10px;color:var(--muted);margin-bottom:4px">OPTIONS SIGNAL</div>
+                    <div id="atlas-opts-signal" style="font-size:15px;font-weight:700;color:#06b6d4">--</div>
+                  </div>
+                  <div style="padding:10px;background:rgba(6,182,212,0.08);border-radius:8px;border:1px solid rgba(6,182,212,0.2)">
+                    <div style="font-size:10px;color:var(--muted);margin-bottom:4px">SESSION NOTES</div>
+                    <div id="atlas-session-notes" style="font-size:10px;color:var(--muted);line-height:1.4">--</div>
+                  </div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-head">
+                  <div class="card-title">🔄 LAST SYNTHESIS RUN</div>
+                  <span style="font-size:11px;color:var(--muted)">Nightly upgrade at 21:00 IST</span>
+                </div>
+                <div style="padding:14px">
+                  <div id="atlas-last-run" style="font-size:11px;color:var(--muted);margin-bottom:10px">No upgrade run yet</div>
+                  <div id="atlas-top-insight"
+                    style="background:rgba(6,182,212,0.08);border-left:3px solid #06b6d4;padding:10px 14px;border-radius:0 8px 8px 0;font-size:12px;color:#e2e8f0;line-height:1.6;min-height:60px">
+                    Run an upgrade to generate AI insights from your trade history.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Top Patterns -->
+            <div class="card" style="margin-bottom:18px">
+              <div class="card-head">
+                <div class="card-title">🥇 TOP PATTERNS DISCOVERED</div>
+                <span style="font-size:11px;color:var(--muted)">Multi-dimensional combos (regime × options × volume × news) that consistently produce wins</span>
+              </div>
+              <div id="atlas-patterns-list" style="padding:8px 0">
+                <div style="padding:24px;color:var(--muted);font-size:13px;text-align:center">
+                  Patterns build as paper trades accumulate. Run an upgrade to discover patterns.
+                </div>
+              </div>
+            </div>
+
+            <!-- Rules + Lessons -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">
+              <div class="card">
+                <div class="card-head">
+                  <div class="card-title">📋 AUTO-GENERATED RULES</div>
+                  <span style="font-size:11px;color:var(--muted)">Written by ATLAS from pattern analysis</span>
+                </div>
+                <div id="atlas-rules-list" style="padding:8px 0;max-height:320px;overflow-y:auto">
+                  <div style="padding:20px;color:var(--muted);font-size:12px;text-align:center">No rules yet — run upgrade after trades accumulate</div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-head">
+                  <div class="card-title">💡 CAUSAL LESSONS LEARNED</div>
+                  <span style="font-size:11px;color:var(--muted)">WHY each trade won or lost</span>
+                </div>
+                <div id="atlas-lessons-list" style="padding:8px 0;max-height:320px;overflow-y:auto">
+                  <div style="padding:20px;color:var(--muted);font-size:12px;text-align:center">Lessons appear after trades close with causal analysis</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Knowledge Dimensions Grid -->
+            <div class="card" style="margin-bottom:18px">
+              <div class="card-head">
+                <div class="card-title">🔬 KNOWLEDGE DIMENSIONS — WHAT ATLAS IS LEARNING</div>
+                <span style="font-size:11px;color:var(--muted)">6 independent learning modules feeding the central brain</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:16px">
+                <div style="background:rgba(6,182,212,0.05);border:1px solid rgba(6,182,212,0.2);border-radius:10px;padding:14px">
+                  <div style="font-size:20px;margin-bottom:6px">📊</div>
+                  <div style="font-size:12px;font-weight:700;color:#06b6d4;margin-bottom:4px">OPTIONS FLOW MEMORY</div>
+                  <div style="font-size:11px;color:var(--muted);line-height:1.5">Tracks PCR zone → outcome mapping. Learns which Put-Call Ratio zones produce highest win rates historically.</div>
+                  <div id="atlas-dim-options" style="font-size:11px;color:#10b981;margin-top:8px;font-weight:600">Collecting data...</div>
+                </div>
+                <div style="background:rgba(245,158,11,0.05);border:1px solid rgba(245,158,11,0.2);border-radius:10px;padding:14px">
+                  <div style="font-size:20px;margin-bottom:6px">📰</div>
+                  <div style="font-size:12px;font-weight:700;color:#f59e0b;margin-bottom:4px">NEWS IMPACT MAPPER</div>
+                  <div style="font-size:11px;color:var(--muted);line-height:1.5">Maps news types → price moves. Learns avg % move per event (EARNINGS_BEAT, RBI_CUT, FII_SELL, etc).</div>
+                  <div id="atlas-dim-news" style="font-size:11px;color:#10b981;margin-top:8px;font-weight:600">Collecting data...</div>
+                </div>
+                <div style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:14px">
+                  <div style="font-size:20px;margin-bottom:6px">⏱️</div>
+                  <div style="font-size:12px;font-weight:700;color:#10b981;margin-bottom:4px">REGIME &amp; TIME PATTERNS</div>
+                  <div style="font-size:11px;color:var(--muted);line-height:1.5">Detects Bull/Bear/Sideways regime. Learns which sessions, days &amp; week types have best win rates.</div>
+                  <div id="atlas-dim-regime" style="font-size:11px;color:#10b981;margin-top:8px;font-weight:600">Collecting data...</div>
+                </div>
+                <div style="background:rgba(139,92,246,0.05);border:1px solid rgba(139,92,246,0.2);border-radius:10px;padding:14px">
+                  <div style="font-size:20px;margin-bottom:6px">📈</div>
+                  <div style="font-size:12px;font-weight:700;color:#8b5cf6;margin-bottom:4px">VOLUME CLASSIFIER</div>
+                  <div style="font-size:11px;color:var(--muted);line-height:1.5">9 volume spike types: BREAKOUT, ACCUMULATION, CLIMAX_BUY/SELL, DISTRIBUTION, INSIDER_SPIKE, DRY_UP.</div>
+                  <div id="atlas-dim-volume" style="font-size:11px;color:#10b981;margin-top:8px;font-weight:600">Collecting data...</div>
+                </div>
+                <div style="background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:14px">
+                  <div style="font-size:20px;margin-bottom:6px">🔍</div>
+                  <div style="font-size:12px;font-weight:700;color:#ef4444;margin-bottom:4px">CAUSAL ENGINE</div>
+                  <div style="font-size:11px;color:var(--muted);line-height:1.5">WHY each trade won or lost: primary cause, secondary causes, failure reason, 1-line lesson extracted.</div>
+                  <div id="atlas-dim-causal" style="font-size:11px;color:#10b981;margin-top:8px;font-weight:600">Collecting data...</div>
+                </div>
+                <div style="background:rgba(6,182,212,0.05);border:1px solid rgba(6,182,212,0.2);border-radius:10px;padding:14px">
+                  <div style="font-size:20px;margin-bottom:6px">🔄</div>
+                  <div style="font-size:12px;font-weight:700;color:#06b6d4;margin-bottom:4px">SELF-UPGRADE ENGINE</div>
+                  <div style="font-size:11px;color:var(--muted);line-height:1.5">Nightly synthesis: rebuilds all stats, generates GOLD/SILVER rules, Claude Haiku writes insights.</div>
+                  <div id="atlas-dim-upgrader" style="font-size:11px;color:#10b981;margin-top:8px;font-weight:600">Collecting data...</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Upgrade console output -->
+            <div id="atlas-upgrade-log" style="display:none;background:rgba(0,0,0,0.4);border:1px solid rgba(6,182,212,0.3);border-radius:10px;padding:16px;margin-bottom:18px;font-family:'Space Mono',monospace;font-size:11px;line-height:1.9;color:#10b981;white-space:pre-wrap;max-height:200px;overflow-y:auto">
+            </div>
+
+          </div>
+        </div><!-- /tab-atlas -->
+
+
         </footer>
       </div><!-- /container -->
     </div><!-- /content-wrap -->
@@ -6615,6 +6787,269 @@ function initShamrockData() {
 setTimeout(initShamrockData, 2000);
 
 // END SHAMROCK
+</script>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+//  ATLAS — KNOWLEDGE ENGINE DASHBOARD
+// ═══════════════════════════════════════════════════════════════════════════
+
+function loadAtlas() {
+  document.getElementById('atlas-badge').style.display = 'inline';
+  fetch('/api/atlas/stats')
+    .then(r => r.json())
+    .then(data => {
+      if (!data.available) {
+        document.getElementById('atlas-total-events').textContent = 'N/A';
+        return;
+      }
+      const s = data.stats || {};
+      document.getElementById('atlas-total-events').textContent = s.total_events || 0;
+      document.getElementById('atlas-open-events').textContent = (s.open_events || 0) + ' open positions tracked';
+      document.getElementById('atlas-win-rate').textContent =
+        s.overall_win_rate ? (s.overall_win_rate * 100).toFixed(1) + '%' : '--';
+      document.getElementById('atlas-patterns-count').textContent =
+        ((s.gold_patterns || 0) + (s.silver_patterns || 0));
+      document.getElementById('atlas-pattern-quality').textContent =
+        '🥇 ' + (s.gold_patterns || 0) + ' Gold · 🥈 ' + (s.silver_patterns || 0) + ' Silver';
+      document.getElementById('atlas-rules-count').textContent = s.active_rules || 0;
+
+      // Time context
+      const tc = data.time_context || {};
+      document.getElementById('atlas-session').textContent = (tc.session || '--').replace('_',' ');
+      document.getElementById('atlas-week-type').textContent = (tc.week_type || 'NORMAL').replace('_',' ');
+      document.getElementById('atlas-session-notes').textContent = tc.session_notes || 'No notes';
+
+      // Options context
+      const ac = data.atlas_context || {};
+      const opts = ac.options || {};
+      document.getElementById('atlas-opts-signal').textContent = opts.nifty_pcr_signal || '--';
+
+      // Last upgrade
+      const up = data.upgrade || {};
+      if (up.last_run) {
+        const d = new Date(up.last_run);
+        document.getElementById('atlas-last-run').textContent =
+          'Last run: ' + d.toLocaleDateString('en-IN') + ' ' + d.toLocaleTimeString('en-IN') +
+          ' | Events: ' + (up.events_analyzed || 0) + ' | Patterns: ' + (up.patterns_found || 0) + ' | Rules: ' + (up.rules_generated || 0);
+      }
+      if (up.top_insight && up.top_insight !== 'Synthesis complete' && up.top_insight !== 'No upgrade run yet') {
+        document.getElementById('atlas-top-insight').textContent = up.top_insight;
+      }
+
+      // Dimension status cards
+      _updateDimCards(data);
+    })
+    .catch(e => console.warn('ATLAS stats error:', e));
+
+  // Load patterns
+  _loadAtlasPatterns();
+  // Load rules
+  _loadAtlasRules();
+  // Load lessons
+  _loadAtlasLessons();
+}
+
+function _updateDimCards(data) {
+  const s = data.stats || {};
+  const ac = data.atlas_context || {};
+
+  // Options
+  const opts = ac.options || {};
+  const optsEl = document.getElementById('atlas-dim-options');
+  if (opts.zone_trade_count > 0) {
+    optsEl.textContent = '✅ ' + (opts.zone_trade_count) + ' trades mapped | Current PCR zone: ' + (opts.nifty_pcr_zone || '--');
+    optsEl.style.color = '#10b981';
+  } else {
+    optsEl.textContent = '⏳ Recording options snapshots every 15 min...';
+    optsEl.style.color = '#f59e0b';
+  }
+
+  // Regime
+  const dimReg = document.getElementById('atlas-dim-regime');
+  if (s.total_events > 0) {
+    dimReg.textContent = '✅ ' + s.total_events + ' events classified by regime & time';
+    dimReg.style.color = '#10b981';
+  } else {
+    dimReg.textContent = '⏳ Waiting for first trade entries...';
+    dimReg.style.color = '#f59e0b';
+  }
+
+  // Causal
+  const dimCausal = document.getElementById('atlas-dim-causal');
+  if (s.closed_events > 0) {
+    dimCausal.textContent = '✅ ' + s.closed_events + ' closed trades analyzed causally';
+    dimCausal.style.color = '#10b981';
+  } else {
+    dimCausal.textContent = '⏳ Waiting for first trade closures...';
+    dimCausal.style.color = '#f59e0b';
+  }
+
+  // Upgrader
+  const dimUp = document.getElementById('atlas-dim-upgrader');
+  const up = data.upgrade || {};
+  if (up.last_run) {
+    dimUp.textContent = '✅ Last run: ' + (up.last_run || '').slice(0,10) + ' | Next: 21:00 IST';
+    dimUp.style.color = '#10b981';
+  } else {
+    dimUp.textContent = '⏳ First upgrade runs tonight at 21:00 IST';
+    dimUp.style.color = '#f59e0b';
+  }
+
+  // Volume & News (check via pattern count as proxy)
+  const pCount = (s.gold_patterns || 0) + (s.silver_patterns || 0);
+  ['atlas-dim-volume', 'atlas-dim-news'].forEach(id => {
+    const el = document.getElementById(id);
+    if (pCount > 0) {
+      el.textContent = '✅ Active — feeding into ' + pCount + ' discovered patterns';
+      el.style.color = '#10b981';
+    } else {
+      el.textContent = '⏳ Collecting data — patterns appear after ~5 trades';
+      el.style.color = '#f59e0b';
+    }
+  });
+}
+
+function _loadAtlasPatterns() {
+  fetch('/api/atlas/patterns?quality=GOLD&limit=10')
+    .then(r => r.json())
+    .then(data => {
+      const container = document.getElementById('atlas-patterns-list');
+      const patterns = data.patterns || [];
+      if (!patterns.length) {
+        fetch('/api/atlas/patterns?quality=SILVER&limit=10')
+          .then(r => r.json())
+          .then(d => _renderPatterns(d.patterns || [], 'SILVER'));
+        return;
+      }
+      _renderPatterns(patterns, 'GOLD');
+    })
+    .catch(e => console.warn('ATLAS patterns error:', e));
+}
+
+function _renderPatterns(patterns, quality) {
+  const container = document.getElementById('atlas-patterns-list');
+  if (!patterns.length) {
+    container.innerHTML = '<div style="padding:24px;color:var(--muted);font-size:13px;text-align:center">No patterns yet — accumulate trades then run upgrade to discover patterns.</div>';
+    return;
+  }
+  const qColor = quality === 'GOLD' ? '#f59e0b' : '#94a3b8';
+  const qIcon  = quality === 'GOLD' ? '🥇' : '🥈';
+  let html = '';
+  patterns.forEach(p => {
+    const total = p.win_count + p.loss_count;
+    const wr = total > 0 ? (p.win_count / total * 100).toFixed(0) : 0;
+    const barW = Math.min(100, wr);
+    const dim = (p.dimension_key || '').replace(/\|/g, ' + ').replace(/:/g, '=');
+    html += `<div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px">
+      <div style="font-size:14px">${qIcon}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:11px;color:#e2e8f0;font-weight:600;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${dim}</div>
+        <div style="height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden">
+          <div style="width:${barW}%;height:100%;background:${barW>=70?'#10b981':barW>=55?'#f59e0b':'#ef4444'};border-radius:2px"></div>
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:14px;font-weight:700;color:${barW>=70?'#10b981':barW>=55?'#f59e0b':'#ef4444'}">${wr}%</div>
+        <div style="font-size:10px;color:var(--muted)">${p.win_count}W/${p.loss_count}L</div>
+      </div>
+    </div>`;
+  });
+  container.innerHTML = html;
+}
+
+function _loadAtlasRules() {
+  fetch('/api/atlas/rules')
+    .then(r => r.json())
+    .then(data => {
+      const container = document.getElementById('atlas-rules-list');
+      const rules = data.rules || [];
+      if (!rules.length) {
+        container.innerHTML = '<div style="padding:20px;color:var(--muted);font-size:12px;text-align:center">No rules yet — run upgrade after trades accumulate</div>';
+        return;
+      }
+      let html = '';
+      rules.forEach((r, i) => {
+        const conf = ((r.confidence || 0) * 100).toFixed(0);
+        const wr   = ((r.win_rate_basis || 0) * 100).toFixed(0);
+        const typeColor = {ENTRY:'#10b981',TIMING:'#06b6d4',AVOID:'#ef4444',SIZING:'#f59e0b'}[r.rule_type] || '#818cf8';
+        html += `<div style="padding:10px 14px;border-bottom:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+            <span style="background:${typeColor}22;color:${typeColor};font-size:9px;padding:2px 7px;border-radius:10px;font-weight:700">${r.rule_type || 'RULE'}</span>
+            <span style="font-size:10px;color:var(--muted)">WR: ${wr}% | Conf: ${conf}% | n=${r.trade_count}</span>
+          </div>
+          <div style="font-size:11px;color:#e2e8f0;line-height:1.5">${r.rule_text}</div>
+        </div>`;
+      });
+      container.innerHTML = html;
+    })
+    .catch(e => console.warn('ATLAS rules error:', e));
+}
+
+function _loadAtlasLessons() {
+  fetch('/api/atlas/lessons?limit=8')
+    .then(r => r.json())
+    .then(data => {
+      const container = document.getElementById('atlas-lessons-list');
+      const lessons = data.lessons || [];
+      if (!lessons.length) {
+        container.innerHTML = '<div style="padding:20px;color:var(--muted);font-size:12px;text-align:center">Lessons appear after paper trades close</div>';
+        return;
+      }
+      let html = '';
+      lessons.forEach(l => {
+        const isWin = l.outcome === 'T2_HIT' || l.outcome === 'T1_HIT';
+        const emoji = isWin ? '✅' : '❌';
+        const color = isWin ? '#10b981' : '#ef4444';
+        const pnl   = l.pnl_pct ? (l.pnl_pct > 0 ? '+' : '') + l.pnl_pct.toFixed(1) + '%' : '';
+        html += `<div style="padding:10px 14px;border-bottom:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <span style="font-size:12px">${emoji}</span>
+            <span style="font-size:12px;font-weight:700;color:#e2e8f0">${l.ticker}</span>
+            <span style="font-size:10px;color:${color};font-weight:600">${pnl}</span>
+            <span style="font-size:10px;color:var(--muted)">${l.primary_cause || ''}</span>
+          </div>
+          <div style="font-size:11px;color:#94a3b8;line-height:1.4">${l.lesson_extracted || 'Analyzing...'}</div>
+        </div>`;
+      });
+      container.innerHTML = html;
+    })
+    .catch(e => console.warn('ATLAS lessons error:', e));
+}
+
+function runAtlasUpgrade() {
+  const btn = document.getElementById('atlas-upgrade-btn');
+  const log = document.getElementById('atlas-upgrade-log');
+  btn.disabled = true;
+  btn.textContent = '⏳ Running...';
+  log.style.display = 'block';
+  log.textContent = '🧠 ATLAS Self-Upgrade starting...\n';
+
+  fetch('/api/atlas/upgrade?llm=true', {method: 'POST'})
+    .then(r => r.json())
+    .then(data => {
+      btn.disabled = false;
+      btn.textContent = '⚡ RUN UPGRADE';
+      if (data.ok) {
+        const steps = data.steps || {};
+        log.textContent += '✅ Run ID: ' + data.run_id + '\n';
+        log.textContent += '⏱️  Duration: ' + data.duration + 's\n';
+        if (steps.causal_analysis) log.textContent += '🔍 Causal analysis: ' + (steps.causal_analysis.events_processed || 0) + ' trades tagged\n';
+        if (steps.stats_rebuilt)   log.textContent += '📊 Stats rebuilt: ' + JSON.stringify(steps.stats_rebuilt) + '\n';
+        if (steps.rules)           log.textContent += '📋 Rules: ' + (steps.rules.generated || 0) + ' generated, ' + (steps.rules.retired || 0) + ' retired\n';
+        if (data.top_insight)      log.textContent += '\n💡 INSIGHT:\n' + data.top_insight + '\n';
+        log.textContent += '\n✅ Upgrade complete — refreshing dashboard...';
+        setTimeout(() => loadAtlas(), 1500);
+      } else {
+        log.textContent += '❌ Error: ' + (data.error || 'Unknown error');
+      }
+    })
+    .catch(e => {
+      btn.disabled = false;
+      btn.textContent = '⚡ RUN UPGRADE';
+      log.textContent += '❌ Network error: ' + e;
+    });
+}
 </script>
 
 <script>
