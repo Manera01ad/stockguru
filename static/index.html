@@ -7001,6 +7001,333 @@ setTimeout(injectWorkflowPanels, 1500);
 // END TAB WORKFLOWS
 </script>
 
+<!-- ═══════════════════════════════════════════════════════════
+     STOCKGURU AI AGENT CHAT — Floating panel, all tabs
+     ═══════════════════════════════════════════════════════════ -->
+<style>
+/* ── Floating button ── */
+#sg-chat-fab {
+  position: fixed; bottom: 28px; right: 28px; z-index: 9000;
+  width: 56px; height: 56px; border-radius: 50%;
+  background: linear-gradient(135deg, #00E5A0, #00C4CC);
+  box-shadow: 0 4px 20px rgba(0,229,160,.45);
+  border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 24px; transition: transform .2s, box-shadow .2s;
+}
+#sg-chat-fab:hover { transform: scale(1.08); box-shadow: 0 6px 28px rgba(0,229,160,.6); }
+#sg-chat-badge {
+  position: absolute; top: 0; right: 0;
+  background: #ff3d71; color: #fff; font-size: 10px; font-family: 'Space Mono', monospace;
+  border-radius: 10px; padding: 1px 6px; display: none;
+}
+
+/* ── Chat window ── */
+#sg-chat-panel {
+  position: fixed; bottom: 96px; right: 28px; z-index: 8999;
+  width: 400px; max-height: 560px;
+  background: #141414; border: 1px solid rgba(0,229,160,.3);
+  border-radius: 16px; box-shadow: 0 8px 40px rgba(0,0,0,.7);
+  display: none; flex-direction: column; overflow: hidden;
+  font-family: 'Inter', sans-serif;
+  transition: opacity .2s;
+}
+#sg-chat-panel.open { display: flex; }
+
+/* Header */
+#sg-chat-header {
+  padding: 12px 16px; background: rgba(0,229,160,.07);
+  border-bottom: 1px solid rgba(0,229,160,.15);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.sg-chat-title { font-size: 13px; font-weight: 600; color: #00E5A0; display: flex; align-items: center; gap: 8px; }
+.sg-chat-model { font-family: 'Space Mono', monospace; font-size: 9px; color: #555; margin-top: 2px; }
+#sg-chat-close { background: none; border: none; color: #555; font-size: 18px; cursor: pointer; padding: 0; line-height: 1; }
+#sg-chat-close:hover { color: #ccc; }
+
+/* Context chips */
+#sg-chat-ctx {
+  padding: 8px 14px; display: flex; gap: 6px; flex-wrap: wrap;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+}
+.sg-ctx-chip {
+  font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: .5px;
+  padding: 3px 8px; border-radius: 10px;
+  background: rgba(0,196,204,.1); color: #00C4CC; border: 1px solid rgba(0,196,204,.2);
+}
+.sg-ctx-chip.green { background: rgba(0,229,160,.08); color: #00E5A0; border-color: rgba(0,229,160,.2); }
+.sg-ctx-chip.gold  { background: rgba(255,215,0,.08);  color: #FFD700; border-color: rgba(255,215,0,.2); }
+.sg-ctx-chip.red   { background: rgba(255,61,113,.08);  color: #ff3d71; border-color: rgba(255,61,113,.2); }
+
+/* Messages */
+#sg-chat-messages {
+  flex: 1; overflow-y: auto; padding: 14px 14px 6px;
+  display: flex; flex-direction: column; gap: 10px;
+  scrollbar-width: thin; scrollbar-color: #333 transparent;
+}
+.sg-msg { display: flex; flex-direction: column; gap: 3px; max-width: 88%; }
+.sg-msg.user  { align-self: flex-end; align-items: flex-end; }
+.sg-msg.agent { align-self: flex-start; align-items: flex-start; }
+.sg-msg-bubble {
+  padding: 9px 13px; border-radius: 12px; font-size: 13px; line-height: 1.6;
+  white-space: pre-wrap; word-break: break-word;
+}
+.sg-msg.user  .sg-msg-bubble { background: rgba(0,229,160,.15); color: #e0e0e0; border: 1px solid rgba(0,229,160,.2); border-bottom-right-radius: 3px; }
+.sg-msg.agent .sg-msg-bubble { background: #1e1e1e; color: #d4d4d4; border: 1px solid rgba(255,255,255,.08); border-bottom-left-radius: 3px; }
+.sg-msg-meta { font-family: 'Space Mono', monospace; font-size: 9px; color: #444; }
+
+/* Typing indicator */
+.sg-typing .sg-msg-bubble { display: flex; align-items: center; gap: 4px; padding: 12px 14px; }
+.sg-dot { width: 6px; height: 6px; border-radius: 50%; background: #00E5A0; animation: sgbounce 1.2s infinite; }
+.sg-dot:nth-child(2) { animation-delay: .2s; }
+.sg-dot:nth-child(3) { animation-delay: .4s; }
+@keyframes sgbounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
+
+/* Suggestions */
+#sg-suggestions {
+  padding: 8px 14px; display: flex; gap: 6px; flex-wrap: wrap;
+  border-top: 1px solid rgba(255,255,255,.04);
+}
+.sg-sugg {
+  font-size: 11px; color: #888; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08);
+  border-radius: 14px; padding: 4px 10px; cursor: pointer; transition: background .2s, color .2s;
+  white-space: nowrap;
+}
+.sg-sugg:hover { background: rgba(0,229,160,.1); color: #00E5A0; border-color: rgba(0,229,160,.3); }
+
+/* Input */
+#sg-chat-input-row {
+  padding: 10px 12px; border-top: 1px solid rgba(255,255,255,.06);
+  display: flex; gap: 8px; align-items: flex-end;
+}
+#sg-chat-input {
+  flex: 1; background: #1a1a1a; border: 1px solid rgba(255,255,255,.1);
+  color: #e0e0e0; border-radius: 10px; padding: 9px 12px;
+  font-size: 13px; font-family: 'Inter', sans-serif; resize: none;
+  outline: none; max-height: 80px; line-height: 1.5;
+  transition: border-color .2s;
+}
+#sg-chat-input:focus { border-color: rgba(0,229,160,.5); }
+#sg-chat-input::placeholder { color: #444; }
+#sg-chat-send {
+  width: 38px; height: 38px; flex-shrink: 0;
+  background: linear-gradient(135deg, #00E5A0, #00C4CC);
+  border: none; border-radius: 10px; color: #000;
+  font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: opacity .2s;
+}
+#sg-chat-send:hover { opacity: .85; }
+#sg-chat-send:disabled { opacity: .35; cursor: not-allowed; }
+
+/* Clear button */
+#sg-chat-clear { background: none; border: none; color: #444; font-size: 11px; cursor: pointer; }
+#sg-chat-clear:hover { color: #ff3d71; }
+</style>
+
+<!-- Floating button -->
+<button id="sg-chat-fab" onclick="sgChatToggle()" title="Ask the AI Trading Agent">
+  🤖
+  <span id="sg-chat-badge"></span>
+</button>
+
+<!-- Chat panel -->
+<div id="sg-chat-panel">
+  <div id="sg-chat-header">
+    <div>
+      <div class="sg-chat-title">🧠 StockGuru AI Agent</div>
+      <div class="sg-chat-model" id="sg-chat-model-label">Ask about positions, signals, market outlook…</div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <button id="sg-chat-clear" onclick="sgChatClear()" title="Clear history">🗑</button>
+      <button id="sg-chat-close" onclick="sgChatToggle()">✕</button>
+    </div>
+  </div>
+
+  <!-- Live context chips -->
+  <div id="sg-chat-ctx">
+    <span class="sg-ctx-chip green" id="sg-ctx-pos">📊 Positions</span>
+    <span class="sg-ctx-chip gold"  id="sg-ctx-sig">⚡ Signals</span>
+    <span class="sg-ctx-chip"       id="sg-ctx-mkt">📈 Market</span>
+    <span class="sg-ctx-chip red"   id="sg-ctx-opts">🎯 Options</span>
+  </div>
+
+  <!-- Message area -->
+  <div id="sg-chat-messages">
+    <div class="sg-msg agent">
+      <div class="sg-msg-bubble">
+        👋 Hi Bharathi! I'm your StockGuru AI Analyst.<br><br>
+        I can see your <b>live positions</b>, <b>agent signals</b>, <b>options flow</b> and <b>market session status</b> in real time.<br><br>
+        Ask me anything — <em>"Should I hold my positions?", "What's the NIFTY outlook?", "Which signal has the best setup today?"</em>
+      </div>
+      <div class="sg-msg-meta">StockGuru Agent · Ready</div>
+    </div>
+  </div>
+
+  <!-- Quick suggestions -->
+  <div id="sg-suggestions">
+    <span class="sg-sugg" onclick="sgSuggestion(this)">📊 Show open positions</span>
+    <span class="sg-sugg" onclick="sgSuggestion(this)">⚡ Top signals now</span>
+    <span class="sg-sugg" onclick="sgSuggestion(this)">🎯 NIFTY outlook today</span>
+    <span class="sg-sugg" onclick="sgSuggestion(this)">📉 Any SL at risk?</span>
+  </div>
+
+  <!-- Input -->
+  <div id="sg-chat-input-row">
+    <textarea id="sg-chat-input" rows="1" placeholder="Ask the trading agent…"
+      onkeydown="sgChatKeydown(event)" oninput="sgAutoResize(this)"></textarea>
+    <button id="sg-chat-send" onclick="sgChatSend()" title="Send">➤</button>
+  </div>
+</div>
+
+<script>
+(function() {
+  var _history = [];   // [{role, content}]
+  var _busy    = false;
+  var _isOpen  = false;
+  var _unread  = 0;
+
+  // ── Toggle panel ──────────────────────────────────────────────────────────
+  window.sgChatToggle = function() {
+    _isOpen = !_isOpen;
+    var panel = document.getElementById('sg-chat-panel');
+    var fab   = document.getElementById('sg-chat-fab');
+    panel.classList.toggle('open', _isOpen);
+    fab.style.background = _isOpen
+      ? 'linear-gradient(135deg,#ff3d71,#c0003c)'
+      : 'linear-gradient(135deg,#00E5A0,#00C4CC)';
+    fab.textContent = _isOpen ? '✕' : '🤖';
+    if (_isOpen) {
+      _unread = 0;
+      var badge = document.getElementById('sg-chat-badge');
+      if (badge) badge.style.display = 'none';
+      document.getElementById('sg-chat-input').focus();
+      sgScrollBottom();
+    }
+  };
+
+  // ── Send message ──────────────────────────────────────────────────────────
+  window.sgChatSend = function() {
+    var inp = document.getElementById('sg-chat-input');
+    var msg = inp.value.trim();
+    if (!msg || _busy) return;
+    inp.value = '';
+    inp.style.height = '';
+    sgAppendMsg('user', msg);
+    _history.push({role: 'user', content: msg});
+    _busy = true;
+    document.getElementById('sg-chat-send').disabled = true;
+    // Hide suggestions after first user message
+    document.getElementById('sg-suggestions').style.display = 'none';
+    // Show typing
+    var typingId = sgShowTyping();
+
+    fetch('/api/chat', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({message: msg, history: _history.slice(-12)})
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      sgRemoveTyping(typingId);
+      var reply = d.reply || d.error || 'No response';
+      var model = d.model || 'AI';
+      sgAppendMsg('agent', reply, model);
+      _history.push({role: 'assistant', content: reply});
+      document.getElementById('sg-chat-model-label').textContent = 'Powered by ' + model;
+      if (!_isOpen) {
+        _unread++;
+        var badge = document.getElementById('sg-chat-badge');
+        badge.textContent = _unread;
+        badge.style.display = 'block';
+      }
+    })
+    .catch(function(e) {
+      sgRemoveTyping(typingId);
+      sgAppendMsg('agent', '⚠️ Connection error. Make sure the server is running.');
+    })
+    .finally(function() {
+      _busy = false;
+      document.getElementById('sg-chat-send').disabled = false;
+    });
+  };
+
+  // ── Suggestion chips ──────────────────────────────────────────────────────
+  window.sgSuggestion = function(el) {
+    var msg = el.textContent.replace(/^[^\s]+\s/, ''); // strip emoji
+    document.getElementById('sg-chat-input').value = msg;
+    sgChatSend();
+  };
+
+  // ── Clear history ─────────────────────────────────────────────────────────
+  window.sgChatClear = function() {
+    _history = [];
+    var msgs = document.getElementById('sg-chat-messages');
+    msgs.innerHTML = '<div class="sg-msg agent"><div class="sg-msg-bubble">Chat cleared. Ask me anything about your portfolio, signals, or market outlook.</div></div>';
+    document.getElementById('sg-suggestions').style.display = 'flex';
+    document.getElementById('sg-chat-model-label').textContent = 'Ask about positions, signals, market outlook…';
+  };
+
+  // ── Keyboard handling ─────────────────────────────────────────────────────
+  window.sgChatKeydown = function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sgChatSend();
+    }
+  };
+
+  // ── Auto-resize textarea ──────────────────────────────────────────────────
+  window.sgAutoResize = function(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 80) + 'px';
+  };
+
+  // ── DOM helpers ───────────────────────────────────────────────────────────
+  function sgAppendMsg(role, content, meta) {
+    var msgs = document.getElementById('sg-chat-messages');
+    var div  = document.createElement('div');
+    div.className = 'sg-msg ' + role;
+    var now = new Date().toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
+    var metaLabel = role === 'user' ? 'You · ' + now : (meta || 'Agent') + ' · ' + now;
+    div.innerHTML =
+      '<div class="sg-msg-bubble">' + sgEscape(content) + '</div>' +
+      '<div class="sg-msg-meta">' + metaLabel + '</div>';
+    msgs.appendChild(div);
+    sgScrollBottom();
+  }
+
+  function sgShowTyping() {
+    var msgs = document.getElementById('sg-chat-messages');
+    var id   = 'sg-typing-' + Date.now();
+    var div  = document.createElement('div');
+    div.className = 'sg-msg agent sg-typing';
+    div.id        = id;
+    div.innerHTML = '<div class="sg-msg-bubble"><span class="sg-dot"></span><span class="sg-dot"></span><span class="sg-dot"></span></div>';
+    msgs.appendChild(div);
+    sgScrollBottom();
+    return id;
+  }
+
+  function sgRemoveTyping(id) {
+    var el = document.getElementById(id);
+    if (el) el.remove();
+  }
+
+  function sgScrollBottom() {
+    var msgs = document.getElementById('sg-chat-messages');
+    setTimeout(function(){ msgs.scrollTop = msgs.scrollHeight; }, 60);
+  }
+
+  function sgEscape(s) {
+    // Convert basic markdown-ish to HTML and escape
+    return s
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
+      .replace(/\*(.+?)\*/g,'<em>$1</em>')
+      .replace(/`(.+?)`/g,'<code style="background:#2a2a2a;padding:1px 5px;border-radius:3px;font-size:11px">$1</code>')
+      .replace(/\n/g,'<br>');
+  }
+})();
+</script>
+
 </body>
 
 </html>

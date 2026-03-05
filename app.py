@@ -1914,6 +1914,208 @@ def api_toggle_tsl():
     return jsonify(result)
 
 
+# ── AI AGENT CHAT ENDPOINT ───────────────────────────────────────────────────
+
+def _build_chat_context() -> str:
+    """
+    Assemble a rich trading context string from live shared_state.
+    Passed as system context to Claude/Gemini so they answer like a real trading analyst.
+    """
+    import json as _json
+    lines = [
+        "You are StockGuru's AI Trading Analyst — a professional quantitative analyst embedded"
+        " inside a paper trading intelligence system.",
+        "You have access to live market data, active paper positions, agent signals, and options flow.",
+        "Answer in clear, concise trading language. Be direct. Cite specific numbers from the context.",
+        "IMPORTANT: This is a PAPER TRADING / SIMULATION system. Never recommend real money actions.",
+        "",
+        "═══ LIVE TRADING CONTEXT ═══",
+    ]
+
+    # ── Market Session State ───────────────────────────────────────────────────
+    if SESSION_AGENT_AVAILABLE:
+        lines.append("\n[MARKET SESSIONS — IST]")
+        for seg_key, seg_def in SEGMENTS.items():
+            state = session_agent.get_session_state(seg_key)
+            lines.append(f"  {seg_def['icon']} {seg_def['name']}: {state}  ({seg_def['open'].strftime('%H:%M')}–{seg_def['close'].strftime('%H:%M')})")
+
+    # ── Live Prices ────────────────────────────────────────────────────────────
+    pc = shared_state.get("_price_cache", {})
+    if pc:
+        lines.append("\n[LIVE PRICES]")
+        for sym, data in list(pc.items())[:12]:
+            p = data.get("price", 0)
+            c = data.get("change_pct", 0)
+            sign = "+" if c >= 0 else ""
+            lines.append(f"  {sym}: ₹{p:,.2f}  {sign}{c:.2f}%")
+
+    # ── Open Paper Positions ───────────────────────────────────────────────────
+    try:
+        live_pos = paper_trader.get_live_positions(pc)
+        if live_pos:
+            lines.append("\n[OPEN PAPER POSITIONS]")
+            for pos in live_pos:
+                pnl_sign = "+" if pos["unreal_pnl"] >= 0 else ""
+                lines.append(
+                    f"  {pos['symbol']}: {pos['shares']} shares | Entry ₹{pos['entry_price']:,.2f}"
+                    f" | CMP ₹{pos.get('cmp',0):,.2f}"
+                    f" | TSL ₹{pos['trailing_sl']:,.2f}"
+                    f" | Unrealised {pnl_sign}₹{pos['unreal_pnl']:,.0f} ({pnl_sign}{pos['unreal_pnl_pct']:.2f}%)"
+                )
+        portfolio = paper_trader._load_portfolio()
+        lines.append(f"\n[PORTFOLIO]  Cash: ₹{portfolio.get('available_cash',0):,.0f}"
+                     f" | Invested: ₹{portfolio.get('invested',0):,.0f}"
+                     f" | Realised P&L: ₹{portfolio.get('realized_pnl',0):,.0f}"
+                     f" | Win Rate: {portfolio.get('stats',{}).get('win_rate',0)*100:.1f}%"
+                     f" | Trades: {portfolio.get('stats',{}).get('total_trades',0)}")
+    except Exception:
+        pass
+
+    # ── Top Agent Signals ──────────────────────────────────────────────────────
+    signals = shared_state.get("trade_signals", [])
+    if signals:
+        lines.append("\n[TOP TRADE SIGNALS (agent-generated)]")
+        for sig in sorted(signals, key=lambda x: x.get("score",0), reverse=True)[:6]:
+            lines.append(
+                f"  {sig.get('signal','?')} {sig.get('name','?')} | Score {sig.get('score',0)}"
+                f" | Conf {sig.get('confidence','?')} | Gates {sig.get('gates_passed',0)}/8"
+                f" | Entry ₹{sig.get('entry',0):,.2f} SL ₹{sig.get('stop_loss',0):,.2f} T1 ₹{sig.get('target1',0):,.2f}"
+            )
+
+    # ── Claude AI Analysis ─────────────────────────────────────────────────────
+    claude_a = shared_state.get("claude_analysis", {})
+    if claude_a:
+        lines.append(f"\n[AGENT ANALYSIS]")
+        lines.append(f"  Market Condition : {claude_a.get('market_condition','?')}")
+        lines.append(f"  Market Stance    : {claude_a.get('market_stance','?')}")
+        lines.append(f"  Narrative        : {claude_a.get('market_narrative','')[:200]}")
+        picks = claude_a.get("conviction_picks", [])
+        if picks:
+            lines.append(f"  Conviction Picks : " + ", ".join(p.get("name","") for p in picks[:5]))
+        lines.append(f"  Biggest Risk     : {claude_a.get('biggest_risk','')[:120]}")
+
+    # ── Options Flow ──────────────────────────────────────────────────────────
+    opts = shared_state.get("options_flow", {})
+    if opts:
+        lines.append(f"\n[OPTIONS FLOW]")
+        lines.append(f"  NIFTY PCR   : {opts.get('nifty_pcr',0):.3f}  → {opts.get('pcr_bias','?')}")
+        lines.append(f"  Max Pain    : {opts.get('max_pain','?')}")
+        lines.append(f"  IV Regime   : {opts.get('iv_regime','?')}")
+        lines.append(f"  Gate        : {'PASS' if opts.get('gate_pass') else 'FAIL'}")
+        walls = opts.get("significant_walls", [])
+        if walls:
+            lines.append(f"  OI Walls    : " + " | ".join(
+                f"{w.get('strike')} {w.get('type')} ({w.get('oi','?')})" for w in walls[:4]))
+
+    lines.append("\n═══ END CONTEXT ═══")
+    return "\n".join(lines)
+
+
+@app.route("/api/chat", methods=["POST"])
+@limiter.limit("30 per minute")
+def api_chat():
+    """
+    AI Agent Chat — user sends a message, Claude/Gemini responds using
+    full live trading context (positions, signals, sessions, options flow).
+    Body: {message: str, history: [{role, content}, ...]}
+    """
+    req     = request.get_json(silent=True) or {}
+    message = req.get("message", "").strip()
+    history = req.get("history", [])   # [{role:"user"|"assistant", content:"..."}]
+
+    if not message:
+        return jsonify({"ok": False, "error": "message required"}), 400
+
+    context = _build_chat_context()
+
+    # ── Try Claude first ───────────────────────────────────────────────────────
+    if ANTHROPIC_API_KEY:
+        try:
+            import anthropic
+            client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+
+            # Build message list (keep last 10 turns for memory)
+            msgs = []
+            for h in history[-10:]:
+                if h.get("role") in ("user", "assistant") and h.get("content"):
+                    msgs.append({"role": h["role"], "content": h["content"]})
+            msgs.append({"role": "user", "content": message})
+
+            resp = client.messages.create(
+                model   = "claude-haiku-4-5-20251001",
+                max_tokens = 600,
+                system  = context,
+                messages = msgs,
+            )
+            reply = resp.content[0].text if resp.content else "No response"
+            return jsonify({"ok": True, "reply": reply, "model": "Claude Haiku"})
+
+        except Exception as e:
+            log.warning("Chat Claude failed: %s — trying Gemini", e)
+
+    # ── Fallback to Gemini ─────────────────────────────────────────────────────
+    if GEMINI_API_KEY:
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=GEMINI_API_KEY)
+            model = genai.GenerativeModel(
+                "gemini-1.5-flash",
+                system_instruction=context,
+            )
+            # Reconstruct history for Gemini
+            gem_history = []
+            for h in history[-8:]:
+                role = "user" if h.get("role") == "user" else "model"
+                gem_history.append({"role": role, "parts": [h.get("content","")]})
+            chat = model.start_chat(history=gem_history)
+            resp = chat.send_message(message)
+            reply = resp.text
+            return jsonify({"ok": True, "reply": reply, "model": "Gemini Flash"})
+
+        except Exception as e:
+            log.error("Chat Gemini failed: %s", e)
+
+    # ── No LLM available — rule-based fallback ─────────────────────────────────
+    msg_lower = message.lower()
+    signals   = shared_state.get("trade_signals", [])
+    portfolio = {}
+    try:
+        portfolio = paper_trader._load_portfolio() if AGENTS_AVAILABLE else {}
+    except Exception:
+        pass
+
+    if any(w in msg_lower for w in ["position", "portfolio", "holding", "open"]):
+        try:
+            pos = paper_trader.get_live_positions(shared_state.get("_price_cache", {}))
+            if pos:
+                parts = [f"{p['symbol']}: {p['shares']} shares @ ₹{p['entry_price']:,.2f}, "
+                         f"Unrealised {'+'if p['unreal_pnl']>=0 else ''}₹{p['unreal_pnl']:,.0f} "
+                         f"({'+' if p['unreal_pnl_pct']>=0 else ''}{p['unreal_pnl_pct']:.2f}%)" for p in pos]
+                reply = "Open positions:\n" + "\n".join(parts)
+            else:
+                reply = "No open paper positions currently."
+        except Exception:
+            reply = "Could not load positions."
+    elif any(w in msg_lower for w in ["signal", "buy", "sell", "recommend", "pick"]):
+        top = sorted(signals, key=lambda x: x.get("score",0), reverse=True)[:3] if signals else []
+        if top:
+            parts = [f"{s.get('signal')} {s.get('name')} — Score {s.get('score')}, "
+                     f"Gates {s.get('gates_passed',0)}/8" for s in top]
+            reply = "Top signals right now:\n" + "\n".join(parts)
+        else:
+            reply = "No active signals. Agents may still be scanning."
+    elif any(w in msg_lower for w in ["market", "nifty", "sensex", "price"]):
+        pc = shared_state.get("_price_cache", {})
+        nifty   = pc.get("^NSEI",   {}).get("price", "--")
+        sensex  = pc.get("^BSESN",  {}).get("price", "--")
+        reply   = f"NIFTY: ₹{nifty:,.2f}  |  SENSEX: ₹{sensex:,.2f}" if isinstance(nifty, float) else "Price data loading..."
+    else:
+        reply = ("No AI key configured. Add ANTHROPIC_API_KEY or GEMINI_API_KEY in the Settings tab "
+                 "to enable full AI chat. I can still answer questions about positions, signals, and prices.")
+
+    return jsonify({"ok": True, "reply": reply, "model": "Rule Engine"})
+
+
 # ── Auto-startup when loaded by gunicorn (Railway) ───────────────────────────
 # gunicorn imports this module as "app", not "__main__", so _startup() was
 # never called on Railway — prices stayed 0 forever. This fixes that.
