@@ -1607,6 +1607,67 @@
       line-height: 1.8;
       letter-spacing: 0.03em
     }
+
+    /* ── Agent Intelligence Feed ─────────────────────────── */
+    .feed-filter {
+      background: rgba(255,255,255,.05);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 3px 12px;
+      border-radius: 12px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all .18s;
+      font-family: inherit;
+    }
+    .feed-filter:hover { background: rgba(255,255,255,.1); color: var(--text); }
+    .feed-filter.active { background: rgba(0,255,136,.15); border-color: rgba(0,255,136,.4); color: var(--green); }
+
+    .feed-item {
+      display: flex;
+      gap: 10px;
+      padding: 10px 16px;
+      border-bottom: 1px solid rgba(255,255,255,.04);
+      animation: feedIn .25s ease;
+      transition: background .15s;
+    }
+    .feed-item:hover { background: rgba(255,255,255,.03); }
+    .feed-item.level-alert { border-left: 3px solid var(--red); }
+    .feed-item.level-trade { border-left: 3px solid var(--green); }
+    .feed-item.level-warn  { border-left: 3px solid var(--yellow); }
+    .feed-item.level-info  { border-left: 3px solid transparent; }
+    .feed-icon { font-size:18px; flex-shrink:0; line-height:1.4; }
+    .feed-body { flex:1; min-width:0; }
+    .feed-top  { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+    .feed-agent { font-size:10px; letter-spacing:.08em; color:var(--accent); font-weight:600; text-transform:uppercase; }
+    .feed-ts    { font-size:10px; color:var(--muted); }
+    .feed-monitoring { font-size:12px; font-weight:600; color:var(--text); margin: 2px 0; }
+    .feed-signal { font-size:11px; padding:1px 8px; border-radius:10px; display:inline-block; margin:2px 0; }
+    .feed-signal.bull { background:rgba(0,255,136,.15); color:var(--green); }
+    .feed-signal.bear { background:rgba(255,68,68,.12); color:var(--red); }
+    .feed-signal.neutral { background:rgba(255,255,255,.07); color:var(--muted); }
+    .feed-signal.alert  { background:rgba(255,68,68,.2); color:#ff6b6b; font-weight:700; }
+    .feed-signal.trade  { background:rgba(0,255,136,.2); color:var(--green); font-weight:700; }
+    .feed-theory { font-size:11px; color:var(--muted); line-height:1.6; margin-top:3px; }
+
+    .tdl-row {
+      display:grid;
+      grid-template-columns: 60px 90px 1fr 70px;
+      gap:8px;
+      padding:10px 16px;
+      border-bottom:1px solid rgba(255,255,255,.04);
+      align-items:start;
+      font-size:12px;
+    }
+    .tdl-row:hover { background:rgba(255,255,255,.025); }
+    .tdl-result { font-size:10px; font-weight:700; padding:2px 7px; border-radius:8px; text-align:center; white-space:nowrap; }
+    .tdl-result.exec  { background:rgba(0,255,136,.18); color:var(--green); }
+    .tdl-result.rej   { background:rgba(255,68,68,.15); color:var(--red); }
+    .tdl-result.mon   { background:rgba(255,183,0,.12); color:var(--yellow); }
+    .tdl-result.skip  { background:rgba(255,255,255,.07); color:var(--muted); }
+    .tdl-symbol { font-weight:700; color:var(--text); }
+    .tdl-gates  { font-size:10px; color:var(--muted); }
+    @keyframes feedIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
   </style>
   <!-- Socket.IO client for real-time WebSocket push (M2) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"
@@ -3785,6 +3846,51 @@
                 </div>
               </div>
             </div>
+
+            <!-- ═══ LIVE AGENT INTELLIGENCE FEED ═══ -->
+            <div class="card" style="margin-top:22px;margin-bottom:18px">
+              <div class="card-head" style="background:rgba(0,255,136,.05);border-bottom:1px solid rgba(0,255,136,.15)">
+                <div class="card-title" style="color:var(--green)">🔴 LIVE AGENT INTELLIGENCE FEED</div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <span id="feed-cycle-badge" class="badge" style="background:rgba(0,255,136,.12);color:var(--green);border:1px solid rgba(0,255,136,.3)">Cycle #0</span>
+                  <span style="font-size:11px;color:var(--muted)">Real-time • Why each agent fires</span>
+                  <button onclick="clearFeed()" style="background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--muted);padding:2px 10px;border-radius:4px;font-size:11px;cursor:pointer">Clear</button>
+                </div>
+              </div>
+              <!-- Filter pills -->
+              <div style="display:flex;gap:6px;padding:10px 16px;flex-wrap:wrap;border-bottom:1px solid var(--border)">
+                <button class="feed-filter active" data-filter="all" onclick="setFeedFilter('all',this)">All</button>
+                <button class="feed-filter" data-filter="alert" onclick="setFeedFilter('alert',this)">🚨 Alerts</button>
+                <button class="feed-filter" data-filter="trade" onclick="setFeedFilter('trade',this)">💼 Trades</button>
+                <button class="feed-filter" data-filter="scanner" onclick="setFeedFilter('scanner',this)">🔍 Scanner</button>
+                <button class="feed-filter" data-filter="claude" onclick="setFeedFilter('claude',this)">🤖 Claude</button>
+                <button class="feed-filter" data-filter="signals" onclick="setFeedFilter('signals',this)">📊 Signals</button>
+              </div>
+              <div id="agent-feed-container" style="height:480px;overflow-y:auto;padding:0 4px">
+                <div id="agent-feed-empty" style="padding:40px;text-align:center;color:var(--muted);font-size:13px">
+                  ⏳ Waiting for agent cycle to start…<br>
+                  <span style="font-size:11px">Click <strong style="color:var(--accent)">▶ Run Agents Now</strong> on the Agents tab to see live reasoning</span>
+                </div>
+                <div id="agent-feed-list"></div>
+              </div>
+            </div>
+
+            <!-- ═══ PAPER TRADE DECISION LOG ═══ -->
+            <div class="card" style="margin-bottom:18px">
+              <div class="card-head" style="background:rgba(255,183,0,.04);border-bottom:1px solid rgba(255,183,0,.15)">
+                <div class="card-title" style="color:var(--yellow)">📋 PAPER TRADE DECISION LOG</div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <span id="tdl-executed-count" class="badge" style="background:rgba(0,255,136,.12);color:var(--green);border:1px solid rgba(0,255,136,.25)">0 Executed</span>
+                  <span id="tdl-rejected-count" class="badge" style="background:rgba(255,68,68,.1);color:var(--red);border:1px solid rgba(255,68,68,.2)">0 Rejected</span>
+                  <span style="font-size:11px;color:var(--muted)">Every decision with theory</span>
+                </div>
+              </div>
+              <div id="trade-decision-log" style="max-height:420px;overflow-y:auto">
+                <div style="padding:32px;text-align:center;color:var(--muted);font-size:13px">
+                  No trade decisions yet — agents need to run at least once.
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -5368,26 +5474,33 @@
           fetch(`${API}/paper-stats`).then(r => r.json()),
           fetch(`${API}/paper-trades`).then(r => r.json()),
         ]);
+        // FIX: align with actual backend field names from paper_trader.py
         const p = portD.portfolio || portD;
-        const st = statsD.stats || statsD;
+        const cash        = p.available_cash  || p.cash        || 500000;
+        const capital     = p.capital         || p.starting_capital || 500000;
+        const realPnl     = p.realized_pnl    || 0;
+        const unrealPnl   = p.unrealized_pnl  || 0;
+        const totalValue  = p.total_value     || (capital + realPnl + unrealPnl);
+        const st = (statsD.stats || statsD.portfolio?.stats || statsD) || {};
         const trades = tradesD.trades || tradesD || [];
 
         const el = id => document.getElementById(id);
-        if (el('port-total-value')) el('port-total-value').textContent = '₹' + fmt((p.total_value || p.cash || 500000));
-        if (el('port-cash')) el('port-cash').textContent = '₹' + fmt(p.cash || 500000);
-        const deployed = (p.total_value || 0) - (p.cash || 0);
+        if (el('port-total-value')) el('port-total-value').textContent = '₹' + fmt(totalValue);
+        if (el('port-cash')) el('port-cash').textContent = '₹' + fmt(cash);
+        const deployed = p.invested || Math.max(0, totalValue - cash);
         if (el('port-deployed')) el('port-deployed').textContent = deployed > 0 ? `₹${fmt(deployed)} deployed` : 'None deployed';
 
-        const totalPnl = (p.total_value || 0) - (p.starting_capital || 500000);
+        const totalPnl = realPnl + unrealPnl;
         if (el('port-total-pnl')) {
           el('port-total-pnl').textContent = (totalPnl >= 0 ? '▲ +₹' : '▼ -₹') + fmt(Math.abs(totalPnl));
           el('port-total-pnl').className = 'stat-chg ' + (totalPnl >= 0 ? 'up' : 'down');
         }
 
-        const wr = st.win_rate || 0;
+        const wr = st.win_rate || p.stats?.win_rate || 0;
         if (el('port-win-rate')) { el('port-win-rate').textContent = wr ? `${(wr * 100).toFixed(1)}%` : '--'; }
-        if (el('port-trades-done')) el('port-trades-done').textContent = `${st.total_trades || 0} trades done`;
-        if (el('port-max-dd')) el('port-max-dd').textContent = `Max DD: ${st.max_drawdown_pct ? (st.max_drawdown_pct * 100).toFixed(1) + '%' : '--'}`;
+        if (el('port-trades-done')) el('port-trades-done').textContent = `${st.total_trades || p.stats?.total_trades || 0} trades done`;
+        const dd = st.max_drawdown || st.max_drawdown_pct || p.stats?.max_drawdown || 0;
+        if (el('port-max-dd')) el('port-max-dd').textContent = `Max DD: ${dd ? (dd * 100).toFixed(1) + '%' : '--'}`;
 
         const positions = p.positions || {};
         const openArr = Object.values(positions);
@@ -5399,18 +5512,23 @@
             el('port-open-table').innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">No open positions</td></tr>';
           } else {
             el('port-open-table').innerHTML = openArr.map(pos => {
-              const unreal = ((pos.cmp || pos.entry_price) - pos.entry_price) * pos.quantity;
-              const unrealPct = ((pos.cmp || pos.entry_price) / pos.entry_price - 1) * 100;
+              // FIX: align field names with paper_trader.py backend
+              const qty      = pos.shares    || pos.quantity   || 0;
+              const sl_price = pos.stop_loss || pos.sl         || 0;
+              const invested = pos.entry_cost|| pos.invested   || (pos.entry_price * qty);
+              const cmp      = pos.cmp       || pos.entry_price|| 0;
+              const unreal   = (cmp - pos.entry_price) * qty;
+              const unrealPct = pos.entry_price ? ((cmp - pos.entry_price) / pos.entry_price * 100) : 0;
               const gates = pos.gates_passed || 0;
               return `<tr>
                 <td><div class="sname">${pos.name || '--'}</div></td>
                 <td style="font-family:'Space Mono';font-size:11px">₹${fmt(pos.entry_price)}</td>
-                <td style="font-family:'Space Mono';font-size:11px">₹${fmt(pos.cmp || pos.entry_price)}</td>
-                <td style="font-family:'Space Mono';font-size:11px">${pos.quantity}</td>
-                <td style="font-family:'Space Mono';font-size:11px">₹${fmt(pos.invested || pos.entry_price * pos.quantity)}</td>
+                <td style="font-family:'Space Mono';font-size:11px">₹${fmt(cmp)}</td>
+                <td style="font-family:'Space Mono';font-size:11px">${qty}</td>
+                <td style="font-family:'Space Mono';font-size:11px">₹${fmt(invested)}</td>
                 <td class="${unreal >= 0 ? 'up' : 'down'}" style="font-family:'Space Mono';font-size:11px">${unreal >= 0 ? '+' : ''}₹${fmt(Math.abs(unreal))} (${unrealPct.toFixed(1)}%)</td>
                 <td style="color:var(--green);font-family:'Space Mono';font-size:11px">₹${fmt(pos.target1 || pos.target)}</td>
-                <td style="color:var(--red);font-family:'Space Mono';font-size:11px">₹${fmt(pos.sl)}</td>
+                <td style="color:var(--red);font-family:'Space Mono';font-size:11px">₹${fmt(sl_price)}</td>
                 <td style="font-family:'Space Mono';font-size:10px;color:${gates >= 6 ? 'var(--green)' : 'var(--accent4)'}">${gates}/8</td>
               </tr>`;
             }).join('');
@@ -5419,17 +5537,22 @@
 
         if (el('port-history-meta')) el('port-history-meta').textContent = `${trades.length} closed trades`;
         if (el('port-history-table') && trades.length) {
+          // FIX: align field names with _close_position() in paper_trader.py
           el('port-history-table').innerHTML = trades.slice(-20).reverse().map(t => {
-            const pnl = t.pnl || 0;
+            const pnl       = t.pnl        || 0;
+            const entryPx   = t.entry      || t.entry_price || 0;
+            const exitPx    = t.exit       || t.exit_price  || 0;
+            const tradeTime = t.time       || t.exit_time   || t.entry_time || '--';
+            const reason    = t.outcome    || t.exit_reason || '--';
             return `<tr>
-              <td style="font-family:'Space Mono';font-size:10px">${t.exit_time || t.entry_time || '--'}</td>
+              <td style="font-family:'Space Mono';font-size:10px">${tradeTime}</td>
               <td><div class="sname">${t.name || '--'}</div></td>
-              <td style="font-family:'Space Mono';font-size:11px">₹${fmt(t.entry_price)}</td>
-              <td style="font-family:'Space Mono';font-size:11px">₹${fmt(t.exit_price)}</td>
+              <td style="font-family:'Space Mono';font-size:11px">₹${fmt(entryPx)}</td>
+              <td style="font-family:'Space Mono';font-size:11px">₹${fmt(exitPx)}</td>
               <td class="${pnl >= 0 ? 'up' : 'down'}" style="font-family:'Space Mono';font-size:11px">${pnl >= 0 ? '+' : ''}₹${fmt(Math.abs(pnl))}</td>
               <td class="${pnl >= 0 ? 'up' : 'down'}" style="font-family:'Space Mono';font-size:11px">${(t.pnl_pct || 0).toFixed(1)}%</td>
-              <td style="font-size:11px;color:var(--muted)">${t.exit_reason || '--'}</td>
-              <td style="font-family:'Space Mono';font-size:10px;color:var(--muted)">${t.hold_hours ? t.hold_hours + 'h' : '--'}</td>
+              <td style="font-size:11px;color:var(--muted)">${reason}</td>
+              <td style="font-family:'Space Mono';font-size:10px;color:var(--muted)">--</td>
             </tr>`;
           }).join('');
         }
@@ -6399,6 +6522,112 @@
 
     // ── END SOVEREIGN FETCH FUNCTIONS ─────────────────────────────────────────
 
+    // ── LIVE AGENT INTELLIGENCE FEED ────────────────────────────────────────────
+    let _feedIndex    = 0;          // track how many entries we've already rendered
+    let _feedFilter   = "all";      // current filter
+    let _feedPaused   = false;
+
+    function setFeedFilter(filter, btn) {
+      _feedFilter = filter;
+      document.querySelectorAll('.feed-filter').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderFeedFromState();
+    }
+    function clearFeed() {
+      _feedIndex = 0;
+      _allFeedItems = [];
+      document.getElementById('agent-feed-list').innerHTML = '';
+      document.getElementById('agent-feed-empty').style.display = 'block';
+    }
+
+    let _allFeedItems = [];
+
+    function _signalClass(sig) {
+      if (!sig) return 'neutral';
+      const s = sig.toString().toUpperCase();
+      if (s.includes('BULL') || s.includes('BUY') || s.includes('ACTIVE') || s.includes('EXECUTED')) return 'bull';
+      if (s.includes('BEAR') || s.includes('SELL') || s.includes('REJECTED')) return 'bear';
+      if (s.includes('SPIKE') || s.includes('ALERT')) return 'alert';
+      if (s.includes('TRADE') || s === 'EXECUTED') return 'trade';
+      return 'neutral';
+    }
+
+    function buildFeedItem(entry) {
+      const levelClass = `level-${entry.level || 'info'}`;
+      const sigClass   = _signalClass(entry.signal);
+      return `<div class="feed-item ${levelClass}" data-agent="${entry.agent}" data-level="${entry.level||'info'}">
+        <div class="feed-icon">${entry.icon || '📡'}</div>
+        <div class="feed-body">
+          <div class="feed-top">
+            <span class="feed-agent">${entry.agent || ''}</span>
+            <span class="feed-ts">${entry.ts || ''}</span>
+          </div>
+          <div class="feed-monitoring">${entry.monitoring || ''}</div>
+          <span class="feed-signal ${sigClass}">${entry.signal || ''}</span>
+          <div class="feed-theory">${entry.theory || ''}</div>
+        </div>
+      </div>`;
+    }
+
+    function renderFeedFromState() {
+      const list = document.getElementById('agent-feed-list');
+      if (!list) return;
+      const filtered = _allFeedItems.filter(e => {
+        if (_feedFilter === 'all') return true;
+        if (_feedFilter === 'alert') return e.level === 'alert' || e.level === 'warn';
+        if (_feedFilter === 'trade') return e.level === 'trade' || e.action === 'SPIKE_ALERT';
+        return e.agent === _feedFilter || e.level === _feedFilter;
+      });
+      list.innerHTML = filtered.slice(-80).map(buildFeedItem).join('');
+      list.scrollTop = list.scrollHeight;
+      const empty = document.getElementById('agent-feed-empty');
+      if (empty) empty.style.display = filtered.length ? 'none' : 'block';
+    }
+
+    async function fetchAgentReasoning() {
+      try {
+        const r = await fetch(`/api/agent-reasoning?since=${_feedIndex}`);
+        const d = await r.json();
+        if (d.feed && d.feed.length > 0) {
+          _allFeedItems.push(...d.feed);
+          _feedIndex += d.feed.length;
+          if (_allFeedItems.length > 500) _allFeedItems = _allFeedItems.slice(-500);
+          renderFeedFromState();
+          // Update cycle badge
+          const badge = document.getElementById('feed-cycle-badge');
+          if (badge) badge.textContent = `Cycle #${d.cycle}`;
+        }
+      } catch(e) { /* silent */ }
+    }
+
+    async function fetchTradeDecisionLog() {
+      try {
+        const r = await fetch('/api/trade-decision-log');
+        const d = await r.json();
+        const cont = document.getElementById('trade-decision-log');
+        if (!cont) return;
+        // Update counters
+        const ex = document.getElementById('tdl-executed-count');
+        const rj = document.getElementById('tdl-rejected-count');
+        if (ex) ex.textContent = `${d.executed} Executed`;
+        if (rj) rj.textContent = `${d.rejected} Rejected`;
+        if (!d.decisions || !d.decisions.length) return;
+        cont.innerHTML = d.decisions.slice().reverse().map(dec => {
+          const rClass = dec.result === 'EXECUTED' ? 'exec' : dec.result === 'REJECTED' ? 'rej' : dec.result === 'MONITORING' ? 'mon' : 'skip';
+          const gates  = dec.gates_passed ? `${parseFloat(dec.gates_passed).toFixed(1)}/8 gates` : '';
+          return `<div class="tdl-row">
+            <div><span class="tdl-result ${rClass}">${dec.result || '?'}</span><div style="font-size:10px;color:var(--muted);margin-top:3px">${dec.ts||''}</div></div>
+            <div><div class="tdl-symbol">${dec.symbol||'?'}</div><div class="tdl-gates">${gates}</div><div style="font-size:10px;color:var(--muted)">${dec.sector||''}</div></div>
+            <div><div style="font-size:12px;color:var(--text);line-height:1.5">${dec.theory||''}</div></div>
+            <div style="text-align:right"><div style="font-size:12px;font-weight:600;color:var(--text)">₹${dec.entry_price||'—'}</div><div style="font-size:10px;color:var(--muted)">SL ₹${dec.sl||'—'}</div><div style="font-size:10px;color:var(--green)">T1 ₹${dec.t1||'—'}</div></div>
+          </div>`;
+        }).join('');
+      } catch(e) { /* silent */ }
+    }
+
+    // Auto-refresh feed every 8 seconds
+    setInterval(() => { fetchAgentReasoning(); fetchTradeDecisionLog(); }, 8000);
+
     async function fetchAll() {
       await Promise.all([
         fetchPrices(), fetchWatchlist(), fetchMood(), fetchAlerts(), fetchStatus(),
@@ -6410,7 +6639,8 @@
         fetchConnectors(), fetchRiskAnalytics(), fetchChartPatterns(),
         fetchAgentScores(),
         fetchSovereignStatus(), fetchHitlQueue(), fetchPostMortem(), fetchAgentMemory(),
-        fetchSyntheticBacktest(), fetchObserverData(), fetchBuilderProposals()
+        fetchSyntheticBacktest(), fetchObserverData(), fetchBuilderProposals(),
+        fetchAgentReasoning(), fetchTradeDecisionLog()
       ]);
       triggerHeartbeat();
     }

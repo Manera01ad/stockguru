@@ -222,4 +222,242 @@ def reset_history():
     """Clear all in-memory price/volume history (for testing)."""
     _price_history.clear()
     _volume_history.clear()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PRE-SPIKE DETECTOR — detects conditions BEFORE the explosive move
+# ══════════════════════════════════════════════════════════════════════════════
+# Theory:
+#   Spikes don't happen randomly. Before a large move, smart money/algos
+#   leave forensic traces: rapid OI build, unusual volume, IV squeeze,
+#   PCR flips, EMA reclaims, bid-ask compression. Catching 4-5 of these
+#   concurrently with score >= 75 means an explosive move is likely in 1-3
+#   cycles (15-45 minutes). Enter small, tight SL, asymmetric reward.
+# ══════════════════════════════════════════════════════════════════════════════
+
+# OI history for velocity calculation (symbol → deque of OI readings)
+_oi_history: dict[str, deque] = defaultdict(lambda: deque(maxlen=4))
+# IV history for percentile calculation
+_iv_history: dict[str, deque] = defaultdict(lambda: deque(maxlen=20))
+# Price history for EMA approximation
+_ema_history: dict[str, deque] = defaultdict(lambda: deque(maxlen=10))
+# PCR history for delta calculation
+_pcr_history: deque = deque(maxlen=5)
+
+PRE_SPIKE_TRIGGER_SCORE = 75   # fire Telegram alert when score >= this
+PRE_SPIKE_COOLDOWN_TICKS = 4   # suppress repeat pre-spike alerts
+
+_pre_spike_cooldown: dict[str, int] = defaultdict(int)
+
+
+def compute_pre_spike_score(symbol: str, shared_state: dict) -> dict:
+    """
+    Score 0-100 based on 6 pre-spike forensic signals.
+    Returns dict with score, signals fired, and readable reason.
+
+    Signals (each contributes up to ~17 points):
+        1. OI Velocity     — rapid OI build (>15% in one cycle)
+        2. Volume Surge    — current vol > 3× trailing avg
+        3. IV Percentile   — implied volatility >80th percentile (tension building)
+        4. PCR Delta       — PCR dropping sharply (<-0.20) = call buying dominates
+        5. EMA Reclaim     — price crosses above its short EMA (momentum ignition)
+        6. Bid-Ask Compr.  — tight spread = institutions absorbing at market (proxy)
+    """
+    signals_fired = []
+    score         = 0
+    details       = {}
+
+    price_cache  = shared_state.get("price_cache", {})
+    options_flow = shared_state.get("options_flow", {})
+    entry        = price_cache.get(symbol, {})
+    curr_price   = entry.get("price", 0)
+    curr_vol     = entry.get("volume", 0)
+
+    if not curr_price:
+        return {"score": 0, "signals": [], "details": {}, "reason": "No price data"}
+
+    # ── SIGNAL 1: OI VELOCITY ─────────────────────────────────────────────────
+    # Options OI building rapidly → big players loading positions for imminent move
+    oi_data = options_flow.get("oi_by_symbol", {}).get(symbol) or options_flow.get("total_oi", {})
+    curr_oi = oi_data.get("call_oi", 0) + oi_data.get("put_oi", 0) if isinstance(oi_data, dict) else 0
+    if curr_oi > 0:
+        _oi_history[symbol].append(curr_oi)
+        if len(_oi_history[symbol]) >= 2:
+            prev_oi = _oi_history[symbol][-2]
+            if prev_oi > 0:
+                oi_vel = (curr_oi - prev_oi) / prev_oi * 100
+                details["oi_velocity"] = round(oi_vel, 1)
+                if oi_vel >= 25:
+                    score += 20; signals_fired.append(f"OI velocity +{oi_vel:.0f}% (extreme build)")
+                elif oi_vel >= 15:
+                    score += 14; signals_fired.append(f"OI velocity +{oi_vel:.0f}% (strong build)")
+
+    # ── SIGNAL 2: VOLUME SURGE RATIO ─────────────────────────────────────────
+    # 3× volume = institutional accumulation ahead of move
+    vol_hist = _volume_history.get(symbol)
+    if vol_hist and len(vol_hist) >= 3 and curr_vol:
+        avg_vol = sum(list(vol_hist)[:-1]) / (len(vol_hist) - 1)
+        if avg_vol > 0:
+            vol_ratio = curr_vol / avg_vol
+            details["vol_ratio"] = round(vol_ratio, 1)
+            if vol_ratio >= 5.0:
+                score += 20; signals_fired.append(f"Volume {vol_ratio:.1f}× avg (very unusual)")
+            elif vol_ratio >= 3.0:
+                score += 14; signals_fired.append(f"Volume {vol_ratio:.1f}× avg (surge)")
+            elif vol_ratio >= 2.0:
+                score += 7;  signals_fired.append(f"Volume {vol_ratio:.1f}× avg (elevated)")
+
+    # ── SIGNAL 3: IV PERCENTILE ───────────────────────────────────────────────
+    # IV building before move (like spring being compressed)
+    curr_iv = options_flow.get("iv_rank") or options_flow.get("iv_percentile", 0)
+    if isinstance(curr_iv, (int, float)) and curr_iv > 0:
+        _iv_history[symbol].append(curr_iv)
+        details["iv_pct"] = curr_iv
+        if curr_iv >= 85:
+            score += 18; signals_fired.append(f"IV={curr_iv:.0f}th pct (extreme tension)")
+        elif curr_iv >= 70:
+            score += 12; signals_fired.append(f"IV={curr_iv:.0f}th pct (elevated)")
+        elif curr_iv >= 55:
+            score += 6;  signals_fired.append(f"IV={curr_iv:.0f}th pct (building)")
+
+    # ── SIGNAL 4: PCR DELTA ───────────────────────────────────────────────────
+    # PCR dropping = traders buying calls aggressively = bullish smart money
+    curr_pcr = options_flow.get("pcr") or options_flow.get("put_call_ratio", 1.0)
+    try: curr_pcr = float(curr_pcr)
+    except: curr_pcr = 1.0
+    _pcr_history.append(curr_pcr)
+    if len(_pcr_history) >= 2:
+        pcr_delta = curr_pcr - _pcr_history[-2]
+        details["pcr"] = round(curr_pcr, 3)
+        details["pcr_delta"] = round(pcr_delta, 3)
+        if pcr_delta <= -0.30:
+            score += 18; signals_fired.append(f"PCR delta {pcr_delta:+.2f} (strong call buying)")
+        elif pcr_delta <= -0.15:
+            score += 12; signals_fired.append(f"PCR delta {pcr_delta:+.2f} (call buying surge)")
+        elif pcr_delta <= -0.05:
+            score += 5;  signals_fired.append(f"PCR delta {pcr_delta:+.2f} (mild call buying)")
+
+    # ── SIGNAL 5: EMA RECLAIM / MOMENTUM IGNITION ─────────────────────────────
+    # Price crossing above short EMA = momentum ignition — machines follow this
+    _ema_history[symbol].append(curr_price)
+    if len(_ema_history[symbol]) >= 5:
+        prices_list = list(_ema_history[symbol])
+        # Simple 5-period EMA approximation
+        k = 2 / (5 + 1)
+        ema = prices_list[0]
+        for p in prices_list[1:]:
+            ema = p * k + ema * (1 - k)
+        details["ema5"] = round(ema, 2)
+        ema_gap = (curr_price - ema) / ema * 100
+        details["ema_gap_pct"] = round(ema_gap, 2)
+        prev_price_h = list(_ema_history[symbol])[-2] if len(_ema_history[symbol]) >= 2 else curr_price
+        just_crossed_above = prev_price_h <= ema <= curr_price
+        if just_crossed_above:
+            score += 18; signals_fired.append(f"EMA reclaim (just crossed above EMA5={ema:.0f})")
+        elif 0 < ema_gap < 0.5:
+            score += 10; signals_fired.append(f"Price just above EMA5 +{ema_gap:.2f}% (coiling)")
+        elif ema_gap < 0 and ema_gap > -0.3:
+            score += 6;  signals_fired.append(f"Price below EMA5 {ema_gap:.2f}% (pre-reclaim zone)")
+
+    # ── SIGNAL 6: BID-ASK SPREAD COMPRESSION ─────────────────────────────────
+    # Tight spread = institutions absorbing the book = move about to happen
+    bid  = entry.get("bid", 0)
+    ask  = entry.get("ask", 0)
+    if bid and ask and bid > 0:
+        spread_pct = (ask - bid) / bid * 100
+        details["spread_pct"] = round(spread_pct, 3)
+        if spread_pct < 0.03:
+            score += 12; signals_fired.append(f"Bid-ask spread {spread_pct:.3f}% (very tight — absorption)")
+        elif spread_pct < 0.08:
+            score += 6;  signals_fired.append(f"Bid-ask spread {spread_pct:.3f}% (tight)")
+
+    score = min(score, 100)
+    reason = (
+        f"Pre-spike score {score}/100: {'; '.join(signals_fired[:4]) or 'No strong signals'}"
+        if signals_fired else f"Pre-spike score {score}/100: No significant pre-spike signals detected"
+    )
+
+    return {
+        "symbol":        symbol,
+        "score":         score,
+        "signals_count": len(signals_fired),
+        "signals":       signals_fired,
+        "details":       details,
+        "reason":        reason,
+    }
+
+
+def _format_pre_spike_telegram(result: dict, price: float) -> str:
+    """Telegram message for a pre-spike detection."""
+    sym    = result["symbol"]
+    score  = result["score"]
+    sigs   = result["signals"]
+    lines  = [
+        f"⚡ *PRE-SPIKE ALERT — {sym}*",
+        f"📊 Score: *{score}/100* | CMP: ₹{price:,.2f}",
+        f"⏰ {datetime.now().strftime('%d %b %H:%M')} IST",
+        "",
+        "*Signals Fired:*",
+    ]
+    for sig in sigs[:5]:
+        lines.append(f"  • {sig}")
+    lines += [
+        "",
+        f"🎯 *Action:* Enter small position now, tight SL 1.5% below CMP.",
+        f"   Target: explosive move within 15-45 minutes.",
+        f"   Theory: {score}+ = 4+ forensic traces of imminent large move.",
+        "",
+        "_⚠️ Simulation only — not financial advice_",
+    ]
+    return "\n".join(lines)
+
+
+def scan_pre_spikes(shared_state: dict, send_telegram_fn=None) -> list:
+    """
+    Scan all watchlist stocks for pre-spike conditions.
+    Fires Telegram when score >= PRE_SPIKE_TRIGGER_SCORE.
+    Returns list of high-score pre-spike results.
+    """
+    price_cache = shared_state.get("price_cache", {})
+    pre_spikes  = []
+
+    # Scan all available tickers (not just watchlist)
+    all_symbols = list(set(WATCHLIST_SYMBOLS) | set(price_cache.keys()))
+
+    for symbol in all_symbols:
+        # Cooldown check
+        if _pre_spike_cooldown[symbol] > 0:
+            _pre_spike_cooldown[symbol] -= 1
+            continue
+
+        result = compute_pre_spike_score(symbol, shared_state)
+        if result["score"] <= 0:
+            continue
+
+        result["ts"] = datetime.now().strftime("%H:%M:%S")
+        price = price_cache.get(symbol, {}).get("price", 0)
+
+        if result["score"] >= PRE_SPIKE_TRIGGER_SCORE:
+            pre_spikes.append(result)
+            _pre_spike_cooldown[symbol] = PRE_SPIKE_COOLDOWN_TICKS
+
+            log.warning("⚡ PRE-SPIKE [%s] score=%d | %s",
+                        symbol, result["score"],
+                        "; ".join(result["signals"][:2]))
+
+            if send_telegram_fn and price:
+                try:
+                    send_telegram_fn(_format_pre_spike_telegram(result, price))
+                except Exception as e:
+                    log.warning("Pre-spike Telegram failed %s: %s", symbol, e)
+
+    # Store in shared_state
+    if pre_spikes:
+        shared_state["pre_spike_alerts"] = pre_spikes
+        shared_state["pre_spike_last_ts"] = datetime.now().isoformat()
+        log.info("⚡ PRE-SPIKE SCAN: %d high-score setups found", len(pre_spikes))
+    else:
+        shared_state.setdefault("pre_spike_alerts", [])
+
+    return pre_spikes
     _cooldown_counter.clear()

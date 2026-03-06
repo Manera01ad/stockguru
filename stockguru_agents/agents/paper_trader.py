@@ -921,9 +921,33 @@ def run(shared_state, price_cache=None):
     claude_analysis = shared_state.get("claude_analysis", {})
     claude_picks    = {p["name"]: p for p in claude_analysis.get("conviction_picks", [])}
 
+    # ── Helper: log decision to shared_state trade_decision_log ───────────────
+    def _log_decision(symbol, result, gates, rejection="", entry_price=0, sl=0, t1=0, score=0, sector="", theory=""):
+        """Write a structured decision record into shared_state for the Intelligence Feed."""
+        entry = {
+            "ts":          datetime.now().strftime("%H:%M:%S"),
+            "date":        datetime.now().strftime("%d %b %Y"),
+            "symbol":      symbol,
+            "result":      result,          # EXECUTED | REJECTED | SKIPPED
+            "gates_passed": gates,
+            "rejection":   rejection,
+            "entry_price": entry_price,
+            "sl":          sl,
+            "t1":          t1,
+            "score":       score,
+            "sector":      sector,
+            "theory":      theory,
+        }
+        log_list = shared_state.setdefault("trade_decision_log", [])
+        log_list.append(entry)
+        if len(log_list) > 300:
+            shared_state["trade_decision_log"] = log_list[-300:]
+
     new_entries = 0
     for sig in candidate_signals:
-        name = sig.get("name", "")
+        name   = sig.get("name", "")
+        score  = sig.get("score", 0)
+        sector = sig.get("sector", "")
 
         # Skip if already in portfolio
         if name in portfolio["positions"] and portfolio["positions"][name].get("status") == "OPEN":
@@ -931,6 +955,8 @@ def run(shared_state, price_cache=None):
 
         # Must have price data
         if not pc.get(name, {}).get("price"):
+            _log_decision(name, "SKIPPED", 0, "No price data available", score=score, sector=sector,
+                          theory="Price feed returned empty — cannot size position without current market price.")
             continue
 
         # Check risk_manager approval
@@ -944,10 +970,19 @@ def run(shared_state, price_cache=None):
         # If Claude explicitly says NO — skip (override risk_manager)
         if claude_says is False:
             log.info("PaperTrader: %s skipped — Claude says no execute", name)
+            _log_decision(name, "REJECTED", 0, "Claude override: do not execute",
+                          score=score, sector=sector,
+                          theory=f"Claude AI analysed {name} and flagged concerns overriding the signal. "
+                                 f"Reason: {claude_pick.get('entry_thesis','AI confidence below threshold')}. "
+                                 "Claude veto takes precedence over risk_manager approval.")
             continue
 
         # If risk_manager rejected AND Claude didn't explicitly approve — skip
         if not approved and claude_says is not True:
+            _log_decision(name, "REJECTED", 0, "Risk manager rejected + no Claude approval",
+                          score=score, sector=sector,
+                          theory=f"Risk manager rejected {name}. Rejection reason: {risk.get('reason','position sizing/correlation limits')}. "
+                                 "Without Claude conviction override, we defer to risk rules — capital preservation first.")
             continue
 
         # ── Run 8-gate conviction check ────────────────────────────────────
@@ -959,6 +994,14 @@ def run(shared_state, price_cache=None):
         if gates_passed < min_gates:
             log.info("PaperTrader: %s REJECTED (gates %.1f/%d, need %.0f) — %s",
                      name, gates_passed, 8, min_gates, "; ".join(rejection_reasons[:2]))
+            _log_decision(name, "REJECTED", gates_passed,
+                          f"Gates {gates_passed:.1f}/{min_gates} — {'; '.join(rejection_reasons[:2])}",
+                          entry_price=pc.get(name,{}).get("price",0),
+                          sl=sig.get("stop_loss",0), t1=sig.get("target1",0),
+                          score=score, sector=sector,
+                          theory=f"8-gate filter: {name} passed {gates_passed:.1f}/{min_gates} conviction gates. "
+                                 f"Failed: {'; '.join(rejection_reasons[:3])}. "
+                                 "Gates protect against low-quality setups: need volume, momentum, sector alignment, RR ratio, and risk clearance.")
             continue
 
         # ── CHECK MARKET HOURS (only enter during market hours) ────────────
@@ -969,11 +1012,28 @@ def run(shared_state, price_cache=None):
 
         if not (market_open and market_close):
             log.info("PaperTrader: %s — outside market hours, queuing for next session", name)
+            _log_decision(name, "MONITORING", gates_passed, "Outside market hours (9:15–15:25)",
+                          entry_price=pc.get(name,{}).get("price",0),
+                          sl=sig.get("stop_loss",0), t1=sig.get("target1",0),
+                          score=score, sector=sector,
+                          theory=f"{name} passed all {gates_passed:.1f} conviction gates but market is closed. "
+                                 "Signal queued for next session open (9:15 AM). "
+                                 "Entering outside market hours risks gap-down risk and low liquidity fills.")
             continue
 
         # ── EXECUTE PAPER ENTRY ────────────────────────────────────────────
+        entry_price = pc.get(name,{}).get("price", sig.get("cmp",0))
         pos = _enter_position(sig, gates_passed, gate_detail, portfolio, pc, shared_state)
         if pos:
+            _log_decision(name, "EXECUTED", gates_passed, "",
+                          entry_price=entry_price,
+                          sl=sig.get("stop_loss",0), t1=sig.get("target1",0),
+                          score=score, sector=sector,
+                          theory=f"✅ PAPER TRADE EXECUTED: {name} @ ₹{entry_price:.0f}. "
+                                 f"Gates passed: {gates_passed:.1f}/{min_gates}. "
+                                 f"Entry theory: {'; '.join(sig.get('rationale', ['Signal generated by multi-agent system'])[:2])}. "
+                                 f"SL=₹{sig.get('stop_loss',0):.0f} | T1=₹{sig.get('target1',0):.0f} | "
+                                 f"RR={sig.get('rr_t1',0):.1f}:1 | Sector: {sector}")
             new_entries += 1
             open_count  += 1
             if open_count >= 5:

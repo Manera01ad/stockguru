@@ -296,6 +296,9 @@ shared_state = {
     # Paper trading
     "paper_portfolio": {}, "paper_trades": [],
     "_price_cache": {},
+    # Agent Intelligence Feed — reasoning log with theory
+    "agent_reasoning_log": [],   # [{ts, agent, icon, monitoring, signal, theory, data, action, level}]
+    "trade_decision_log":  [],   # [{ts, symbol, action, reason, gates, theory, result}]
     # Sovereign Trader Layer state
     "scryer_output":      {},
     "quant_output":       {},
@@ -681,6 +684,45 @@ def run_all_agents():
         shared_state["agent_cycle_log"].append(entry)
         if len(shared_state["agent_cycle_log"]) > 200:
             shared_state["agent_cycle_log"] = shared_state["agent_cycle_log"][-200:]
+
+    def _emit(agent, icon, monitoring, signal, theory, action="watching",
+              data=None, level="info"):
+        """Emit a structured reasoning entry visible in the Agent Intelligence Feed."""
+        entry = {
+            "ts":         datetime.now().strftime("%H:%M:%S"),
+            "agent":      agent,
+            "icon":       icon,
+            "monitoring": monitoring,
+            "signal":     signal,
+            "theory":     theory,
+            "action":     action,
+            "data":       data or {},
+            "level":      level,   # info | alert | trade | warn
+        }
+        shared_state["agent_reasoning_log"].append(entry)
+        if len(shared_state["agent_reasoning_log"]) > 500:
+            shared_state["agent_reasoning_log"] = shared_state["agent_reasoning_log"][-500:]
+
+    def _trade_log(symbol, action, entry_price, sl, t1, gates_passed,
+                   theory, result="QUEUED", score=0, sector=""):
+        """Log every paper trade decision — win or reject — with full reasoning."""
+        entry = {
+            "ts":          datetime.now().strftime("%H:%M:%S"),
+            "date":        datetime.now().strftime("%d %b %Y"),
+            "symbol":      symbol,
+            "action":      action,
+            "entry_price": entry_price,
+            "sl":          sl,
+            "t1":          t1,
+            "score":       score,
+            "sector":      sector,
+            "gates_passed": gates_passed,
+            "theory":      theory,
+            "result":      result,   # EXECUTED | REJECTED | MONITORING
+        }
+        shared_state["trade_decision_log"].append(entry)
+        if len(shared_state["trade_decision_log"]) > 300:
+            shared_state["trade_decision_log"] = shared_state["trade_decision_log"][-300:]
     def _st(agent, status):
         shared_state["agent_status"][agent] = status
         icon = "▶" if status == "running" else ("✅" if status == "done" else "❌")
@@ -702,16 +744,66 @@ def run_all_agents():
         _log("── TIER 1: Data Collection ──────────────────────────")
         _st("commodity",  "running"); commodity_crypto.run(shared_state);       _st("commodity",  "done")
         _log(f"   Gold={shared_state.get('commodity_results',[{}])[0].get('price','?')} | Crude={shared_state.get('commodity_results',[{},{}])[1].get('price','?') if len(shared_state.get('commodity_results',[]))>1 else '?'}")
+        _comms = shared_state.get("commodity_results", [])
+        _gold  = next((c for c in _comms if "GOLD" in c.get("symbol","").upper()), {})
+        _crude = next((c for c in _comms if "CRUDE" in c.get("symbol","").upper() or "OIL" in c.get("symbol","").upper()), {})
+        _comm_sent = shared_state.get("commodity_sentiment", "NEUTRAL")
+        _emit("commodity", "🪙", f"Gold ₹{_gold.get('price','?')} | Crude ${_crude.get('price','?')}",
+              _comm_sent,
+              f"Commodity macro: Gold {'at ATH — safety bid active' if _gold.get('change_pct',0)>0.5 else 'stable — no panic'} | "
+              f"Crude {'falling — margin tailwind for aviation/FMCG' if _crude.get('change_pct',0)<-0.5 else 'elevated — cost pressure on downstream'} | Sentiment={_comm_sent}",
+              data={"gold_price": _gold.get("price"), "crude_price": _crude.get("price"), "sentiment": _comm_sent})
         _st("news",       "running"); news_sentiment.run(shared_state);          _st("news",       "done")
         _log(f"   News sentiment: {shared_state.get('market_sentiment_score',0):+.0f} | {len(shared_state.get('news_results',[]))} headlines | {'LLM+keyword' if any(n.get('scored_by')=='llm+keyword' for n in shared_state.get('news_results',[])) else 'keyword'}")
+        _news_score = shared_state.get("market_sentiment_score", 0)
+        _headlines  = [n.get("title","")[:60] for n in shared_state.get("news_results",[])[:3]]
+        _news_lvl   = "alert" if abs(_news_score) >= 3 else "info"
+        _emit("news", "📰", f"{len(shared_state.get('news_results',[]))} headlines | Score {_news_score:+.0f}",
+              "BULLISH" if _news_score > 1 else "BEARISH" if _news_score < -1 else "NEUTRAL",
+              ("Strong positive flow — risk-on. LLM weighted earnings beats & policy positives." if _news_score > 2 else
+               "Strong negative flow — risk-off. Watch for downside pressure." if _news_score < -2 else
+               "Mixed/neutral flow — no directional bias. Wait for confirmation."),
+              level=_news_lvl, data={"score": _news_score, "headlines": _headlines})
         _st("scanner",    "running"); market_scanner.run(shared_state);          _st("scanner",    "done")
         _log(f"   Scanner: {len(shared_state.get('scanner_results',[]))} stocks ranked")
-        # Spike detection — runs immediately after price_cache is populated by market_scanner
+        _scan_top = shared_state.get("scanner_results", [])[:5]
+        _scan_names = [f"{s.get('name','?')}({s.get('score',0)})" for s in _scan_top]
+        _emit("scanner", "🔍", f"Scanned {len(shared_state.get('full_scan',[]))} stocks → {len(shared_state.get('scanner_results',[]))} ranked",
+              f"Top: {', '.join(_scan_names[:3]) if _scan_names else 'None'}",
+              f"Screener: ROE>12%, VolSurge>1.3x, Change>0.5%, Above 200DMA. "
+              f"{'Broad strength — ' + str(len(_scan_top)) + ' quality setups' if len(_scan_top) >= 5 else 'Selective market — fewer setups, higher entry bar'}. "
+              f"Top pick: {_scan_top[0].get('name','?')} score={_scan_top[0].get('score',0)} sector={_scan_top[0].get('sector','?')}" if _scan_top else "No stocks passed screener filters.",
+              data={"top_stocks": [{"name": s.get("name"), "score": s.get("score"), "sector": s.get("sector"), "change_pct": s.get("change_pct")} for s in _scan_top]})
+        # Spike detection + Pre-Spike scan — runs after price_cache is populated
         try:
             spike_detector.run(shared_state, _send_tg)
+            # Pre-Spike Detector: catch conditions BEFORE the actual spike fires
+            try:
+                pre_spikes = spike_detector.scan_pre_spikes(shared_state, _send_tg)
+                if pre_spikes:
+                    _log(f"   ⚡ PreSpike: {len(pre_spikes)} setup(s) — {', '.join(p.get('symbol','?') for p in pre_spikes)}", "warn")
+                    for _psp in pre_spikes:
+                        _emit("scanner", "⚡", f"PRE-SPIKE: {_psp.get('symbol','?')} | Score {_psp.get('score',0)}/100",
+                              "PRE-SPIKE SETUP",
+                              f"Pre-spike forensics ({_psp.get('signals_count',0)} signals): {_psp.get('reason','')}. "
+                              "Theory: 4+ concurrent signals (OI velocity, vol surge, IV build, PCR flip, EMA reclaim) = explosive move likely within 15-45 min. "
+                              "Enter small position with tight SL BEFORE the spike, not after.",
+                              action="PRE_SPIKE", level="alert",
+                              data={"symbol": _psp.get("symbol"), "score": _psp.get("score"),
+                                    "signals": _psp.get("signals", [])[:3]})
+            except Exception as _pse:
+                log.debug("scan_pre_spikes: %s", _pse)
             spikes = shared_state.get("spike_alerts", [])
             if spikes:
                 _log(f"   🚨 SpikeDetector: {len(spikes)} alert(s) — {', '.join(s.get('symbol','?') for s in spikes)}", "warn")
+                for _sp in spikes:
+                    _emit("scanner", "🚨", f"SPIKE: {_sp.get('symbol','?')} | Score {_sp.get('spike_score',0)}",
+                          "SPIKE ALERT",
+                          f"Pre-spike signals: OI surge={_sp.get('oi_velocity','?')} | Vol={_sp.get('vol_ratio','?')}x avg | "
+                          f"PCR={_sp.get('pcr','?')} | Trigger: {_sp.get('trigger_reason','momentum break')}. "
+                          "When OI builds rapidly while price coils, explosive directional move is imminent — enter before breakout.",
+                          action="SPIKE_ALERT", level="alert",
+                          data={"symbol": _sp.get("symbol"), "score": _sp.get("spike_score"), "type": _sp.get("type","?")})
             else:
                 _log("   ⚡ SpikeDetector: clean cycle")
         except Exception as e:
@@ -721,11 +813,55 @@ def run_all_agents():
         except Exception as e: log.warning("earnings_calendar: %s", e); _st("calendar", "error")
 
         for agent_name, agent_mod in [("technical",  technical_analysis),
-                                       ("inst_flow",  institutional_flow),
+                                       ("institutional",  institutional_flow),
                                        ("options",    options_flow),
-                                       ("sector_rot", sector_rotation)]:
+                                       ("sector", sector_rotation)]:
             _st(agent_name, "running")
-            try:    agent_mod.run(shared_state); _st(agent_name, "done")
+            try:
+                agent_mod.run(shared_state); _st(agent_name, "done")
+                if agent_name == "technical":
+                    _tech = shared_state.get("technical_data", {})
+                    _tech_names = list(_tech.keys())[:4]
+                    _emit("technical", "📈", f"Pivot/RSI/ATR for {len(_tech)} stocks",
+                          f"Analysed: {', '.join(_tech_names) if _tech_names else 'none yet'}",
+                          "IIFL pivot-based entries: buy within 5-7% above weekly pivot breakout. "
+                          "RSI 40-60 = accumulation zone. ATR scales position size (1% risk ÷ ATR = shares). "
+                          "Swing lows define tighter stops vs 8% fixed. Stocks above 200DMA get score boost.",
+                          data={"count": len(_tech), "stocks": _tech_names})
+                elif agent_name == "institutional":
+                    _if_data = shared_state.get("institutional_flow", {})
+                    _fii = _if_data.get("fii_net", "?") if isinstance(_if_data, dict) else "?"
+                    _dii = _if_data.get("dii_net", "?") if isinstance(_if_data, dict) else "?"
+                    _if_sent = "BULLISH" if str(_fii).lstrip("-").replace(".","").replace(",","").isdigit() and float(str(_fii).replace(",","") or 0) > 0 else "BEARISH"
+                    _emit("institutional", "🏦", f"FII Net: ₹{_fii}Cr | DII Net: ₹{_dii}Cr",
+                          _if_sent,
+                          "FII flows drive medium-term direction. DII absorption cushions FII selling. "
+                          "FII+DII both positive = strong bull signal. FII buying defensives = rotation caution. "
+                          "Block deals reveal smart money accumulation vs distribution zones.",
+                          data={"fii": _fii, "dii": _dii, "sentiment": _if_sent})
+                elif agent_name == "options":
+                    _opt = shared_state.get("options_flow", {})
+                    _pcr = _opt.get("pcr", "?") if isinstance(_opt, dict) else "?"
+                    _max_pain = _opt.get("max_pain", "?") if isinstance(_opt, dict) else "?"
+                    try: _pcr_num = float(str(_pcr).replace(",",""))
+                    except: _pcr_num = 1.0
+                    _opt_sent = "BEARISH" if _pcr_num < 0.8 else "BULLISH" if _pcr_num > 1.2 else "NEUTRAL"
+                    _emit("options", "⚙️", f"PCR={_pcr} | Max Pain=₹{_max_pain}",
+                          _opt_sent,
+                          f"PCR {_pcr}: <0.8=bearish, >1.2=bullish. Max Pain ₹{_max_pain} = price where most options expire worthless "
+                          "(market makers defend this level near expiry). OI walls at strikes = key support/resistance. "
+                          "PCR divergence from price = smart money tells direction before price moves.",
+                          data={"pcr": _pcr, "max_pain": _max_pain, "sentiment": _opt_sent})
+                elif agent_name == "sector":
+                    _sec = shared_state.get("sector_rotation", {})
+                    _top_sec = list(_sec.keys())[:3] if isinstance(_sec, dict) else []
+                    _emit("sector", "🔄", f"Rotation leaders: {', '.join(_top_sec) or 'Scanning'}",
+                          f"Leaders: {', '.join(_top_sec[:2]) or 'Mixed'}",
+                          "Sector rotation: money flows defensive→cyclical = bull start; cyclical→defensive = late bull/bear start. "
+                          f"Current leaders: {', '.join(_top_sec[:2]) or 'mixed'}. "
+                          "Banking+IT leading = broad recovery. Defence+Gold leading = risk-off. "
+                          "Align stock picks with sector momentum for +10-15% alpha on top of stock selection.",
+                          data={"top_sectors": _top_sec})
             except Exception as e:
                 log.error("%s failed: %s", agent_name, e); _st(agent_name, "error")
 
@@ -758,31 +894,99 @@ def run_all_agents():
             else:
                 _st("claude", "done")
                 _log(f"   ⏭ LLM skipped by AgentRouter (cycle saved)")
-        except Exception as e: log.error("claude_intelligence: %s", e); _st("claude", "error"); _log(f"   ⚠ Claude error: {e}", "error")
+                _emit("claude", "🤖", "LLM skipped this cycle (AgentRouter efficiency save)",
+                      "SKIPPED", "AgentRouter determined data confidence is high enough to reuse prior LLM analysis. "
+                      "LLM calls skipped when: last cycle <15min ago + sentiment unchanged + no high-impact news. "
+                      "Saves ~$0.003/cycle. Prior conviction picks still active.", action="skipped")
+        except Exception as e:
+            log.error("claude_intelligence: %s", e); _st("claude", "error")
+            _log(f"   ⚠ Claude error: {e}", "error")
+        # ── EMIT: Claude reasoning ──
+        ca = shared_state.get("claude_analysis", {})
+        if ca and ca.get("market_condition"):
+            _picks = ca.get("conviction_picks", [])
+            _pick_names = [p.get("name","?") for p in _picks[:3]]
+            _emit("claude", "🤖", f"Market: {ca.get('market_condition','?')} | Stance: {ca.get('market_stance','?')} | {len(_picks)} picks",
+                  ca.get("market_stance", "NEUTRAL"),
+                  f"AI synthesis: {ca.get('market_condition','?')} regime. Stance={ca.get('market_stance','?')}. "
+                  f"Conviction picks: {', '.join(_pick_names) or 'none'}. "
+                  f"Theory: {ca.get('market_summary','Claude analysed macro+sector+technical confluence to generate conviction picks with entry/exit targets')[:120]}",
+                  level="alert" if len(_picks) > 0 else "info",
+                  data={"condition": ca.get("market_condition"), "stance": ca.get("market_stance"),
+                        "picks": [{"name": p.get("name"), "gates": p.get("gates_passed",0),
+                                   "execute": p.get("execute_paper_trade")} for p in _picks[:5]]})
 
         # ── TIER 3: STRATEGY ──────────────────────────────────────────────────
         log.info("─── TIER 3: Strategy & Risk ──────────────────────────────────")
         _log("── TIER 3: Strategy & Risk ──────────────────────────")
         _st("signals", "running"); trade_signal.run(shared_state); _st("signals", "done")
         _log(f"   Signals: {len(shared_state.get('actionable_signals',[]))} actionable")
+        # ── EMIT: Trade signals reasoning ──
+        _act_sigs = shared_state.get("actionable_signals", [])
+        _all_sigs = shared_state.get("trade_signals", [])
+        if _act_sigs:
+            _top_sig = _act_sigs[0]
+            _emit("signals", "📊", f"{len(_act_sigs)} actionable / {len(_all_sigs)} total signals",
+                  f"Top: {_top_sig.get('name','?')} RR={_top_sig.get('rr_t1',0):.1f}:1",
+                  f"Signal engine applied IIFL pivot + sector tailwind + risk/reward filter. "
+                  f"Actionable criteria: RR≥1.2 + score≥78. Top signal: {_top_sig.get('name','?')} "
+                  f"entry ₹{_top_sig.get('entry_low','?')}-{_top_sig.get('entry_high','?')} | "
+                  f"T1=₹{_top_sig.get('target1','?')} (+{(((_top_sig.get('target1',0)/_top_sig.get('cmp',1))-1)*100) if _top_sig.get('cmp',0)>0 else '?':.0f}%) | "
+                  f"SL=₹{_top_sig.get('stop_loss','?')} | RR={_top_sig.get('rr_t1',0):.1f}:1",
+                  level="alert", data={"actionable": len(_act_sigs), "total": len(_all_sigs),
+                    "top_signals": [{"name": s.get("name"), "score": s.get("score"), "rr": s.get("rr_t1"), "sector": s.get("sector")} for s in _act_sigs[:5]]})
 
         for agent_name, agent_mod in [("risk",         risk_manager),
-                                       ("web_research", web_researcher)]:
+                                       ("web_researcher", web_researcher)]:
             _st(agent_name, "running")
-            try:    agent_mod.run(shared_state); _st(agent_name, "done")
+            try:
+                agent_mod.run(shared_state); _st(agent_name, "done")
+                if agent_name == "risk":
+                    _rev = shared_state.get("risk_reviewed_signals", [])
+                    _risk_mode = shared_state.get("risk_mode", "NORMAL")
+                    _emit("risk", "🛡️", f"Risk reviewed {len(_rev)} signals | Mode: {_risk_mode}",
+                          _risk_mode,
+                          f"Risk rules: Max 5 positions, 2% per trade, daily loss circuit at -3%, VIX>25 blocks new entries. "
+                          f"Correlation filter rejects if portfolio β>1.3. ATR-based position sizing. "
+                          f"{len(_rev)}/{len(_act_sigs)} signals passed risk review in {_risk_mode} mode.",
+                          data={"reviewed": len(_rev), "mode": _risk_mode})
+                elif agent_name == "web_researcher":
+                    _web_r = shared_state.get("web_research", {})
+                    _emit("web_researcher", "🌐", "Web research: company filings + news deep-dive",
+                          "ACTIVE",
+                          "Cross-references stock signals with recent BSE filings, promoter buys, analyst upgrades. "
+                          "Detects: regulatory headwinds, order wins, capacity expansions, management changes. "
+                          "Adds qualitative layer that pure technical/quant scoring misses.",
+                          data={"researched": len(_web_r) if isinstance(_web_r, dict) else 0})
             except Exception as e:
                 log.error("%s failed: %s", agent_name, e); _st(agent_name, "error")
 
         # ── TIER 4: PAPER TRADING + LEARNING ─────────────────────────────────
         log.info("─── TIER 4: Paper Trading & Learning ────────────────────────")
         _log("── TIER 4: Paper Trading & Learning ─────────────────")
-        _st("paper_trader", "running")
+        _st("paper", "running")
         try:
-            paper_trader.run(shared_state, price_cache); _st("paper_trader", "done")
+            paper_trader.run(shared_state, price_cache); _st("paper", "done")
             port = shared_state.get("paper_portfolio", {})
             open_pos = len([p for p in port.get("positions",{}).values() if p.get("status")=="OPEN"])
             _log(f"   Paper: {open_pos} open positions | Win rate: {port.get('stats',{}).get('win_rate',0)*100:.0f}%")
-        except Exception as e: log.error("paper_trader: %s", e); _st("paper_trader", "error"); _log(f"   ⚠ Paper trader error: {e}", "error")
+            # ── EMIT: Paper trader reasoning ──
+            _new_trades = shared_state.get("trade_decision_log", [])
+            _recent_trade = _new_trades[-1] if _new_trades else {}
+            _win_rate = port.get("stats",{}).get("win_rate",0)*100
+            _realized = port.get("realized_pnl", 0)
+            _emit("paper", "💼", f"{open_pos} open positions | Win rate {_win_rate:.0f}% | P&L ₹{_realized:+,.0f}",
+                  "ACTIVE" if open_pos > 0 else "WATCHING",
+                  f"Paper trading engine evaluated {len(candidate_signals)} signals this cycle using 8-gate conviction filter. "
+                  f"Gates: score≥75, volume surge, above 200DMA, risk/reward≥1.2, sector tailwind, Claude approval, risk clearance, market hours. "
+                  f"{'Entered: ' + _recent_trade.get('symbol','?') + ' @ ₹' + str(_recent_trade.get('entry_price','?')) if _recent_trade.get('result')=='EXECUTED' else 'No new entries this cycle — gates not all met or max positions reached'}. "
+                  f"Portfolio: {open_pos}/5 positions | Win rate {_win_rate:.0f}%",
+                  action="EXECUTED" if _recent_trade.get("result") == "EXECUTED" else "watching",
+                  level="trade" if _recent_trade.get("result") == "EXECUTED" else "info",
+                  data={"open_positions": open_pos, "win_rate": _win_rate, "realized_pnl": _realized,
+                        "recent_decisions": [{"symbol": d.get("symbol"), "result": d.get("result"),
+                                              "gates": d.get("gates_passed")} for d in (_new_trades[-5:] if _new_trades else [])]})
+        except Exception as e: log.error("paper_trader: %s", e); _st("paper", "error"); _log(f"   ⚠ Paper trader error: {e}", "error")
 
         _st("patterns", "running")
         try:    pattern_memory.run(shared_state); _st("patterns", "done")
@@ -1157,9 +1361,39 @@ def api_backtest():
     except Exception as e:
         return jsonify({"error": str(e)})
 
+@app.route("/api/agent-reasoning")
+def api_agent_reasoning():
+    """Live intelligence feed — what each agent is monitoring and WHY."""
+    since = request.args.get("since", 0, type=int)   # client passes index to get only new entries
+    log_data = shared_state.get("agent_reasoning_log", [])
+    return jsonify({
+        "feed":       log_data[since:],
+        "total":      len(log_data),
+        "cycle":      shared_state.get("cycle_count", 0),
+        "last_cycle": shared_state.get("last_full_cycle", "—"),
+    })
+
+@app.route("/api/trade-decision-log")
+def api_trade_decision_log():
+    """Every paper trade decision — EXECUTED, REJECTED or MONITORING — with full reasoning."""
+    log_data = shared_state.get("trade_decision_log", [])
+    return jsonify({
+        "decisions":  log_data[-100:],          # last 100 decisions
+        "total":      len(log_data),
+        "executed":   sum(1 for d in log_data if d.get("result") == "EXECUTED"),
+        "rejected":   sum(1 for d in log_data if d.get("result") == "REJECTED"),
+    })
+
 @app.route("/api/paper-portfolio")
 def api_paper_portfolio():
-    return jsonify(shared_state.get("paper_portfolio", {}))
+    p = shared_state.get("paper_portfolio", {})
+    capital = p.get("capital", 500000)
+    # Enrich with all fields the Portfolio tab needs
+    enriched = dict(p)
+    enriched.setdefault("available_cash", capital)
+    enriched.setdefault("total_value",    capital + p.get("realized_pnl", 0) + p.get("unrealized_pnl", 0))
+    enriched.setdefault("starting_capital", capital)
+    return jsonify(enriched)
 
 @app.route("/api/paper-trades")
 def api_paper_trades():
