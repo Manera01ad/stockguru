@@ -4810,6 +4810,127 @@
 
         </footer>
       </div><!-- /container -->
+
+        <!-- ── TERMINAL HTML ──────────────────────────────────────────────────────── -->
+        <div class="section" id="tab-terminal">
+        <div class="term-wrap">
+        
+          <!-- Top bar: price + stats -->
+          <div class="term-topbar">
+            <div>
+              <div style="font-size:10px;color:#556;letter-spacing:.08em;margin-bottom:2px" id="term-sym-label">BTC/USDT</div>
+              <div style="display:flex;align-items:baseline;gap:8px">
+                <span class="term-price-main" id="term-price">--</span>
+                <span class="term-price-chg" id="term-price-chg">--</span>
+              </div>
+            </div>
+            <div class="term-stat-item"><div class="term-stat-lbl">24H High</div><div class="term-stat-val" id="term-stat-high">--</div></div>
+            <div class="term-stat-item"><div class="term-stat-lbl">24H Low</div><div class="term-stat-val" id="term-stat-low">--</div></div>
+            <div class="term-stat-item"><div class="term-stat-lbl">24H Vol</div><div class="term-stat-val" id="term-stat-vol">--</div></div>
+            <div class="term-stat-item"><div class="term-stat-lbl">Prev Close</div><div class="term-stat-val" id="term-stat-prev">--</div></div>
+            <div class="term-stat-item"><div class="term-stat-lbl">Open</div><div class="term-stat-val" id="term-stat-open">--</div></div>
+            <div class="term-stat-item"><div class="term-stat-lbl">Currency</div><div class="term-stat-val" id="term-stat-curr">--</div></div>
+            <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+              <span id="term-live-dot" style="width:7px;height:7px;background:#00e676;border-radius:50%;display:inline-block;animation:blink 1.2s infinite"></span>
+              <span style="font-size:10px;color:#556">Live</span>
+            </div>
+          </div>
+        
+          <!-- Segment selector -->
+          <div class="term-seg-bar">
+            <span style="font-size:10px;color:#445;font-weight:700;letter-spacing:.08em;margin-right:4px">SEGMENT</span>
+            <button class="term-seg-btn seg-cash active"      onclick="termSelectSegment('cash',this)">💵 CASH</button>
+            <button class="term-seg-btn seg-fno"              onclick="termSelectSegment('fno',this)">⚡ F&amp;O</button>
+            <button class="term-seg-btn seg-commodity"        onclick="termSelectSegment('commodity',this)">🏅 COMMODITY</button>
+            <button class="term-seg-btn seg-currency"         onclick="termSelectSegment('currency',this)">💱 CURRENCY</button>
+            <button class="term-seg-btn seg-crypto"           onclick="termSelectSegment('crypto',this)">🔮 CRYPTO</button>
+            <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+              <input class="term-sym-search" id="term-search" placeholder="🔍 Symbol..." oninput="termSearchFilter(this.value)" />
+            </div>
+          </div>
+        
+          <!-- F&O Sub-type bar -->
+          <div class="term-sub-bar" id="term-fno-subbar">
+            <span style="font-size:9px;color:#445;letter-spacing:.08em">TYPE:</span>
+            <button class="term-sub-btn active" onclick="termSetSubtype('futures',this)">FUTURES</button>
+            <button class="term-sub-btn ce"     onclick="termSetSubtype('ce',this)">CE ▲ CALLS</button>
+            <button class="term-sub-btn pe"     onclick="termSetSubtype('pe',this)">PE ▼ PUTS</button>
+            <div id="term-strike-wrap" style="display:none;align-items:center;gap:6px;margin-left:10px">
+              <span style="font-size:9px;color:#445">EXPIRY:</span>
+              <select id="term-expiry-sel" style="background:#1a1f2b;border:1px solid #2a3040;color:#c8cdd8;font-size:10px;padding:2px 6px;border-radius:6px;outline:none">
+                <option>Weekly</option><option>Monthly</option><option>Next Month</option>
+              </select>
+              <span style="font-size:9px;color:#445">STRIKE:</span>
+              <select id="term-strike-sel" style="background:#1a1f2b;border:1px solid #2a3040;color:#c8cdd8;font-size:10px;padding:2px 6px;border-radius:6px;outline:none">
+                <option>ATM</option>
+                <option>ATM-100</option><option>ATM-200</option><option>ATM-300</option>
+                <option>ATM+100</option><option>ATM+200</option><option>ATM+300</option>
+              </select>
+            </div>
+          </div>
+        
+          <!-- Crypto sub-type bar -->
+          <div class="term-sub-bar" id="term-crypto-subbar">
+            <span style="font-size:9px;color:#445;letter-spacing:.08em">TYPE:</span>
+            <button class="term-sub-btn active" onclick="termSetCryptoType('spot',this)">SPOT</button>
+            <button class="term-sub-btn"        onclick="termSetCryptoType('futures',this)">FUTURES</button>
+            <button class="term-sub-btn"        onclick="termSetCryptoType('options',this)">OPTIONS</button>
+          </div>
+        
+          <!-- Symbol pills -->
+          <div class="term-sym-bar" id="term-sym-bar"></div>
+        
+          <!-- Body: order book + chart -->
+          <div class="term-body">
+        
+            <!-- Order Book -->
+            <div class="term-ob" id="term-ob-panel">
+              <div class="term-ob-head">
+                <span>PRICE</span><span>QTY</span>
+              </div>
+              <div class="term-ob-scroll">
+                <div class="term-ob-asks" id="term-ob-asks">
+                  <div style="text-align:center;padding:20px;color:#445;font-size:11px">Loading…</div>
+                </div>
+                <div class="term-ob-spread" id="term-ob-spread">SPREAD —</div>
+                <div class="term-ob-bids" id="term-ob-bids"></div>
+              </div>
+              <div class="term-ob-footer">
+                <span id="term-ob-buy-pct">Buy 50%</span>
+                <span id="term-ob-sell-pct">Sell 50%</span>
+              </div>
+            </div>
+        
+            <!-- Chart -->
+            <div class="term-chart-wrap">
+              <div class="term-chart-toolbar">
+                <!-- Timeframe buttons -->
+                <button class="term-tf-btn" onclick="termSetTF('1m','1d',this)">1m</button>
+                <button class="term-tf-btn" onclick="termSetTF('5m','5d',this)">5m</button>
+                <button class="term-tf-btn active" onclick="termSetTF('15m','5d',this)">15m</button>
+                <button class="term-tf-btn" onclick="termSetTF('60m','1mo',this)">1H</button>
+                <button class="term-tf-btn" onclick="termSetTF('1d','3mo',this)">1D</button>
+                <button class="term-tf-btn" onclick="termSetTF('1wk','1y',this)">1W</button>
+                <div class="term-tf-sep"></div>
+                <!-- Chart type -->
+                <button class="term-chart-type-btn active" onclick="termSetChartType('candle',this)">🕯 Candles</button>
+                <button class="term-chart-type-btn" onclick="termSetChartType('line',this)">📈 Line</button>
+                <button class="term-chart-type-btn" onclick="termSetChartType('bar',this)">▮▮ Bars</button>
+                <div class="term-tf-sep"></div>
+                <!-- MA toggles -->
+                <span class="term-ma-badge ma7"  id="badge-ma7"  onclick="termToggleMA('ma7')">MA7</span>
+                <span class="term-ma-badge ma25" id="badge-ma25" onclick="termToggleMA('ma25')">MA25</span>
+                <span class="term-ma-badge ma99" id="badge-ma99" onclick="termToggleMA('ma99')">MA99</span>
+                <span class="term-vol-label">Vol</span>
+              </div>
+              <div id="term-chart"></div>
+              <div id="term-vol-chart"></div>
+            </div>
+        
+          </div><!-- end term-body -->
+        </div><!-- end term-wrap -->
+        </div><!-- end tab-terminal -->
+
     </div><!-- /content-wrap -->
   </div><!-- /app-layout -->
 
@@ -8394,125 +8515,6 @@ setTimeout(injectWorkflowPanels, 1500);
 }
 </style>
 
-<!-- ── TERMINAL HTML ──────────────────────────────────────────────────────── -->
-<div class="section" id="tab-terminal">
-<div class="term-wrap">
-
-  <!-- Top bar: price + stats -->
-  <div class="term-topbar">
-    <div>
-      <div style="font-size:10px;color:#556;letter-spacing:.08em;margin-bottom:2px" id="term-sym-label">BTC/USDT</div>
-      <div style="display:flex;align-items:baseline;gap:8px">
-        <span class="term-price-main" id="term-price">--</span>
-        <span class="term-price-chg" id="term-price-chg">--</span>
-      </div>
-    </div>
-    <div class="term-stat-item"><div class="term-stat-lbl">24H High</div><div class="term-stat-val" id="term-stat-high">--</div></div>
-    <div class="term-stat-item"><div class="term-stat-lbl">24H Low</div><div class="term-stat-val" id="term-stat-low">--</div></div>
-    <div class="term-stat-item"><div class="term-stat-lbl">24H Vol</div><div class="term-stat-val" id="term-stat-vol">--</div></div>
-    <div class="term-stat-item"><div class="term-stat-lbl">Prev Close</div><div class="term-stat-val" id="term-stat-prev">--</div></div>
-    <div class="term-stat-item"><div class="term-stat-lbl">Open</div><div class="term-stat-val" id="term-stat-open">--</div></div>
-    <div class="term-stat-item"><div class="term-stat-lbl">Currency</div><div class="term-stat-val" id="term-stat-curr">--</div></div>
-    <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
-      <span id="term-live-dot" style="width:7px;height:7px;background:#00e676;border-radius:50%;display:inline-block;animation:blink 1.2s infinite"></span>
-      <span style="font-size:10px;color:#556">Live</span>
-    </div>
-  </div>
-
-  <!-- Segment selector -->
-  <div class="term-seg-bar">
-    <span style="font-size:10px;color:#445;font-weight:700;letter-spacing:.08em;margin-right:4px">SEGMENT</span>
-    <button class="term-seg-btn seg-cash active"      onclick="termSelectSegment('cash',this)">💵 CASH</button>
-    <button class="term-seg-btn seg-fno"              onclick="termSelectSegment('fno',this)">⚡ F&amp;O</button>
-    <button class="term-seg-btn seg-commodity"        onclick="termSelectSegment('commodity',this)">🏅 COMMODITY</button>
-    <button class="term-seg-btn seg-currency"         onclick="termSelectSegment('currency',this)">💱 CURRENCY</button>
-    <button class="term-seg-btn seg-crypto"           onclick="termSelectSegment('crypto',this)">🔮 CRYPTO</button>
-    <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
-      <input class="term-sym-search" id="term-search" placeholder="🔍 Symbol..." oninput="termSearchFilter(this.value)" />
-    </div>
-  </div>
-
-  <!-- F&O Sub-type bar -->
-  <div class="term-sub-bar" id="term-fno-subbar">
-    <span style="font-size:9px;color:#445;letter-spacing:.08em">TYPE:</span>
-    <button class="term-sub-btn active" onclick="termSetSubtype('futures',this)">FUTURES</button>
-    <button class="term-sub-btn ce"     onclick="termSetSubtype('ce',this)">CE ▲ CALLS</button>
-    <button class="term-sub-btn pe"     onclick="termSetSubtype('pe',this)">PE ▼ PUTS</button>
-    <div id="term-strike-wrap" style="display:none;align-items:center;gap:6px;margin-left:10px">
-      <span style="font-size:9px;color:#445">EXPIRY:</span>
-      <select id="term-expiry-sel" style="background:#1a1f2b;border:1px solid #2a3040;color:#c8cdd8;font-size:10px;padding:2px 6px;border-radius:6px;outline:none">
-        <option>Weekly</option><option>Monthly</option><option>Next Month</option>
-      </select>
-      <span style="font-size:9px;color:#445">STRIKE:</span>
-      <select id="term-strike-sel" style="background:#1a1f2b;border:1px solid #2a3040;color:#c8cdd8;font-size:10px;padding:2px 6px;border-radius:6px;outline:none">
-        <option>ATM</option>
-        <option>ATM-100</option><option>ATM-200</option><option>ATM-300</option>
-        <option>ATM+100</option><option>ATM+200</option><option>ATM+300</option>
-      </select>
-    </div>
-  </div>
-
-  <!-- Crypto sub-type bar -->
-  <div class="term-sub-bar" id="term-crypto-subbar">
-    <span style="font-size:9px;color:#445;letter-spacing:.08em">TYPE:</span>
-    <button class="term-sub-btn active" onclick="termSetCryptoType('spot',this)">SPOT</button>
-    <button class="term-sub-btn"        onclick="termSetCryptoType('futures',this)">FUTURES</button>
-    <button class="term-sub-btn"        onclick="termSetCryptoType('options',this)">OPTIONS</button>
-  </div>
-
-  <!-- Symbol pills -->
-  <div class="term-sym-bar" id="term-sym-bar"></div>
-
-  <!-- Body: order book + chart -->
-  <div class="term-body">
-
-    <!-- Order Book -->
-    <div class="term-ob" id="term-ob-panel">
-      <div class="term-ob-head">
-        <span>PRICE</span><span>QTY</span>
-      </div>
-      <div class="term-ob-scroll">
-        <div class="term-ob-asks" id="term-ob-asks">
-          <div style="text-align:center;padding:20px;color:#445;font-size:11px">Loading…</div>
-        </div>
-        <div class="term-ob-spread" id="term-ob-spread">SPREAD —</div>
-        <div class="term-ob-bids" id="term-ob-bids"></div>
-      </div>
-      <div class="term-ob-footer">
-        <span id="term-ob-buy-pct">Buy 50%</span>
-        <span id="term-ob-sell-pct">Sell 50%</span>
-      </div>
-    </div>
-
-    <!-- Chart -->
-    <div class="term-chart-wrap">
-      <div class="term-chart-toolbar">
-        <!-- Timeframe buttons -->
-        <button class="term-tf-btn" onclick="termSetTF('1m','1d',this)">1m</button>
-        <button class="term-tf-btn" onclick="termSetTF('5m','5d',this)">5m</button>
-        <button class="term-tf-btn active" onclick="termSetTF('15m','5d',this)">15m</button>
-        <button class="term-tf-btn" onclick="termSetTF('60m','1mo',this)">1H</button>
-        <button class="term-tf-btn" onclick="termSetTF('1d','3mo',this)">1D</button>
-        <button class="term-tf-btn" onclick="termSetTF('1wk','1y',this)">1W</button>
-        <div class="term-tf-sep"></div>
-        <!-- Chart type -->
-        <button class="term-chart-type-btn active" onclick="termSetChartType('candle',this)">🕯 Candles</button>
-        <button class="term-chart-type-btn" onclick="termSetChartType('line',this)">📈 Line</button>
-        <button class="term-chart-type-btn" onclick="termSetChartType('bar',this)">▮▮ Bars</button>
-        <div class="term-tf-sep"></div>
-        <!-- MA toggles -->
-        <span class="term-ma-badge ma7"  id="badge-ma7"  onclick="termToggleMA('ma7')">MA7</span>
-        <span class="term-ma-badge ma25" id="badge-ma25" onclick="termToggleMA('ma25')">MA25</span>
-        <span class="term-ma-badge ma99" id="badge-ma99" onclick="termToggleMA('ma99')">MA99</span>
-        <span class="term-vol-label">Vol</span>
-      </div>
-      <div id="term-chart"></div>
-      <div id="term-vol-chart"></div>
-    </div>
-
-  </div><!-- end term-body -->
-</div><!-- end term-wrap -->
-</div><!-- end tab-terminal -->
 
 <style>
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
