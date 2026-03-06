@@ -148,6 +148,15 @@ except Exception as _conx:
 
 load_dotenv()
 
+# ── DATA FEED MANAGER (auto-selects best configured feed) ────────────────────
+try:
+    from stockguru_agents.feeds import feed_manager as _feed_mgr
+    _FEED_OK = True
+except Exception as _fe:
+    import logging as _fl; _fl.getLogger(__name__).warning(f"FeedManager init failed: {_fe}")
+    _feed_mgr = None
+    _FEED_OK  = False
+
 # ── LOGGING: Rotating file handler + console ──────────────────────────────────
 _log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
 os.makedirs(_log_dir, exist_ok=True)
@@ -2642,6 +2651,31 @@ _TERMINAL_SYMBOLS = {
     ],
 }
 
+@app.route("/api/feed-status")
+def api_feed_status():
+    """Return active data feed and status of all configured connectors."""
+    try:
+        if _FEED_OK and _feed_mgr:
+            return jsonify(_feed_mgr.status())
+        return jsonify({"active_feed": "yahoo", "active_label": "Yahoo Finance",
+                        "is_realtime": False, "feeds": []})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/feed-reload")
+def api_feed_reload():
+    """Force re-detect active feed (after updating .env keys at runtime)."""
+    try:
+        if _FEED_OK and _feed_mgr:
+            _feed_mgr.reload()
+            return jsonify({"status": "ok", "active_feed": _feed_mgr.active_name,
+                            "active_label": _feed_mgr.active_label})
+        return jsonify({"status": "ok", "active_feed": "yahoo"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/terminal-symbols")
 def api_terminal_symbols():
     segment = request.args.get("segment", "cash").lower()
@@ -2651,163 +2685,42 @@ def api_terminal_symbols():
 @app.route("/api/ohlcv")
 def api_ohlcv():
     """
-    Fetch OHLCV candle data for a symbol via Yahoo Finance.
+    Fetch OHLCV candle data — routed through active DataFeed connector.
+    Falls back to Yahoo Finance if no connector is configured.
     Query params: sym=RELIANCE.NS, interval=5m|15m|1h|1d|1wk, range=1d|5d|1mo|3mo|6mo|1y
     """
     sym      = request.args.get("sym", "^NSEI")
     interval = request.args.get("interval", "5m")
     rng      = request.args.get("range", "1d")
-
-    # Validate interval/range combos (Yahoo Finance limitations)
-    valid_combos = {
-        "1m":  ["1d"],
-        "2m":  ["1d","5d"],
-        "5m":  ["1d","5d"],
-        "15m": ["1d","5d","1mo"],
-        "30m": ["1d","5d","1mo"],
-        "60m": ["5d","1mo","3mo"],
-        "1h":  ["5d","1mo","3mo"],
-        "1d":  ["1mo","3mo","6mo","1y","2y","5y"],
-        "1wk": ["3mo","6mo","1y","2y","5y"],
-        "1mo": ["1y","2y","5y"],
-    }
-    allowed_ranges = valid_combos.get(interval, ["1d","5d","1mo"])
-    if rng not in allowed_ranges:
-        rng = allowed_ranges[0]
-
     try:
-        url = (f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}"
-               f"?interval={interval}&range={rng}&includePrePost=false")
-        r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
-        d = r.json()
-
-        result = d.get("chart", {}).get("result", [])
-        if not result:
-            return jsonify({"candles": [], "error": "No data returned"})
-
-        res       = result[0]
-        meta      = res.get("meta", {})
-        ts_list   = res.get("timestamp", [])
-        quote     = res.get("indicators", {}).get("quote", [{}])[0]
-
-        opens   = quote.get("open",   [])
-        highs   = quote.get("high",   [])
-        lows    = quote.get("low",    [])
-        closes  = quote.get("close",  [])
-        volumes = quote.get("volume", [])
-
-        candles = []
-        for i, ts in enumerate(ts_list):
-            o = opens[i]   if i < len(opens)   else None
-            h = highs[i]   if i < len(highs)   else None
-            l = lows[i]    if i < len(lows)     else None
-            c = closes[i]  if i < len(closes)   else None
-            v = volumes[i] if i < len(volumes)  else 0
-            if None in (o, h, l, c) or o != o:  # skip NaN
-                continue
-            candles.append({
-                "time":   int(ts),
-                "open":   round(float(o), 4),
-                "high":   round(float(h), 4),
-                "low":    round(float(l), 4),
-                "close":  round(float(c), 4),
-                "volume": int(v or 0),
-            })
-
-        curr_price = meta.get("regularMarketPrice", 0)
-        prev_close = meta.get("chartPreviousClose", curr_price) or curr_price
-        change_pct = round(((curr_price - prev_close) / prev_close) * 100, 2) if prev_close else 0
-
-        return jsonify({
-            "candles":    candles,
-            "symbol":     sym,
-            "name":       meta.get("longName", meta.get("shortName", sym)),
-            "currency":   meta.get("currency", "INR"),
-            "price":      round(curr_price, 4),
-            "prev_close": round(prev_close, 4),
-            "change_pct": change_pct,
-            "day_high":   meta.get("regularMarketDayHigh", curr_price),
-            "day_low":    meta.get("regularMarketDayLow",  curr_price),
-            "volume":     meta.get("regularMarketVolume",  0),
-            "interval":   interval,
-            "range":      rng,
-        })
+        if _FEED_OK and _feed_mgr:
+            result = _feed_mgr.get_candles(sym, interval, rng)
+        else:
+            from stockguru_agents.feeds.yahoo_feed import YahooFeed
+            result = YahooFeed().get_candles(sym, interval, rng)
+        result["feed"] = _feed_mgr.active_name if (_FEED_OK and _feed_mgr) else "yahoo"
+        return jsonify(result)
     except Exception as e:
-        log.error("OHLCV fetch error %s: %s", sym, e)
+        log.error("OHLCV error %s: %s", sym, e)
         return jsonify({"candles": [], "error": str(e)}), 500
-
 
 @app.route("/api/orderbook")
 def api_orderbook():
     """
-    Generate a realistic order book (bid/ask ladder) for a symbol.
-    Uses current price from price_cache if available, else fetches from Yahoo.
+    Live order book — routed through active DataFeed connector.
+    Falls back to simulated order book (Yahoo price) if no connector configured.
     """
     sym   = request.args.get("sym", "^NSEI")
     depth = int(request.args.get("depth", 15))
-    import math, random
-
-    # Try price_cache first
-    pc_key  = sym.replace(".NS", "").replace("^", "")
-    entry   = shared_state.get("price_cache", {}).get(sym) or \
-              shared_state.get("price_cache", {}).get(pc_key, {})
-    price   = entry.get("price", 0) if entry else 0
-
-    if not price:
-        # Fallback: quick Yahoo fetch
-        try:
-            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}?interval=1m&range=1d"
-            r   = requests.get(url, headers={"User-Agent":"Mozilla/5.0"}, timeout=6)
-            price = r.json()["chart"]["result"][0]["meta"].get("regularMarketPrice", 0)
-        except:
-            return jsonify({"bids": [], "asks": [], "spread": 0, "price": 0})
-
-    if not price or price <= 0:
-        return jsonify({"bids": [], "asks": [], "spread": 0, "price": 0})
-
-    # Tick size based on price level (Indian market rules)
-    if price >= 250:    tick = 0.05
-    elif price >= 50:   tick = 0.05
-    else:               tick = 0.01
-    if "USD" in sym or "BTC" in sym or "ETH" in sym:
-        tick = round(price * 0.0001, 4)
-    if sym in ("^NSEI", "^NSEBANK"):
-        tick = 0.10
-
-    spread_ticks = 1
-    spread = round(spread_ticks * tick, 4)
-    best_bid = round(math.floor(price / tick) * tick, 4)
-    best_ask = round(best_bid + spread, 4)
-
-    rng_seed = int(price * 100) % 999
-    rnd = random.Random(rng_seed + int(datetime.now().minute))
-
-    def _qty(level):
-        base = max(1, int(price * 50 / max(price,1)))
-        multiplier = max(0.2, 1.5 - level * 0.1 + rnd.uniform(-0.2, 0.4))
-        return round(base * multiplier, 4)
-
-    asks = []
-    bids = []
-    cum_ask = 0.0
-    cum_bid = 0.0
-    for i in range(depth):
-        a_price  = round(best_ask + i * tick, 4)
-        a_qty    = _qty(i)
-        cum_ask += a_qty
-        asks.append({"price": a_price, "qty": round(a_qty, 4), "total": round(cum_ask, 4)})
-
-        b_price  = round(best_bid - i * tick, 4)
-        b_qty    = _qty(i)
-        cum_bid += b_qty
-        bids.append({"price": b_price, "qty": round(b_qty, 4), "total": round(cum_bid, 4)})
-
-    return jsonify({
-        "symbol":   sym,
-        "price":    price,
-        "best_bid": best_bid,
-        "best_ask": best_ask,
-        "spread":   spread,
-        "bids":     bids,
-        "asks":     asks,
-    })
+    try:
+        if _FEED_OK and _feed_mgr:
+            result = _feed_mgr.get_orderbook(sym, depth)
+        else:
+            from stockguru_agents.feeds.yahoo_feed import YahooFeed
+            result = YahooFeed().get_orderbook(sym, depth)
+        result["feed"]   = _feed_mgr.active_name if (_FEED_OK and _feed_mgr) else "yahoo"
+        result["symbol"] = sym
+        return jsonify(result)
+    except Exception as e:
+        log.error("Orderbook error %s: %s", sym, e)
+        return jsonify({"bids": [], "asks": [], "error": str(e)}), 500

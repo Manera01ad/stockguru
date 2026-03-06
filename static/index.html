@@ -4849,9 +4849,18 @@
             <div class="term-stat-item"><div class="term-stat-lbl">Prev Close</div><div class="term-stat-val" id="term-stat-prev">--</div></div>
             <div class="term-stat-item"><div class="term-stat-lbl">Open</div><div class="term-stat-val" id="term-stat-open">--</div></div>
             <div class="term-stat-item"><div class="term-stat-lbl">Currency</div><div class="term-stat-val" id="term-stat-curr">--</div></div>
-            <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+            <div style="margin-left:auto;display:flex;gap:10px;align-items:center">
+              <!-- Feed status badge -->
+              <div id="term-feed-badge" style="display:flex;align-items:center;gap:5px;
+                   background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);
+                   border-radius:20px;padding:2px 10px;cursor:pointer"
+                   title="Click to see all configured feeds"
+                   onclick="termShowFeedInfo()">
+                <span id="term-feed-dot" style="width:6px;height:6px;background:#6366f1;border-radius:50%;display:inline-block;animation:blink 1.2s infinite"></span>
+                <span id="term-feed-label" style="font-size:10px;color:#818cf8;font-weight:600;letter-spacing:.04em">Yahoo Finance</span>
+                <span id="term-feed-latency" style="font-size:9px;color:#445">15min</span>
+              </div>
               <span id="term-live-dot" style="width:7px;height:7px;background:#00e676;border-radius:50%;display:inline-block;animation:blink 1.2s infinite"></span>
-              <span style="font-size:10px;color:#556">Live</span>
             </div>
           </div>
         
@@ -8596,6 +8605,74 @@ function _calcEMA(data, period, key='close') {
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────
+// ── Feed status badge ─────────────────────────────────────────────────────
+function _loadFeedStatus() {
+  fetch(`${API}/feed-status`).then(r => r.json()).then(data => {
+    const label    = document.getElementById('term-feed-label');
+    const dot      = document.getElementById('term-feed-dot');
+    const latency  = document.getElementById('term-feed-latency');
+    const badge    = document.getElementById('term-feed-badge');
+    if (!label) return;
+
+    label.textContent   = data.active_label || 'Yahoo Finance';
+    const isRT          = data.is_realtime;
+    const ms            = data.latency_ms || 15000;
+    latency.textContent = ms < 1000 ? `${ms}ms` : `${Math.round(ms/60000)}min`;
+
+    if (isRT) {
+      dot.style.background   = '#00e676';
+      badge.style.background = 'rgba(0,230,118,.12)';
+      badge.style.borderColor= 'rgba(0,230,118,.4)';
+      label.style.color      = '#00e676';
+    } else {
+      dot.style.background   = '#fbbf24';
+      badge.style.background = 'rgba(251,191,36,.1)';
+      badge.style.borderColor= 'rgba(251,191,36,.3)';
+      label.style.color      = '#fbbf24';
+    }
+
+    // Store for popup
+    window._feedStatusData = data;
+  }).catch(() => {});
+}
+
+function termShowFeedInfo() {
+  const data = window._feedStatusData;
+  if (!data) return;
+  const rows = (data.feeds || []).map(f => {
+    const icon = f.active ? '🟢' : (f.configured ? '🟡' : '⚪');
+    const rt   = f.realtime ? `${f.latency_ms}ms` : 'delayed';
+    const ob   = f.ob_levels ? `${f.ob_levels}-level OB` : 'simulated OB';
+    return `<tr style="border-bottom:1px solid #1e2530">
+      <td style="padding:6px 10px">${icon} <b style="color:${f.active?'#00e676':f.configured?'#fbbf24':'#445'}">${f.label}</b></td>
+      <td style="padding:6px 10px;color:#6b7280">${rt}</td>
+      <td style="padding:6px 10px;color:#6b7280">${ob}</td>
+      <td style="padding:6px 10px;color:#445;font-size:10px">${f.active?'ACTIVE':f.configured?'configured':'add keys to .env'}</td>
+    </tr>`;
+  }).join('');
+
+  const html = `<div onclick="this.remove()" style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center">
+    <div onclick="event.stopPropagation()" style="background:#12161e;border:1px solid #2a3040;border-radius:16px;padding:24px;min-width:480px;max-width:600px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <span style="font-size:14px;font-weight:700;color:#c8cdd8">📡 Data Feed Connectors</span>
+        <button onclick="this.closest('[onclick]').click()" style="background:none;border:none;color:#556;cursor:pointer;font-size:18px">✕</button>
+      </div>
+      <p style="font-size:11px;color:#556;margin-bottom:16px">
+        Add credentials to <code style="color:#a78bfa">.env</code> to activate a feed.
+        System auto-selects the best available. 🟢 active &nbsp;🟡 configured &nbsp;⚪ not set
+      </p>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">${rows}</table>
+      <div style="margin-top:16px;text-align:right">
+        <button onclick="fetch('${API}/feed-reload').then(()=>_loadFeedStatus()).then(()=>this.closest('[onclick]').click())"
+          style="background:rgba(99,102,241,.2);border:1px solid #6366f1;color:#a5b4fc;padding:6px 16px;border-radius:8px;cursor:pointer;font-size:11px">
+          🔄 Reload Feeds
+        </button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
 window.initTerminal = function() {
   if (_termInited) { return; }
   _termInited = true;
@@ -8606,6 +8683,9 @@ window.initTerminal = function() {
     _termInited = false;
     return;
   }
+
+  _loadFeedStatus();   // show active feed in topbar
+  setInterval(_loadFeedStatus, 60000);  // refresh feed status every 60s
 
   _buildCharts();
   termSelectSegment('crypto', document.querySelector('.term-seg-btn.seg-crypto'));
