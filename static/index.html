@@ -1409,6 +1409,20 @@
       backdrop-filter: var(--blur);
       -webkit-backdrop-filter: var(--blur)
     }
+    /* Live trade toggle switch */
+    .trade-toggle { position:relative; display:inline-flex; width:60px; height:32px; cursor:pointer; flex-shrink:0 }
+    .trade-toggle input { opacity:0; width:0; height:0 }
+    .trade-toggle-slider {
+      position:absolute; inset:0; background:#1e2432;
+      border:1px solid rgba(255,255,255,.12); border-radius:32px;
+      transition:.3s;
+    }
+    .trade-toggle-slider::before {
+      content:''; position:absolute; height:24px; width:24px; left:3px; bottom:3px;
+      background:#555; border-radius:50%; transition:.3s;
+    }
+    .trade-toggle input:checked + .trade-toggle-slider { background:rgba(255,61,113,.25); border-color:rgba(255,61,113,.6) }
+    .trade-toggle input:checked + .trade-toggle-slider::before { transform:translateX(28px); background:var(--red) }
     .feed-connector-card {
       background: rgba(255,255,255,.025);
       border: 1px solid rgba(255,255,255,.08);
@@ -1808,7 +1822,7 @@
             class="tab-icon">🔌</span><span class="tab-label">Channels</span></button>
         <button class="tab-btn" data-label="Backtest" onclick="showTab('backtest',this)"> <span
             class="tab-icon">📈</span><span class="tab-label">Backtest</span></button>
-        <button class="tab-btn" data-label="API Keys" onclick="showTab('apikeys',this);initFeedStatus()"> <span
+        <button class="tab-btn" data-label="API Keys" onclick="showTab('apikeys',this);initFeedStatus();initLiveTradeToggle()"> <span
             class="tab-icon">🔑</span><span class="tab-label">API Keys</span></button>
         <button class="tab-btn" data-label="Sovereign"
           onclick="showTab('sovereign',this);document.getElementById('builder-badge').style.display='none'"> <span
@@ -3669,8 +3683,7 @@
 
             <!-- PAPER TRADING SETTINGS -->
             <div class="keys-card" style="border-color:rgba(255,209,102,.2)">
-              <div
-                style="font-family:'Bebas Neue';font-size:18px;letter-spacing:2px;color:var(--accent4);margin-bottom:14px">
+              <div style="font-family:'Bebas Neue';font-size:18px;letter-spacing:2px;color:var(--accent4);margin-bottom:14px">
                 💼 PAPER TRADING SETTINGS</div>
               <div class="g2e">
                 <div class="key-group">
@@ -3679,12 +3692,57 @@
                   <div class="key-hint">Starting virtual cash (default ₹5,00,000 = 5 Lakhs)</div>
                 </div>
               </div>
-              <div
-                style="margin-top:10px;padding:12px;background:rgba(255,61,113,.06);border:1px solid rgba(255,61,113,.2);border-radius:8px">
-                <div style="font-family:'Space Mono';font-size:10px;color:var(--red);letter-spacing:1px">⚠️ LIVE TRADING
-                  PERMANENTLY DISABLED</div>
-                <div style="font-size:12px;color:var(--muted);margin-top:4px">LIVE_TRADING_ENABLED = False is hardcoded
-                  in paper_trader.py. No real trades can execute.</div>
+
+              <!-- LIVE TRADING TOGGLE -->
+              <div id="live-trade-block" style="margin-top:18px;padding:18px;background:rgba(255,61,113,.05);border:1px solid rgba(255,61,113,.2);border-radius:10px">
+                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+                  <div>
+                    <div style="font-family:'Space Mono';font-size:11px;letter-spacing:1px;color:var(--text);margin-bottom:4px">⚡ LIVE BROKER EXECUTION</div>
+                    <div style="font-size:12px;color:var(--muted);line-height:1.6" id="live-trade-desc">
+                      Currently <strong style="color:var(--accent)">Paper Trading only</strong> — broker APIs used for data feeds only. No real orders sent.
+                    </div>
+                  </div>
+                  <!-- Toggle switch -->
+                  <label class="trade-toggle" id="live-toggle-wrap" title="Enable Live Trading">
+                    <input type="checkbox" id="live-trade-toggle" onchange="onLiveTradeToggle(this)">
+                    <span class="trade-toggle-slider"></span>
+                  </label>
+                </div>
+                <!-- Expanded warning shown only when ON -->
+                <div id="live-trade-warning" style="display:none;margin-top:14px;padding:12px;background:rgba(255,61,113,.1);border:1px solid rgba(255,61,113,.4);border-radius:8px">
+                  <div style="font-family:'Space Mono';font-size:10px;color:var(--red);letter-spacing:1px;margin-bottom:6px">🔴 LIVE TRADING ARMED — REAL MONEY AT RISK</div>
+                  <div style="font-size:12px;color:var(--muted);line-height:1.7">
+                    Real orders will be placed through your connected broker. Every BUY/SELL signal from the agents will execute with <strong style="color:var(--text)">your actual capital</strong>.<br>
+                    Make sure your broker credentials are valid and you have sufficient margin.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- LIVE TRADING CONFIRM MODAL -->
+            <div id="live-trade-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);align-items:center;justify-content:center">
+              <div style="background:#0e1420;border:1px solid rgba(255,61,113,.5);border-radius:16px;padding:32px;max-width:460px;width:90%;box-shadow:0 0 60px rgba(255,61,113,.2)">
+                <div style="font-family:'Bebas Neue';font-size:26px;letter-spacing:3px;color:var(--red);margin-bottom:6px">⚠️ ENABLE LIVE TRADING?</div>
+                <div style="font-family:'Space Mono';font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:20px">THIS WILL USE REAL MONEY</div>
+                <div style="font-size:13px;color:var(--muted);line-height:1.9;margin-bottom:24px">
+                  <div style="color:var(--text);font-weight:600;margin-bottom:8px">Before enabling, confirm you understand:</div>
+                  <div>🔴 &nbsp;Agents will place <strong style="color:var(--text)">real buy/sell orders</strong> on your broker account</div>
+                  <div>🔴 &nbsp;Losses are <strong style="color:var(--text)">real and permanent</strong> — no undo</div>
+                  <div>🔴 &nbsp;Broker API must have <strong style="color:var(--text)">order placement scope</strong> enabled</div>
+                  <div>🟡 &nbsp;Start with a <strong style="color:var(--text)">small allocated sub-account</strong>, not your full capital</div>
+                  <div>🟡 &nbsp;Test in paper mode first until you trust the signal quality</div>
+                </div>
+                <div style="font-family:'Space Mono';font-size:11px;color:var(--muted);margin-bottom:10px">Type <strong style="color:var(--red)">ENABLE LIVE</strong> to confirm:</div>
+                <input type="text" id="live-confirm-input" placeholder="ENABLE LIVE" autocomplete="off"
+                  style="width:100%;background:#0a0d13;border:1px solid rgba(255,61,113,.4);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'Space Mono';font-size:13px;outline:none;margin-bottom:16px;box-sizing:border-box"
+                  oninput="document.getElementById('live-confirm-btn').disabled=this.value.trim()!=='ENABLE LIVE'">
+                <div style="display:flex;gap:12px">
+                  <button class="btn" onclick="cancelLiveTrade()"
+                    style="flex:1;padding:12px;font-size:12px">✕ Cancel</button>
+                  <button class="btn" id="live-confirm-btn" onclick="confirmLiveTrade()" disabled
+                    style="flex:1;padding:12px;font-size:12px;background:rgba(255,61,113,.2);border-color:rgba(255,61,113,.6);color:var(--red)">
+                    🔴 Enable Live Trading</button>
+                </div>
               </div>
             </div>
 
@@ -5574,6 +5632,57 @@
         res.textContent = '❌ Could not connect to server. Make sure app.py is running.';
       }
       btn.disabled = false; btn.textContent = '💾 Save All Keys';
+    }
+
+    // ── LIVE TRADING TOGGLE ───────────────────────────────────
+    function onLiveTradeToggle(checkbox) {
+      if (checkbox.checked) {
+        checkbox.checked = false; // revert until confirmed
+        document.getElementById('live-confirm-input').value = '';
+        document.getElementById('live-confirm-btn').disabled = true;
+        const modal = document.getElementById('live-trade-modal');
+        modal.style.display = 'flex';
+      } else {
+        // Turning OFF — no confirmation needed
+        setLiveTradeState(false);
+      }
+    }
+    function cancelLiveTrade() {
+      document.getElementById('live-trade-modal').style.display = 'none';
+      document.getElementById('live-trade-toggle').checked = false;
+    }
+    async function confirmLiveTrade() {
+      document.getElementById('live-trade-modal').style.display = 'none';
+      document.getElementById('live-trade-toggle').checked = true;
+      setLiveTradeState(true);
+      try {
+        await fetch(`${API}/set-live-trading`, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({enabled: true}) });
+      } catch(e) {}
+    }
+    function setLiveTradeState(enabled) {
+      const block    = document.getElementById('live-trade-block');
+      const desc     = document.getElementById('live-trade-desc');
+      const warning  = document.getElementById('live-trade-warning');
+      const toggle   = document.getElementById('live-trade-toggle');
+      toggle.checked = enabled;
+      if (enabled) {
+        block.style.borderColor = 'rgba(255,61,113,.5)';
+        block.style.background  = 'rgba(255,61,113,.08)';
+        desc.innerHTML = 'Currently <strong style="color:var(--red)">LIVE TRADING ENABLED</strong> — real orders will execute through your broker. Monitor closely.';
+        warning.style.display = 'block';
+      } else {
+        block.style.borderColor = 'rgba(255,61,113,.2)';
+        block.style.background  = 'rgba(255,61,113,.05)';
+        desc.innerHTML = 'Currently <strong style="color:var(--accent)">Paper Trading only</strong> — broker APIs used for data feeds only. No real orders sent.';
+        warning.style.display = 'none';
+        try { fetch(`${API}/set-live-trading`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({enabled: false}) }); } catch(e) {}
+      }
+    }
+    async function initLiveTradeToggle() {
+      try {
+        const d = await fetch(`${API}/live-trading-status`).then(r => r.json());
+        if (d.live_trading_enabled) setLiveTradeState(true);
+      } catch(e) {}
     }
 
     // ── LIVE FEED CONNECTOR KEYS ──────────────────────────────

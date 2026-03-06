@@ -1585,6 +1585,60 @@ def api_status():
         "agents_v2": AGENTS_AVAILABLE, "learning_active": LEARNING_AVAILABLE,
     })
 
+# ── LIVE TRADING TOGGLE ──────────────────────────────────────────────────────
+
+@app.route("/api/set-live-trading", methods=["POST"])
+@limiter.limit("5 per minute")
+def api_set_live_trading():
+    """
+    Persist LIVE_TRADING_UI_INTENT to .env.
+    NOTE: paper_trader.py has LIVE_TRADING_ENABLED hardcoded to False as a
+    safety lock. This endpoint only records the user's intent in .env so the
+    toggle state persists across page reloads. Actual live order execution
+    requires a separate developer-side code change to paper_trader.py.
+    """
+    try:
+        data    = request.get_json() or {}
+        enabled = bool(data.get("enabled", False))
+        env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+        try:
+            with open(env_path, "r") as f:
+                lines = f.readlines()
+        except FileNotFoundError:
+            lines = []
+        # Update or append LIVE_TRADING_UI_INTENT
+        key = "LIVE_TRADING_UI_INTENT"
+        replaced = False
+        new_lines = []
+        for line in lines:
+            if line.strip().startswith(f"{key}="):
+                new_lines.append(f"{key}={'true' if enabled else 'false'}\n")
+                replaced = True
+            else:
+                new_lines.append(line)
+        if not replaced:
+            new_lines.append(f"{key}={'true' if enabled else 'false'}\n")
+        with open(env_path, "w") as f:
+            f.writelines(new_lines)
+        os.environ[key] = "true" if enabled else "false"
+        log.warning("⚡ LIVE_TRADING_UI_INTENT set to %s via dashboard", enabled)
+        return jsonify({"status": "ok", "live_trading_intent": enabled})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/live-trading-status")
+def api_live_trading_status():
+    """Return live trading toggle state for the UI."""
+    intent = os.getenv("LIVE_TRADING_UI_INTENT", "false").lower() == "true"
+    return jsonify({
+        "live_trading_enabled": intent,
+        "paper_trader_locked":  True,   # always True — hardcoded in paper_trader.py
+        "note": "paper_trader.py has LIVE_TRADING_ENABLED=False hardcoded. "
+                "Setting UI intent does not bypass that safety lock.",
+    })
+
+
 # ── FEED CREDENTIAL ROUTES ───────────────────────────────────────────────────
 
 _FEED_ENV_KEYS = [
