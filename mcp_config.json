@@ -1,0 +1,42 @@
+{
+  "_comment": "StockGuru MCP Server configuration for Claude Desktop / Claude Code / Cowork",
+  "_docs": "https://docs.anthropic.com/en/docs/agents-and-tools/mcp",
+
+  "mcpServers": {
+    "stockguru-market-data": {
+      "_description": "Live Indian stock market data — prices, order book, candles, pre-spike detector",
+      "command": "python",
+      "args": ["C:/Users/Hp/projects/stockguru/stockguru_mcp_server.py"],
+      "env": {
+        "_note": "Credentials are loaded from stockguru/.env automatically"
+      }
+    }
+  },
+
+  "_setup_instructions": {
+    "step1": "Install MCP package: pip install mcp",
+    "step2": "Add credentials to stockguru/.env (any one feed is enough)",
+    "step3_claude_desktop": {
+      "windows": "Copy the mcpServers block to: %APPDATA%/Claude/claude_desktop_config.json",
+      "mac":     "Copy the mcpServers block to: ~/Library/Application Support/Claude/claude_desktop_config.json",
+      "restart": "Restart Claude Desktop — you will see StockGuru tools in the toolbar"
+    },
+    "step3_claude_code": {
+      "command": "Add to .claude.json in your project root or home directory"
+    },
+    "step3_test_standalone": {
+      "http_mode": "python stockguru_mcp_server.py --http --port 8765",
+      "test":      "curl http://localhost:8765/quote?symbol=RELIANCE.NS"
+    },
+    "available_tools": [
+      "get_quote(symbol)              → live price + OHLC",
+      "get_orderbook(symbol, depth)   → bid/ask ladder",
+      "get_candles(symbol, interval)  → OHLCV history",
+      "get_feed_status()              → active connector info",
+      "search_symbol(query)           → find instrument by name",
+      "get_market_status()            → NSE/BSE/MCX open/closed",
+      "get_top_movers(segment)        → gainers & losers",
+      "run_pre_spike_scan(symbols)    → pre-spike detector"
+    ]
+  }
+}

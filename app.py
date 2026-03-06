@@ -2676,6 +2676,56 @@ def api_feed_reload():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/update-token", methods=["POST"])
+def api_update_token():
+    """
+    Hot-update a broker access token without restarting the app.
+    Body: { "broker": "upstox|zerodha|fyers", "token": "new_token_here" }
+    """
+    try:
+        body   = request.get_json(force=True) or {}
+        broker = body.get("broker", "").lower().strip()
+        token  = body.get("token",  "").strip()
+        if not broker or not token:
+            return jsonify({"error": "broker and token are required"}), 400
+        from stockguru_agents.feeds.token_refresh import update_token_in_env
+        ok = update_token_in_env(broker, token)
+        if ok:
+            if _FEED_OK and _feed_mgr:
+                _feed_mgr.reload()
+            return jsonify({"status": "ok", "broker": broker,
+                            "active_feed": _feed_mgr.active_name if (_FEED_OK and _feed_mgr) else "yahoo"})
+        return jsonify({"error": "Failed to update token"}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/token-status")
+def api_token_status():
+    """Return masked token status for all daily-expiry brokers."""
+    try:
+        from stockguru_agents.feeds.token_refresh import get_token_status
+        return jsonify(get_token_status())
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/symbol-search")
+def api_symbol_search():
+    """Search for instrument symbols by name or ticker."""
+    query   = request.args.get("q", "").strip()
+    segment = request.args.get("segment", "all")
+    if not query:
+        return jsonify({"results": []})
+    try:
+        from stockguru_agents.feeds.symbol_mapper import SymbolMapper
+        mapper  = SymbolMapper()
+        results = mapper.search(query, segment)
+        return jsonify({"results": results, "query": query})
+    except Exception as e:
+        return jsonify({"results": [], "error": str(e)})
+
+
 @app.route("/api/terminal-symbols")
 def api_terminal_symbols():
     segment = request.args.get("segment", "cash").lower()

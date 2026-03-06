@@ -4114,79 +4114,119 @@
         <!-- ══════════════════ CHANNELS ══════════════════ -->
         <div class="section" id="tab-channels">
           <div style="padding-top:22px">
-            <div class="sec-title">🔌 CHANNELS — BROKER &amp; DATA CONNECTORS</div>
+            <div class="sec-title">🔌 CHANNELS — LIVE DATA FEED CONNECTORS</div>
             <p style="color:var(--muted);font-size:13px;margin-bottom:24px">
-              Connect brokers and data sources to expand agent intelligence. Add API keys to your .env file to activate
-              each channel.
+              Add your API credentials to <code style="color:#a78bfa;background:rgba(167,139,250,.1);padding:1px 6px;border-radius:4px">.env</code> to activate a live feed.
+              The system auto-selects the best available connector. Click a card to see setup instructions.
             </p>
 
-            <!-- Channel Cards -->
-            <div id="channels-grid"
-              style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-bottom:32px">
-              <div style="color:var(--muted);padding:24px;font-size:13px">Loading channels...</div>
+            <!-- Active feed banner -->
+            <div id="ch-active-banner" style="display:flex;align-items:center;gap:14px;
+              background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.25);
+              border-radius:12px;padding:14px 20px;margin-bottom:24px">
+              <span style="font-size:22px">📡</span>
+              <div>
+                <div style="font-size:13px;font-weight:700;color:#00e676" id="ch-active-label">Yahoo Finance</div>
+                <div style="font-size:11px;color:#556;margin-top:2px" id="ch-active-desc">15-minute delayed · Simulated order book · No credentials needed</div>
+              </div>
+              <div style="margin-left:auto;display:flex;gap:8px">
+                <button onclick="chReloadFeeds()" style="background:rgba(0,230,118,.15);border:1px solid rgba(0,230,118,.4);
+                  color:#00e676;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:600">
+                  🔄 Reload
+                </button>
+              </div>
+            </div>
+
+            <!-- Feed connector cards -->
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;margin-bottom:32px" id="ch-feed-grid">
+              <!-- Populated by JS -->
+              <div style="color:var(--muted);padding:24px;font-size:13px">Loading connectors...</div>
+            </div>
+
+            <!-- Token Refresh Panel (for daily-expiry brokers) -->
+            <div class="card" style="margin-bottom:24px">
+              <div class="card-title">🔑 TOKEN REFRESH — Daily-Expiry Brokers</div>
+              <p style="color:var(--muted);font-size:12px;margin-bottom:16px">
+                Upstox, Zerodha, and Fyers access tokens expire every day.
+                Paste a fresh token below to reload the feed without restarting the app.
+              </p>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <label style="font-size:10px;color:#556;letter-spacing:.06em">BROKER</label>
+                  <select id="ch-token-broker" style="background:#1a1f2b;border:1px solid #2a3040;
+                    color:#c8cdd8;padding:7px 12px;border-radius:8px;font-size:12px;outline:none">
+                    <option value="upstox">Upstox v2</option>
+                    <option value="zerodha">Zerodha KiteConnect</option>
+                    <option value="fyers">Fyers API v3</option>
+                  </select>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:200px">
+                  <label style="font-size:10px;color:#556;letter-spacing:.06em">NEW ACCESS TOKEN</label>
+                  <input type="password" id="ch-token-value" placeholder="Paste new token here..."
+                    style="background:#1a1f2b;border:1px solid #2a3040;color:#c8cdd8;
+                    padding:7px 12px;border-radius:8px;font-size:12px;outline:none;font-family:monospace;width:100%"/>
+                </div>
+                <button onclick="chUpdateToken()" style="background:rgba(99,102,241,.2);border:1px solid #6366f1;
+                  color:#a5b4fc;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600">
+                  ✅ Apply Token
+                </button>
+              </div>
+              <div id="ch-token-msg" style="margin-top:10px;font-size:11px;color:#00e676;display:none"></div>
+            </div>
+
+            <!-- MCP Server panel -->
+            <div class="card" style="margin-bottom:24px">
+              <div class="card-title">🤖 MCP SERVER — Claude Desktop Integration</div>
+              <p style="color:var(--muted);font-size:12px;margin-bottom:16px">
+                Connect live market data directly to Claude Desktop or Claude Code.
+                Once running, Claude can call <code style="color:#a78bfa">get_quote()</code>,
+                <code style="color:#a78bfa">get_orderbook()</code>, and
+                <code style="color:#a78bfa">run_pre_spike_scan()</code> mid-reasoning.
+              </p>
+              <div style="background:#0a0d13;border:1px solid #1e2530;border-radius:10px;padding:14px;font-family:monospace;font-size:11px;color:#c8cdd8;margin-bottom:12px">
+                <div style="color:#556;margin-bottom:6px"># Install MCP package</div>
+                pip install mcp<br><br>
+                <div style="color:#556;margin-bottom:6px"># Start MCP server (stdio — for Claude Desktop)</div>
+                python stockguru_mcp_server.py<br><br>
+                <div style="color:#556;margin-bottom:6px"># Start as HTTP server (for testing)</div>
+                python stockguru_mcp_server.py --http --port 8765<br><br>
+                <div style="color:#556;margin-bottom:6px"># Test it</div>
+                curl http://localhost:8765/quote?symbol=RELIANCE.NS
+              </div>
+              <div style="background:#0a0d13;border:1px solid #1e2530;border-radius:10px;padding:14px;font-family:monospace;font-size:11px;color:#c8cdd8;margin-bottom:12px">
+                <div style="color:#556;margin-bottom:6px"># Add to claude_desktop_config.json (Windows: %APPDATA%/Claude/)</div>
+                {<br>
+                &nbsp;&nbsp;"mcpServers": {<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;"stockguru-market-data": {<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"command": "python",<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"args": ["C:/Users/Hp/projects/stockguru/stockguru_mcp_server.py"]<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;}<br>
+                &nbsp;&nbsp;}<br>
+                }
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <div style="background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.3);border-radius:8px;padding:6px 12px;font-size:11px;color:#818cf8">🛠 get_quote(symbol)</div>
+                <div style="background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.3);border-radius:8px;padding:6px 12px;font-size:11px;color:#818cf8">📖 get_orderbook(symbol)</div>
+                <div style="background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.3);border-radius:8px;padding:6px 12px;font-size:11px;color:#818cf8">📊 get_candles(symbol, interval)</div>
+                <div style="background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.3);border-radius:8px;padding:6px 12px;font-size:11px;color:#818cf8">🔍 search_symbol(query)</div>
+                <div style="background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.3);border-radius:8px;padding:6px 12px;font-size:11px;color:#818cf8">🚨 run_pre_spike_scan()</div>
+                <div style="background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.3);border-radius:8px;padding:6px 12px;font-size:11px;color:#818cf8">📡 get_feed_status()</div>
+              </div>
             </div>
 
             <!-- Agent Confidence Handoff Panel -->
             <div class="card" style="margin-bottom:24px">
               <div class="card-title">🤝 AGENT HANDOFF — CONFIDENCE SCORES</div>
-              <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Live confidence output from each agent —
-                feeds downstream agents for coordinated decisions (CrewAI-style)</p>
+              <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Live confidence output from each agent</p>
               <div id="agent-confidence-grid"
                 style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">
                 <div style="color:var(--muted);font-size:13px">Run agent cycle to see confidence scores...</div>
               </div>
             </div>
 
-            <!-- Earnings Calendar -->
-            <div class="card" style="margin-bottom:24px">
-              <div class="card-title">📅 EVENTS CALENDAR — NEXT 7 DAYS</div>
-              <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Corporate events for watchlist stocks.
-                High-impact events (earnings, results) block entries in risk_manager.</p>
-              <div id="earnings-calendar-list" style="min-height:60px">
-                <div style="color:var(--muted);font-size:13px;padding:12px">Loading events...</div>
-              </div>
-            </div>
-
-            <!-- Intelligence Connectors -->
-            <div class="sec-title" style="margin-top:32px">🔌 INTELLIGENCE CONNECTORS</div>
-            <p style="color:var(--muted);font-size:13px;margin-bottom:20px">
-              Pluggable intelligence modules — pattern detection, smart routing, and risk analytics always active.
-              Alpaca execution activates with broker credentials.
-            </p>
-            <div id="connectors-grid"
-              style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-bottom:28px">
-              <div style="color:var(--muted);padding:24px;font-size:13px">Loading connectors...</div>
-            </div>
-
-            <!-- Agent Router Panel -->
-            <div class="card">
-              <div class="card-title">🔀 AGENT ROUTER — LLM CYCLE EFFICIENCY</div>
-              <p style="color:var(--muted);font-size:12px;margin-bottom:16px">
-                Skips Claude/Gemini calls when Tier 1 confidence is low — saves API cost without sacrificing quality.
-              </p>
-              <div class="g4" style="margin-bottom:12px">
-                <div class="stat">
-                  <div class="stat-label">AVG CONFIDENCE</div>
-                  <div class="stat-val" id="router-confidence">--</div>
-                </div>
-                <div class="stat">
-                  <div class="stat-label">CYCLES SAVED</div>
-                  <div class="stat-val" id="router-saved">--</div>
-                </div>
-                <div class="stat">
-                  <div class="stat-label">LLM SAVE RATE</div>
-                  <div class="stat-val" id="router-saverate">--</div>
-                </div>
-                <div class="stat">
-                  <div class="stat-label">LAST DECISION</div>
-                  <div class="stat-val" id="router-decision" style="font-size:14px">--</div>
-                </div>
-              </div>
-              <div id="router-reason"
-                style="color:var(--muted);font-size:12px;padding:8px;background:var(--bg3);border-radius:6px"></div>
-            </div>
           </div>
-        </div>
+        </div><!-- /tab-channels -->
+
 
         <!-- ══════════════════ BACKTEST ══════════════════ -->
         <div class="section" id="tab-backtest">
@@ -6022,7 +6062,143 @@
       } catch (e) { /* silent */ }
     }
 
-    // ── CHANNELS ──────────────────────────────────────────────
+    // ── CHANNELS — Feed Connector Management ──────────────────
+    const _CH_FEED_META = {
+      truedata: { icon:'📡', color:'#00e676', regen: null,
+        setup:'Add TRUEDATA_USERNAME + TRUEDATA_PASSWORD to .env',
+        url:'https://truedata.in', badge:'₹800/mo' },
+      zerodha:  { icon:'🏦', color:'#63b3ed', regen:'https://kite.trade/connect/login',
+        setup:'Add KITE_API_KEY + KITE_ACCESS_TOKEN to .env (token expires daily)',
+        url:'https://kite.trade/docs', badge:'₹2k/mo' },
+      upstox:   { icon:'⚡', color:'#a78bfa', regen:'https://api.upstox.com/v2/login/authorization/dialog',
+        setup:'Add UPSTOX_ACCESS_TOKEN to .env (token expires daily)',
+        url:'https://upstox.com/developer', badge:'Free' },
+      fyers:    { icon:'📈', color:'#f472b6', regen:'https://myapi.fyers.in/generate-authcode',
+        setup:'Add FYERS_CLIENT_ID + FYERS_ACCESS_TOKEN to .env (token expires daily)',
+        url:'https://myapi.fyers.in/docs', badge:'Free' },
+      shoonya:  { icon:'🔮', color:'#fbbf24', regen: null,
+        setup:'Add SHOONYA_USER + SHOONYA_PASSWORD + SHOONYA_API_KEY + SHOONYA_TOTP_KEY to .env',
+        url:'https://shoonya.com', badge:'Free' },
+      angel:    { icon:'😇', color:'#fb923c', regen: null,
+        setup:'Add ANGEL_API_KEY + ANGEL_CLIENT_ID + ANGEL_PASSWORD + ANGEL_TOTP_KEY to .env',
+        url:'https://smartapi.angelbroking.com', badge:'Free' },
+      yahoo:    { icon:'🟡', color:'#556e82', regen: null,
+        setup:'No credentials needed — always available as fallback',
+        url:'https://finance.yahoo.com', badge:'Always on' },
+    };
+
+    async function fetchChannels() {
+      try {
+        // Load feed status
+        const fs = await fetch(`${API}/feed-status`).then(r=>r.json()).catch(()=>({}));
+        const feeds = fs.feeds || [];
+        const activeLabel = fs.active_label || 'Yahoo Finance';
+        const isRT        = fs.is_realtime || false;
+        const latencyMs   = fs.latency_ms  || 15000;
+        const obLevels    = fs.ob_levels   || 0;
+
+        // Update active banner
+        const banner = document.getElementById('ch-active-banner');
+        const alEl   = document.getElementById('ch-active-label');
+        const adEl   = document.getElementById('ch-active-desc');
+        if (alEl) alEl.textContent = `📡 Active: ${activeLabel}`;
+        if (adEl) {
+          const lt = latencyMs < 1000 ? `${latencyMs}ms latency` : `${Math.round(latencyMs/60000)}-min delayed`;
+          const ob = obLevels   ? `${obLevels}-level live order book` : 'Simulated order book';
+          adEl.textContent = `${lt} · ${ob}`;
+        }
+        if (banner && isRT) {
+          banner.style.background   = 'rgba(0,230,118,.08)';
+          banner.style.borderColor  = 'rgba(0,230,118,.3)';
+        } else if (banner) {
+          banner.style.background   = 'rgba(251,191,36,.06)';
+          banner.style.borderColor  = 'rgba(251,191,36,.2)';
+          if (alEl) alEl.style.color = '#fbbf24';
+        }
+
+        // Render feed cards
+        const grid = document.getElementById('ch-feed-grid');
+        if (grid && feeds.length) {
+          grid.innerHTML = feeds.map(f => {
+            const m = _CH_FEED_META[f.name] || { icon:'🔌', color:'#556e82', setup:'See docs', url:'#', badge:'' };
+            const isActive = f.active;
+            const hasCreds = f.configured;
+            const border   = isActive ? m.color : (hasCreds ? '#2a3040' : '#1e2530');
+            const bg       = isActive ? `rgba(${m.color === '#00e676' ? '0,230,118' : m.color === '#63b3ed' ? '99,179,237' : '99,102,241'},.06)` : 'rgba(255,255,255,.02)';
+            const statusDot= isActive ? `<span style="width:7px;height:7px;background:${m.color};border-radius:50%;display:inline-block;animation:blink 1.2s infinite"></span>` : '';
+            const statusTxt= isActive ? `<span style="color:${m.color};font-size:10px;font-weight:700">ACTIVE</span>` :
+                             hasCreds  ? `<span style="color:#fbbf24;font-size:10px">CONFIGURED</span>` :
+                                         `<span style="color:#445;font-size:10px">NOT SET</span>`;
+            const regenBtn = m.regen && hasCreds
+              ? `<a href="${m.regen}" target="_blank" style="font-size:10px;color:#818cf8;text-decoration:none">🔄 Regenerate token →</a>`
+              : '';
+            return `<div style="background:${bg};border:1px solid ${border};border-radius:12px;padding:18px;transition:border .2s">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+                <span style="font-size:24px">${m.icon}</span>
+                <div style="flex:1">
+                  <div style="font-size:14px;font-weight:700;color:#c8cdd8">${f.label}</div>
+                  <div style="font-size:10px;color:#445;margin-top:1px">${f.latency_ms < 1000 ? f.latency_ms+'ms' : 'delayed'} · ${f.ob_levels ? f.ob_levels+'-level OB' : 'simulated OB'} · <span style="color:#556e82">${m.badge}</span></div>
+                </div>
+                <div style="display:flex;align-items:center;gap:5px">${statusDot}${statusTxt}</div>
+              </div>
+              <div style="font-size:11px;color:#556;margin-bottom:10px;line-height:1.5">${m.setup}</div>
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                ${regenBtn}
+                <a href="${m.url}" target="_blank" style="font-size:10px;color:#445;text-decoration:none;margin-left:auto">📖 Docs →</a>
+              </div>
+            </div>`;
+          }).join('');
+        }
+
+        // Confidence handoff
+        const conf = await fetch(`${API}/agent-confidence`).then(r=>r.json()).catch(()=>({}));
+        const confGrid = document.getElementById('agent-confidence-grid');
+        if (confGrid && Object.keys(conf).length) {
+          confGrid.innerHTML = Object.entries(conf).map(([agent, c]) => {
+            const confPct   = Math.round((c.confidence || 0) * 100);
+            const confColor = confPct >= 85 ? 'var(--green)' : confPct >= 65 ? '#F2C94C' : 'var(--muted)';
+            return `<div style="background:rgba(0,196,204,.05);border:1px solid var(--border);border-radius:8px;padding:12px">
+              <div style="font-family:'Bebas Neue';font-size:13px;letter-spacing:1px;margin-bottom:6px">${agent.replace(/_/g,' ').toUpperCase()}</div>
+              <div style="font-family:'Space Mono';font-size:18px;color:${confColor};margin-bottom:4px">${confPct}%</div>
+              <div style="font-size:10px;color:${c.key_signal==='BULLISH'?'var(--green)':c.key_signal==='BEARISH'?'var(--red)':'var(--muted)'}">${c.key_signal||'--'}</div>
+              <div style="font-size:10px;color:var(--muted);line-height:1.4;margin-top:4px">${c.handoff_notes||''}</div>
+            </div>`;
+          }).join('');
+        }
+
+      } catch(e) { console.warn('fetchChannels error', e); }
+    }
+
+    async function chReloadFeeds() {
+      await fetch(`${API}/feed-reload`).catch(()=>{});
+      await fetchChannels();
+    }
+
+    async function chUpdateToken() {
+      const broker = document.getElementById('ch-token-broker')?.value;
+      const token  = document.getElementById('ch-token-value')?.value?.trim();
+      const msg    = document.getElementById('ch-token-msg');
+      if (!token) { if(msg){msg.style.display='block';msg.style.color='#ff5252';msg.textContent='Please paste a token first';} return; }
+      try {
+        const r = await fetch(`${API}/update-token`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({broker, token})
+        }).then(r=>r.json());
+        if (msg) {
+          msg.style.display = 'block';
+          if (r.status === 'ok') {
+            msg.style.color   = '#00e676';
+            msg.textContent   = `✅ ${broker} token updated! Active feed: ${r.active_feed}`;
+            document.getElementById('ch-token-value').value = '';
+            fetchChannels();
+          } else {
+            msg.style.color   = '#ff5252';
+            msg.textContent   = `❌ Error: ${r.error || 'Unknown error'}`;
+          }
+        }
+      } catch(e) { if(msg){msg.style.display='block';msg.style.color='#ff5252';msg.textContent='Request failed: '+e;} }
+    }
+
     const CHANNEL_ICONS = {
       zerodha_kite: { icon: '🏦', label: 'Zerodha Kite', hint: 'India broker' },
       alpaca: { icon: '🦙', label: 'Alpaca Markets', hint: 'US broker' },
