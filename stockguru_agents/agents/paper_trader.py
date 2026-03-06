@@ -203,11 +203,19 @@ def _check_gates(signal, shared_state):
     passed = 0
     reasons = []
 
-    # Gate 1: Score gate — agent score >= 88
-    g1 = score >= 88
+    # Gate 1: Score gate — >= 88 ideal, >= 75 acceptable if other signals align
+    # NOTE: quick_enter manual trades bypass gate check entirely (gates_passed=6 forced)
+    g1 = score >= 75   # lowered from 88 → catches 75-87 range stocks with strong other gates
+    _g1_ideal = score >= 88
     gates["score_gate"] = g1
-    if g1: passed += 1
-    else:  reasons.append(f"Score {score} < 88")
+    gates["score_ideal"] = _g1_ideal
+    if _g1_ideal:
+        passed += 1                     # full point for score >= 88
+    elif g1:
+        passed += 0.5                   # half point for 75-87 (needs extra support from other gates)
+        reasons.append(f"Score {score} is acceptable (75+) but below ideal 88")
+    else:
+        reasons.append(f"Score {score} < 75 — too low")
 
     # Gate 2: RSI gate — not overbought (35-68)
     rsi    = tech.get("rsi")
@@ -275,9 +283,12 @@ def _enter_position(signal, gates_passed, gate_detail, portfolio, price_cache, s
     t2      = signal.get("target2", 0)
     sl_orig = signal.get("stop_loss", signal.get("sl", 0))
 
-    # Get current market price
+    # Get current market price — fallback to signal fields if price_cache missing
     cached = price_cache.get(name, {})
     price  = cached.get("price", 0)
+    if not price:
+        # Fallback: use price embedded in the signal itself (e.g. quick_enter or manual trades)
+        price = signal.get("price", signal.get("entry", signal.get("cmp", 0)))
     if not price:
         log.warning("PaperTrader: No price for %s — cannot enter", name)
         return None
@@ -764,9 +775,11 @@ def quick_enter(symbol: str, action: str, entry_price: float,
     }
 
     # Minimal gate pass (override gates for manual quick-trade)
+    # FIX: pass synthetic price_cache so _enter_position can find the price
+    _pc = {symbol: {"price": entry_price, "symbol": symbol}}
     pos = _enter_position(signal, gates_passed=6,
                           gate_detail={"manual_quick_trade": True},
-                          portfolio=portfolio, price_cache={}, shared_state={})
+                          portfolio=portfolio, price_cache=_pc, shared_state={})
 
     if pos:
         _save_portfolio(portfolio)
@@ -940,9 +953,12 @@ def run(shared_state, price_cache=None):
         # ── Run 8-gate conviction check ────────────────────────────────────
         gates_passed, gate_detail, rejection_reasons = _check_gates(sig, shared_state)
 
-        if gates_passed < 6:
-            log.info("PaperTrader: %s REJECTED (gates %d/8) — %s",
-                     name, gates_passed, "; ".join(rejection_reasons[:2]))
+        # Claude-approved picks need only 5/8 gates (already vetted by LLM)
+        min_gates = 5 if claude_says is True else 6
+
+        if gates_passed < min_gates:
+            log.info("PaperTrader: %s REJECTED (gates %.1f/%d, need %.0f) — %s",
+                     name, gates_passed, 8, min_gates, "; ".join(rejection_reasons[:2]))
             continue
 
         # ── CHECK MARKET HOURS (only enter during market hours) ────────────
