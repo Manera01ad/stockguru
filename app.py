@@ -1585,6 +1585,118 @@ def api_status():
         "agents_v2": AGENTS_AVAILABLE, "learning_active": LEARNING_AVAILABLE,
     })
 
+# ── FEED CREDENTIAL ROUTES ───────────────────────────────────────────────────
+
+_FEED_ENV_KEYS = [
+    "UPSTOX_ACCESS_TOKEN",
+    "TRUEDATA_USERNAME", "TRUEDATA_PASSWORD",
+    "SHOONYA_USER", "SHOONYA_PASSWORD", "SHOONYA_API_KEY", "SHOONYA_TOTP_KEY",
+    "ANGEL_API_KEY", "ANGEL_CLIENT_ID", "ANGEL_MPIN", "ANGEL_TOTP_KEY",
+    "FYERS_ACCESS_TOKEN", "FYERS_APP_ID",
+    "ZERODHA_API_KEY", "ZERODHA_ACCESS_TOKEN",
+]
+
+# Map from JSON body field name → ENV var name
+_FEED_FIELD_MAP = {
+    "upstox_access_token":  "UPSTOX_ACCESS_TOKEN",
+    "truedata_username":    "TRUEDATA_USERNAME",
+    "truedata_password":    "TRUEDATA_PASSWORD",
+    "shoonya_user":         "SHOONYA_USER",
+    "shoonya_password":     "SHOONYA_PASSWORD",
+    "shoonya_api_key":      "SHOONYA_API_KEY",
+    "shoonya_totp_key":     "SHOONYA_TOTP_KEY",
+    "angel_api_key":        "ANGEL_API_KEY",
+    "angel_client_id":      "ANGEL_CLIENT_ID",
+    "angel_mpin":           "ANGEL_MPIN",
+    "angel_totp_key":       "ANGEL_TOTP_KEY",
+    "fyers_access_token":   "FYERS_ACCESS_TOKEN",
+    "fyers_app_id":         "FYERS_APP_ID",
+    "zerodha_api_key":      "ZERODHA_API_KEY",
+    "zerodha_access_token": "ZERODHA_ACCESS_TOKEN",
+}
+
+@app.route("/api/update-feed-keys", methods=["POST"])
+@limiter.limit("10 per minute")
+def api_update_feed_keys():
+    """Write broker credentials to .env and hot-reload the feed manager."""
+    try:
+        data = request.get_json() or {}
+        env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+        # Read existing .env lines
+        try:
+            with open(env_path, "r") as f:
+                lines = f.readlines()
+        except FileNotFoundError:
+            lines = []
+
+        # Build a dict of current env values from the file
+        existing = {}
+        for line in lines:
+            stripped = line.strip()
+            if stripped and not stripped.startswith("#") and "=" in stripped:
+                k, _, v = stripped.partition("=")
+                existing[k.strip()] = v.strip()
+
+        # Update with incoming values (skip blanks and masked placeholders)
+        for field, env_key in _FEED_FIELD_MAP.items():
+            val = data.get(field, "").strip()
+            if val and "****" not in val:
+                existing[env_key] = val
+                os.environ[env_key] = val  # hot-set for this process
+
+        # Rebuild .env preserving all keys
+        new_lines = []
+        seen = set()
+        for line in lines:
+            stripped = line.strip()
+            if stripped and not stripped.startswith("#") and "=" in stripped:
+                k = stripped.split("=", 1)[0].strip()
+                if k in existing:
+                    new_lines.append(f"{k}={existing[k]}\n")
+                    seen.add(k)
+                else:
+                    new_lines.append(line)
+            else:
+                new_lines.append(line)
+        # Append any new keys not already in the file
+        for env_key in _FEED_ENV_KEYS:
+            if env_key not in seen and env_key in existing:
+                new_lines.append(f"{env_key}={existing[env_key]}\n")
+
+        with open(env_path, "w") as f:
+            f.writelines(new_lines)
+
+        # Reload feed manager so new credentials take effect immediately
+        active_feed = "Yahoo Finance"
+        if _FEED_OK:
+            try:
+                _feed_mgr.reload()
+                st = _feed_mgr.status()
+                active_feed = st.get("active", {}).get("label", "Yahoo Finance")
+            except Exception:
+                pass
+
+        log.info("🔌 Feed credentials updated via API Keys tab")
+        return jsonify({"status": "ok", "active_feed": active_feed})
+    except Exception as e:
+        log.error(f"update-feed-keys error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/get-feed-keys")
+def api_get_feed_keys():
+    """Return masked broker credentials from .env for pre-filling the UI."""
+    def mask(val):
+        if not val: return ""
+        if len(val) <= 8: return "*" * len(val)
+        return val[:4] + "*" * (len(val) - 8) + val[-4:]
+    result = {}
+    for field, env_key in _FEED_FIELD_MAP.items():
+        raw = os.getenv(env_key, "")
+        result[field] = mask(raw)
+    return jsonify(result)
+
+
 # ── SOVEREIGN API ROUTES ──────────────────────────────────────────────────────
 
 @app.route("/api/sovereign-status")

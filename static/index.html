@@ -1409,6 +1409,23 @@
       backdrop-filter: var(--blur);
       -webkit-backdrop-filter: var(--blur)
     }
+    .feed-connector-card {
+      background: rgba(255,255,255,.025);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 10px;
+      padding: 16px 18px;
+      margin-bottom: 12px;
+      transition: border-color .2s;
+    }
+    .feed-connector-card:hover { border-color: rgba(0,196,255,.35); }
+    .fcc-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
 
     .key-group {
       margin-bottom: 22px
@@ -1791,7 +1808,7 @@
             class="tab-icon">🔌</span><span class="tab-label">Channels</span></button>
         <button class="tab-btn" data-label="Backtest" onclick="showTab('backtest',this)"> <span
             class="tab-icon">📈</span><span class="tab-label">Backtest</span></button>
-        <button class="tab-btn" data-label="API Keys" onclick="showTab('apikeys',this)"> <span
+        <button class="tab-btn" data-label="API Keys" onclick="showTab('apikeys',this);initFeedStatus()"> <span
             class="tab-icon">🔑</span><span class="tab-label">API Keys</span></button>
         <button class="tab-btn" data-label="Sovereign"
           onclick="showTab('sovereign',this);document.getElementById('builder-badge').style.display='none'"> <span
@@ -3423,6 +3440,231 @@
                 <div class="key-hint">Get from: <a href="https://aistudio.google.com/app/apikey"
                     target="_blank">aistudio.google.com</a> → Get API Key → Free tier is sufficient</div>
               </div>
+            </div>
+
+            <!-- ══ LIVE DATA FEED CONNECTORS ══ -->
+            <div class="keys-card" style="border-color:rgba(0,196,255,.25);margin-top:10px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px">
+                <div>
+                  <div style="font-family:'Bebas Neue';font-size:20px;letter-spacing:2px;color:#00c4ff">📡 LIVE DATA FEED CONNECTORS</div>
+                  <div style="font-family:'Space Mono';font-size:10px;color:var(--muted);margin-top:4px">Enter credentials for any broker — StockGuru auto-activates the best available feed</div>
+                </div>
+                <button class="btn" onclick="reloadFeedFromKeys()" style="padding:8px 16px;font-size:11px;background:rgba(0,196,255,.12);border-color:rgba(0,196,255,.4);color:#00c4ff">↻ Reload Feed</button>
+              </div>
+
+              <!-- Active Feed Banner -->
+              <div id="feed-active-banner" style="background:rgba(0,229,160,.08);border:1px solid rgba(0,229,160,.25);border-radius:8px;padding:12px 16px;margin-bottom:18px;display:flex;align-items:center;gap:10px">
+                <div id="feed-active-dot" style="width:10px;height:10px;border-radius:50%;background:#555;flex-shrink:0"></div>
+                <div>
+                  <div style="font-family:'Space Mono';font-size:11px;color:var(--text)" id="feed-active-name">⏳ Checking active feed...</div>
+                  <div style="font-family:'Space Mono';font-size:10px;color:var(--muted);margin-top:2px" id="feed-active-detail"></div>
+                </div>
+              </div>
+
+              <!-- Priority Ladder -->
+              <div style="font-family:'Space Mono';font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:14px;padding:10px 14px;background:rgba(255,255,255,.03);border-radius:6px;border:1px solid rgba(255,255,255,.06)">
+                🏆 AUTO-SELECTION PRIORITY &nbsp;→&nbsp;
+                <span style="color:#00c4ff">TrueData</span> &gt;
+                <span style="color:#7b61ff">Zerodha</span> &gt;
+                <span style="color:#00e5a0">Upstox</span> &gt;
+                <span style="color:#ff9d3d">Fyers</span> &gt;
+                <span style="color:#ff61a0">Shoonya</span> &gt;
+                <span style="color:#4285f4">Angel</span> &gt;
+                <span style="color:#888">Yahoo Finance</span>
+              </div>
+
+              <!-- ── UPSTOX ── -->
+              <div class="feed-connector-card" style="border-color:rgba(0,229,160,.3)" id="fcard-upstox">
+                <div class="fcc-header">
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <div style="font-family:'Bebas Neue';font-size:16px;letter-spacing:2px;color:var(--accent)">⚡ UPSTOX V2</div>
+                    <span style="font-family:'Space Mono';font-size:9px;color:var(--muted)">~200ms · 5-level OB · FREE</span>
+                  </div>
+                  <span class="status-indicator" id="fstatus-upstox">⭕ Not configured</span>
+                </div>
+                <div class="key-group" style="margin-bottom:0">
+                  <div class="key-label"><span>🔑</span>ACCESS TOKEN <span style="font-family:'Space Mono';font-size:9px;color:var(--red);font-weight:400">(expires daily)</span></div>
+                  <div class="key-input-wrap">
+                    <input type="password" class="key-input" id="inp-upstox-token" placeholder="eyJ0eXAiOiJKV1Q..." autocomplete="off">
+                    <button class="btn" onclick="toggleVis('inp-upstox-token',this)" style="white-space:nowrap;padding:10px 14px">👁 Show</button>
+                  </div>
+                  <div class="key-hint">Get from: <a href="https://developer.upstox.com" target="_blank">developer.upstox.com</a> → Login API → Generate token each morning. Token resets at midnight IST.</div>
+                </div>
+              </div>
+
+              <!-- ── TRUEDATA ── -->
+              <div class="feed-connector-card" style="border-color:rgba(0,196,255,.3)" id="fcard-truedata">
+                <div class="fcc-header">
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <div style="font-family:'Bebas Neue';font-size:16px;letter-spacing:2px;color:#00c4ff">📊 TRUEDATA</div>
+                    <span style="font-family:'Space Mono';font-size:9px;color:var(--muted)">~100ms · 20-level OB · ₹800/mo · credentials never expire</span>
+                  </div>
+                  <span class="status-indicator" id="fstatus-truedata">⭕ Not configured</span>
+                </div>
+                <div class="g2e" style="margin-bottom:0">
+                  <div class="key-group" style="margin-bottom:0">
+                    <div class="key-label"><span>👤</span>USERNAME</div>
+                    <input type="text" class="key-input" id="inp-truedata-user" placeholder="your_username" autocomplete="off">
+                  </div>
+                  <div class="key-group" style="margin-bottom:0">
+                    <div class="key-label"><span>🔒</span>PASSWORD</div>
+                    <div class="key-input-wrap">
+                      <input type="password" class="key-input" id="inp-truedata-pass" placeholder="your_password" autocomplete="off">
+                      <button class="btn" onclick="toggleVis('inp-truedata-pass',this)" style="white-space:nowrap;padding:10px 14px">👁</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="key-hint" style="margin-top:8px">Get from: <a href="https://truedata.in" target="_blank">truedata.in</a> → Subscribe → Account credentials (best pick for stability — 20-level depth, no daily reset)</div>
+              </div>
+
+              <!-- ── SHOONYA / FINVASIA ── -->
+              <div class="feed-connector-card" style="border-color:rgba(255,97,160,.3)" id="fcard-shoonya">
+                <div class="fcc-header">
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <div style="font-family:'Bebas Neue';font-size:16px;letter-spacing:2px;color:#ff61a0">🔥 SHOONYA (FINVASIA)</div>
+                    <span style="font-family:'Space Mono';font-size:9px;color:var(--muted)">Full DOM · FREE · no daily token</span>
+                  </div>
+                  <span class="status-indicator" id="fstatus-shoonya">⭕ Not configured</span>
+                </div>
+                <div class="g2e" style="margin-bottom:0">
+                  <div class="key-group" style="margin-bottom:0">
+                    <div class="key-label"><span>👤</span>USER ID</div>
+                    <input type="text" class="key-input" id="inp-shoonya-user" placeholder="FA12345" autocomplete="off">
+                  </div>
+                  <div class="key-group" style="margin-bottom:0">
+                    <div class="key-label"><span>🔒</span>PASSWORD</div>
+                    <div class="key-input-wrap">
+                      <input type="password" class="key-input" id="inp-shoonya-pass" placeholder="your_password" autocomplete="off">
+                      <button class="btn" onclick="toggleVis('inp-shoonya-pass',this)" style="white-space:nowrap;padding:10px 14px">👁</button>
+                    </div>
+                  </div>
+                  <div class="key-group" style="margin-bottom:0">
+                    <div class="key-label"><span>🔑</span>API KEY</div>
+                    <div class="key-input-wrap">
+                      <input type="password" class="key-input" id="inp-shoonya-apikey" placeholder="your_api_key" autocomplete="off">
+                      <button class="btn" onclick="toggleVis('inp-shoonya-apikey',this)" style="white-space:nowrap;padding:10px 14px">👁</button>
+                    </div>
+                  </div>
+                  <div class="key-group" style="margin-bottom:0">
+                    <div class="key-label"><span>📱</span>TOTP SECRET</div>
+                    <div class="key-input-wrap">
+                      <input type="password" class="key-input" id="inp-shoonya-totp" placeholder="TOTP secret key" autocomplete="off">
+                      <button class="btn" onclick="toggleVis('inp-shoonya-totp',this)" style="white-space:nowrap;padding:10px 14px">👁</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="key-hint" style="margin-top:8px">Get from: <a href="https://shoonya.finvasia.com" target="_blank">shoonya.finvasia.com</a> → Developer → API credentials. TOTP secret = the base32 key from your authenticator setup.</div>
+              </div>
+
+              <!-- ── ANGEL ONE ── -->
+              <div class="feed-connector-card" style="border-color:rgba(66,133,244,.3)" id="fcard-angel">
+                <div class="fcc-header">
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <div style="font-family:'Bebas Neue';font-size:16px;letter-spacing:2px;color:#4285f4">👼 ANGEL ONE (SMARTAPI)</div>
+                    <span style="font-family:'Space Mono';font-size:9px;color:var(--muted)">~200ms · FREE</span>
+                  </div>
+                  <span class="status-indicator" id="fstatus-angel">⭕ Not configured</span>
+                </div>
+                <div class="g2e" style="margin-bottom:0">
+                  <div class="key-group" style="margin-bottom:0">
+                    <div class="key-label"><span>🔑</span>API KEY</div>
+                    <div class="key-input-wrap">
+                      <input type="password" class="key-input" id="inp-angel-apikey" placeholder="your_api_key" autocomplete="off">
+                      <button class="btn" onclick="toggleVis('inp-angel-apikey',this)" style="white-space:nowrap;padding:10px 14px">👁</button>
+                    </div>
+                  </div>
+                  <div class="key-group" style="margin-bottom:0">
+                    <div class="key-label"><span>👤</span>CLIENT ID</div>
+                    <input type="text" class="key-input" id="inp-angel-clientid" placeholder="A123456" autocomplete="off">
+                  </div>
+                  <div class="key-group" style="margin-bottom:0">
+                    <div class="key-label"><span>🔒</span>MPIN</div>
+                    <div class="key-input-wrap">
+                      <input type="password" class="key-input" id="inp-angel-mpin" placeholder="4-digit MPIN" autocomplete="off">
+                      <button class="btn" onclick="toggleVis('inp-angel-mpin',this)" style="white-space:nowrap;padding:10px 14px">👁</button>
+                    </div>
+                  </div>
+                  <div class="key-group" style="margin-bottom:0">
+                    <div class="key-label"><span>📱</span>TOTP SECRET</div>
+                    <div class="key-input-wrap">
+                      <input type="password" class="key-input" id="inp-angel-totp" placeholder="TOTP base32 secret" autocomplete="off">
+                      <button class="btn" onclick="toggleVis('inp-angel-totp',this)" style="white-space:nowrap;padding:10px 14px">👁</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="key-hint" style="margin-top:8px">Get from: <a href="https://smartapi.angelbroking.com" target="_blank">smartapi.angelbroking.com</a> → Create App → Copy API Key</div>
+              </div>
+
+              <!-- ── FYERS ── -->
+              <div class="feed-connector-card" style="border-color:rgba(255,157,61,.3)" id="fcard-fyers">
+                <div class="fcc-header">
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <div style="font-family:'Bebas Neue';font-size:16px;letter-spacing:2px;color:#ff9d3d">🦅 FYERS API V3</div>
+                    <span style="font-family:'Space Mono';font-size:9px;color:var(--muted)">~200ms · expires daily</span>
+                  </div>
+                  <span class="status-indicator" id="fstatus-fyers">⭕ Not configured</span>
+                </div>
+                <div class="g2e" style="margin-bottom:0">
+                  <div class="key-group" style="margin-bottom:0">
+                    <div class="key-label"><span>🔑</span>ACCESS TOKEN <span style="font-family:'Space Mono';font-size:9px;color:var(--red);font-weight:400">(expires daily)</span></div>
+                    <div class="key-input-wrap">
+                      <input type="password" class="key-input" id="inp-fyers-token" placeholder="eyJ0eXAi..." autocomplete="off">
+                      <button class="btn" onclick="toggleVis('inp-fyers-token',this)" style="white-space:nowrap;padding:10px 14px">👁</button>
+                    </div>
+                  </div>
+                  <div class="key-group" style="margin-bottom:0">
+                    <div class="key-label"><span>🆔</span>APP ID</div>
+                    <input type="text" class="key-input" id="inp-fyers-appid" placeholder="XYZ123-100" autocomplete="off">
+                  </div>
+                </div>
+                <div class="key-hint" style="margin-top:8px">Get from: <a href="https://myapi.fyers.in" target="_blank">myapi.fyers.in</a> → My Apps → Access Token (regenerate daily)</div>
+              </div>
+
+              <!-- ── ZERODHA ── -->
+              <div class="feed-connector-card" style="border-color:rgba(123,97,255,.3)" id="fcard-zerodha">
+                <div class="fcc-header">
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <div style="font-family:'Bebas Neue';font-size:16px;letter-spacing:2px;color:#7b61ff">🟣 ZERODHA KITECONNECT</div>
+                    <span style="font-family:'Space Mono';font-size:9px;color:var(--muted)">~200ms · expires daily · ₹2000/yr</span>
+                  </div>
+                  <span class="status-indicator" id="fstatus-zerodha">⭕ Not configured</span>
+                </div>
+                <div class="g2e" style="margin-bottom:0">
+                  <div class="key-group" style="margin-bottom:0">
+                    <div class="key-label"><span>🔑</span>API KEY</div>
+                    <input type="text" class="key-input" id="inp-zerodha-apikey" placeholder="your_api_key" autocomplete="off">
+                  </div>
+                  <div class="key-group" style="margin-bottom:0">
+                    <div class="key-label"><span>🎟️</span>ACCESS TOKEN <span style="font-family:'Space Mono';font-size:9px;color:var(--red);font-weight:400">(expires daily)</span></div>
+                    <div class="key-input-wrap">
+                      <input type="password" class="key-input" id="inp-zerodha-token" placeholder="access_token" autocomplete="off">
+                      <button class="btn" onclick="toggleVis('inp-zerodha-token',this)" style="white-space:nowrap;padding:10px 14px">👁</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="key-hint" style="margin-top:8px">Get from: <a href="https://kite.trade" target="_blank">kite.trade</a> → My Apps → Generate daily access token via login flow</div>
+              </div>
+
+              <!-- ── YAHOO FINANCE (fallback) ── -->
+              <div class="feed-connector-card" style="border-color:rgba(136,136,136,.2);opacity:.85" id="fcard-yahoo">
+                <div class="fcc-header">
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <div style="font-family:'Bebas Neue';font-size:16px;letter-spacing:2px;color:#888">📉 YAHOO FINANCE</div>
+                    <span style="font-family:'Space Mono';font-size:9px;color:var(--muted)">15min delayed · always active · no credentials needed</span>
+                  </div>
+                  <span class="status-indicator si-ok">✅ Always available</span>
+                </div>
+                <div style="font-family:'Space Mono';font-size:10px;color:var(--muted);padding:10px 0">
+                  No setup required. Used automatically as fallback when no broker credentials are configured. Simulated order book only — no real depth data.
+                </div>
+              </div>
+
+              <!-- Save Feed Keys Button -->
+              <div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+                <button class="btn" onclick="saveFeedKeys()" id="save-feed-btn" style="padding:12px 28px;font-size:12px;background:rgba(0,196,255,.15);border-color:rgba(0,196,255,.5);color:#00c4ff">💾 Save Feed Credentials</button>
+                <button class="btn btn-blue" onclick="loadFeedKeys()" style="padding:12px 20px;font-size:12px">📂 Load Saved Keys</button>
+              </div>
+              <div class="save-result" id="feed-save-result" style="margin-top:10px"></div>
             </div>
 
             <!-- PAPER TRADING SETTINGS -->
@@ -5332,6 +5574,122 @@
         res.textContent = '❌ Could not connect to server. Make sure app.py is running.';
       }
       btn.disabled = false; btn.textContent = '💾 Save All Keys';
+    }
+
+    // ── LIVE FEED CONNECTOR KEYS ──────────────────────────────
+    async function initFeedStatus() {
+      try {
+        const d = await fetch(`${API}/feed-status`).then(r => r.json());
+        const banner = document.getElementById('feed-active-banner');
+        const dot    = document.getElementById('feed-active-dot');
+        const name   = document.getElementById('feed-active-name');
+        const detail = document.getElementById('feed-active-detail');
+        if (!banner) return;
+        const active = d.active || {};
+        const isRT   = active.is_realtime;
+        dot.style.background = isRT ? 'var(--accent)' : '#f5c518';
+        banner.style.background = isRT ? 'rgba(0,229,160,.08)' : 'rgba(245,197,24,.08)';
+        banner.style.borderColor = isRT ? 'rgba(0,229,160,.25)' : 'rgba(245,197,24,.25)';
+        name.textContent = `${isRT ? '🟢' : '🟡'} Active Feed: ${active.label || 'Yahoo Finance'}${active.latency_ms ? ' — ' + active.latency_ms + 'ms' : ''}`;
+        detail.textContent = isRT ? `✅ Real-time data · ${active.ob_levels || 0}-level order book` : '⚠️ 15-min delayed · simulated order book';
+        // Update per-card status badges
+        const feeds = d.feeds || {};
+        const statusMap = {
+          upstox:   'fstatus-upstox',  truedata: 'fstatus-truedata',
+          shoonya:  'fstatus-shoonya', angel:    'fstatus-angel',
+          fyers:    'fstatus-fyers',   zerodha:  'fstatus-zerodha',
+        };
+        for (const [key, elId] of Object.entries(statusMap)) {
+          const el = document.getElementById(elId);
+          if (!el || !feeds[key]) continue;
+          const f = feeds[key];
+          if (f.active)       { el.textContent = '🟢 ACTIVE'; el.style.color = 'var(--accent)'; }
+          else if (f.configured) { el.textContent = '🟡 Configured'; el.style.color = '#f5c518'; }
+          else                { el.textContent = '⭕ Not configured'; el.style.color = 'var(--muted)'; }
+        }
+      } catch(e) {
+        const name = document.getElementById('feed-active-name');
+        if (name) name.textContent = '⚠️ Could not reach feed API';
+      }
+    }
+
+    async function saveFeedKeys() {
+      const btn = document.getElementById('save-feed-btn');
+      const res = document.getElementById('feed-save-result');
+      const data = {
+        upstox_access_token:  document.getElementById('inp-upstox-token')?.value.trim()   || '',
+        truedata_username:    document.getElementById('inp-truedata-user')?.value.trim()   || '',
+        truedata_password:    document.getElementById('inp-truedata-pass')?.value.trim()   || '',
+        shoonya_user:         document.getElementById('inp-shoonya-user')?.value.trim()    || '',
+        shoonya_password:     document.getElementById('inp-shoonya-pass')?.value.trim()    || '',
+        shoonya_api_key:      document.getElementById('inp-shoonya-apikey')?.value.trim()  || '',
+        shoonya_totp_key:     document.getElementById('inp-shoonya-totp')?.value.trim()    || '',
+        angel_api_key:        document.getElementById('inp-angel-apikey')?.value.trim()    || '',
+        angel_client_id:      document.getElementById('inp-angel-clientid')?.value.trim()  || '',
+        angel_mpin:           document.getElementById('inp-angel-mpin')?.value.trim()      || '',
+        angel_totp_key:       document.getElementById('inp-angel-totp')?.value.trim()      || '',
+        fyers_access_token:   document.getElementById('inp-fyers-token')?.value.trim()     || '',
+        fyers_app_id:         document.getElementById('inp-fyers-appid')?.value.trim()     || '',
+        zerodha_api_key:      document.getElementById('inp-zerodha-apikey')?.value.trim()  || '',
+        zerodha_access_token: document.getElementById('inp-zerodha-token')?.value.trim()   || '',
+      };
+      btn.disabled = true; btn.textContent = '💾 Saving...';
+      try {
+        const r = await fetch(`${API}/update-feed-keys`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
+        const d = await r.json();
+        res.style.display = 'block';
+        if (d.status === 'ok') {
+          res.className = 'save-result save-ok';
+          res.textContent = '✅ Feed credentials saved and feed reloaded! Active feed: ' + (d.active_feed || 'Yahoo Finance');
+          setTimeout(initFeedStatus, 800);
+        } else {
+          res.className = 'save-result save-err';
+          res.textContent = '❌ ' + d.message;
+        }
+      } catch(e) {
+        res.style.display = 'block';
+        res.className = 'save-result save-err';
+        res.textContent = '❌ Could not connect to server.';
+      }
+      btn.disabled = false; btn.textContent = '💾 Save Feed Credentials';
+    }
+
+    async function loadFeedKeys() {
+      try {
+        const d = await fetch(`${API}/get-feed-keys`).then(r => r.json());
+        const setVal = (id, val) => { const el = document.getElementById(id); if (el && val) { el.value = val; el.classList.add('filled'); } };
+        setVal('inp-upstox-token',    d.upstox_access_token);
+        setVal('inp-truedata-user',   d.truedata_username);
+        setVal('inp-truedata-pass',   d.truedata_password);
+        setVal('inp-shoonya-user',    d.shoonya_user);
+        setVal('inp-shoonya-pass',    d.shoonya_password);
+        setVal('inp-shoonya-apikey',  d.shoonya_api_key);
+        setVal('inp-shoonya-totp',    d.shoonya_totp_key);
+        setVal('inp-angel-apikey',    d.angel_api_key);
+        setVal('inp-angel-clientid',  d.angel_client_id);
+        setVal('inp-angel-mpin',      d.angel_mpin);
+        setVal('inp-angel-totp',      d.angel_totp_key);
+        setVal('inp-fyers-token',     d.fyers_access_token);
+        setVal('inp-fyers-appid',     d.fyers_app_id);
+        setVal('inp-zerodha-apikey',  d.zerodha_api_key);
+        setVal('inp-zerodha-token',   d.zerodha_access_token);
+        const res = document.getElementById('feed-save-result');
+        res.style.display = 'block';
+        res.className = 'save-result save-ok';
+        res.textContent = '✅ Current feed credentials loaded.';
+      } catch(e) {
+        const res = document.getElementById('feed-save-result');
+        res.style.display = 'block';
+        res.className = 'save-result save-err';
+        res.textContent = '❌ Could not load keys from server.';
+      }
+    }
+
+    async function reloadFeedFromKeys() {
+      try {
+        await fetch(`${API}/feed-reload`);
+        setTimeout(initFeedStatus, 500);
+      } catch(e) {}
     }
 
     async function loadCurrentKeys() {
