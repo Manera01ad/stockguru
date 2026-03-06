@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StockGuru — Full System Architecture</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+  :root {
+    --bg:       #02101a;
+    --surface:  #061824;
+    --border:   rgba(0,196,204,0.18);
+    --accent:   #00C4CC;
+    --accent2:  #00e5a0;
+    --text:     #e2f0f2;
+    --muted:    #5a8a93;
+    /* layer colours */
+    --c-source:   #22d3ee;
+    --c-cache:    #38bdf8;
+    --c-tier1:    #a78bfa;
+    --c-tier2:    #818cf8;
+    --c-tier3:    #f59e0b;
+    --c-tier4:    #f472b6;
+    --c-tier5:    #fb923c;
+    --c-sovereign:#c084fc;
+    --c-learning: #34d399;
+    --c-broker:   #fbbf24;
+    --c-output:   #4ade80;
+    --c-state:    #00C4CC;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    overflow: hidden;
+    height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  #header {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: rgba(2,16,26,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  #header h1 { font-size: 16px; font-weight: 700; color: var(--accent); letter-spacing: .06em; }
+  #header p  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .hdr-right  { display: flex; gap: 8px; align-items: center; }
+  .badge {
+    padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 600;
+    letter-spacing: .05em;
+  }
+
+  /* ── LEGEND ── */
+  #legend {
+    position: fixed; top: 72px; left: 16px; z-index: 100;
+    background: rgba(6,24,36,0.90);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 10px;
+    width: 148px;
+  }
+  #legend h3 { color: var(--muted); font-size: 9px; letter-spacing: .1em; margin-bottom: 8px; text-transform: uppercase; }
+  .leg-row { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; color: var(--text); }
+  .leg-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── DETAIL PANEL ── */
+  #detail {
+    position: fixed; top: 72px; right: 16px; z-index: 100;
+    background: rgba(6,24,36,0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    width: 280px;
+    min-height: 200px;
+    transition: opacity .2s;
+  }
+  #detail h3 { color: var(--accent); font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+  #detail .tag {
+    display: inline-block;
+    padding: 2px 8px; border-radius: 12px; font-size: 9px; font-weight: 700;
+    margin-bottom: 10px; letter-spacing: .06em;
+  }
+  #detail p  { font-size: 11px; color: #a0c4cc; line-height: 1.6; margin-bottom: 8px; }
+  #detail .io-row { font-size: 10px; color: var(--muted); margin: 3px 0; }
+  #detail .io-row span { color: var(--text); }
+  #detail-placeholder { color: var(--muted); font-size: 11px; text-align: center; margin-top: 40px; line-height: 1.7; }
+
+  /* ── STATS BAR ── */
+  #statsbar {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+    background: rgba(2,16,26,0.90);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid var(--border);
+    padding: 8px 24px;
+    display: flex; gap: 32px; align-items: center;
+    font-size: 11px;
+  }
+  .stat-item { display: flex; flex-direction: column; align-items: center; }
+  .stat-val { font-size: 18px; font-weight: 700; color: var(--accent); }
+  .stat-lbl { color: var(--muted); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; margin-top: 1px; }
+
+  /* ── SVG canvas ── */
+  #canvas {
+    position: fixed;
+    top: 58px; left: 0; right: 0; bottom: 36px;
+    overflow: hidden;
+  }
+  svg { width: 100%; height: 100%; }
+
+  /* node styles */
+  .node rect {
+    rx: 6; ry: 6;
+    stroke-width: 1.5;
+    cursor: pointer;
+    transition: filter .15s;
+  }
+  .node rect:hover { filter: brightness(1.35) drop-shadow(0 0 8px currentColor); }
+  .node text { pointer-events: none; font-family: 'Segoe UI', sans-serif; }
+  .node .lbl { font-size: 9.5px; font-weight: 600; }
+  .node .sub { font-size: 8px; fill-opacity: .7; }
+
+  /* hub node */
+  .hub ellipse { fill: rgba(0,196,204,0.10); stroke: var(--c-state); stroke-width: 2; }
+  .hub text { fill: var(--c-state); font-size: 10px; font-weight: 700; }
+
+  /* edges */
+  .edge { fill: none; stroke-width: 1.2; opacity: .55; }
+  .edge-hot { stroke-width: 1.8; opacity: .80; }
+  .edge-ws   { stroke-dasharray: 5 3; }
+
+  /* section header labels */
+  .col-label { fill: var(--muted); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; }
+
+  /* pulse animation for hub */
+  @keyframes pulse { 0%,100%{opacity:.6} 50%{opacity:1} }
+  .pulse { animation: pulse 2.5s ease-in-out infinite; }
+  /* flow animation */
+  @keyframes dash { to { stroke-dashoffset: -24; } }
+  .flow-anim { stroke-dasharray: 6 4; animation: dash 1.2s linear infinite; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="header">
+  <div>
+    <h1>⚡ StockGuru — Full System Architecture</h1>
+    <p>14-Agent Indian Equity Intelligence · Sovereign Layer · WebSocket Push · NSE Paper Broker</p>
+  </div>
+  <div class="hdr-right">
+    <span class="badge" style="background:rgba(0,196,204,.15);color:#00C4CC">M1 ✅</span>
+    <span class="badge" style="background:rgba(0,229,160,.15);color:#00e5a0">M2 ✅</span>
+    <span class="badge" style="background:rgba(251,191,36,.15);color:#fbbf24">M3 →</span>
+    <span class="badge" style="background:rgba(90,138,147,.12);color:#5a8a93">Click any node</span>
+  </div>
+</div>
+
+<!-- LEGEND -->
+<div id="legend">
+  <h3>Layers</h3>
+  <div class="leg-row"><div class="leg-dot" style="background:var(--c-source)"></div>External Sources</div>
+  <div class="leg-row"><div class="leg-dot" style="background:var(--c-tier1)"></div>Tier 1 Agents</div>
+  <div class="leg-row"><div class="leg-dot" style="background:var(--c-tier2)"></div>Tier 2 Agents</div>
+  <div class="leg-row"><div class="leg-dot" style="background:var(--c-tier3)"></div>Tier 3 Agents</div>
+  <div class="leg-row"><div class="leg-dot" style="background:var(--c-tier4)"></div>Tier 4 (AI)</div>
+  <div class="leg-row"><div class="leg-dot" style="background:var(--c-tier5)"></div>Tier 5 Output</div>
+  <div class="leg-row"><div class="leg-dot" style="background:var(--c-sovereign)"></div>Sovereign Layer</div>
+  <div class="leg-row"><div class="leg-dot" style="background:var(--c-learning)"></div>Learning Layer</div>
+  <div class="leg-row"><div class="leg-dot" style="background:var(--c-broker)"></div>Broker Layer</div>
+  <div class="leg-row"><div class="leg-dot" style="background:var(--c-output)"></div>Output / UI</div>
+  <div class="leg-row"><div class="leg-dot" style="background:var(--c-state)"></div>Shared State Bus</div>
+  <br>
+  <div style="color:var(--muted);font-size:9px">Scroll to zoom · Drag to pan</div>
+</div>
+
+<!-- DETAIL PANEL -->
+<div id="detail">
+  <div id="detail-content">
+    <div id="detail-placeholder">👆 Click any node<br>to see its role, inputs,<br>outputs & optimisation tips</div>
+  </div>
+</div>
+
+<!-- STATS BAR -->
+<div id="statsbar">
+  <div class="stat-item"><div class="stat-val">15</div><div class="stat-lbl">Agents</div></div>
+  <div class="stat-item"><div class="stat-val">10</div><div class="stat-lbl">Sovereign Modules</div></div>
+  <div class="stat-item"><div class="stat-val">66</div><div class="stat-lbl">Tests Passing</div></div>
+  <div class="stat-item"><div class="stat-val">WS</div><div class="stat-lbl">Real-Time Push</div></div>
+  <div class="stat-item"><div class="stat-val">NSE</div><div class="stat-lbl">Paper Broker</div></div>
+  <div class="stat-item"><div class="stat-val">₹5L</div><div class="stat-lbl">Paper Capital</div></div>
+  <div style="margin-left:auto;color:var(--muted);font-size:10px">
+    Data flow: Yahoo Finance → Agent Pipeline → Shared State → Sovereign → Paper Broker → Dashboard
+  </div>
+</div>
+
+<div id="canvas"><svg id="svg"></svg></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+//  NODE DATA
+// ═══════════════════════════════════════════════════════════════════════
+const NODES = [
+
+  // ── EXTERNAL SOURCES (col 0) ──────────────────────────────────────
+  { id:'yahoo',   label:'Yahoo Finance',  sub:'Price OHLCV',      col:0, row:0, color:'#22d3ee', layer:'External Source',
+    desc:'Real-time OHLCV prices for all 20 watchlist stocks + indices (NIFTY 50, SENSEX, BANK NIFTY, INDIA VIX) via Yahoo Finance v8 API. No API key required. Refreshes every 5 minutes.',
+    inputs:['HTTP GET (yfinance)'], outputs:['price_cache', 'index_prices'],
+    optimize:'Add yfinance retry/fallback to NSE direct API for outage resilience. Currently single point of failure for price data.' },
+
+  { id:'nse',     label:'NSE API',        sub:'Option Chain · Deals', col:0, row:1, color:'#22d3ee', layer:'External Source',
+    desc:'National Stock Exchange APIs: option chain (OI heatmap, PCR, max pain), bulk/block deals, 52-week breakouts. Accessed via NSE cookie-seeded requests session.',
+    inputs:['HTTP session (NSE cookies)'], outputs:['oi_heatmap','block_deals_today','52w_breakouts'],
+    optimize:'NSE APIs are rate-limited and require cookie seeding. Add exponential backoff + cache last-good response for 30 min.' },
+
+  { id:'screener', label:'Screener.in',   sub:'Fundamentals',     col:0, row:2, color:'#22d3ee', layer:'External Source',
+    desc:'Promoter holdings %, ROE, debt-to-equity scraped for 8 watchlist stocks. Polite 1.2s delay between requests to avoid blocks.',
+    inputs:['HTTP GET (BeautifulSoup)'], outputs:['promoter_holdings'],
+    optimize:'Screener.in has no public API — scraping is fragile. Consider caching results for 24h and alerting on parse failure.' },
+
+  { id:'news',    label:'News / Web',     sub:'RSS · Google News', col:0, row:3, color:'#22d3ee', layer:'External Source',
+    desc:'Web researcher fetches news headlines from Google News RSS and financial portals. Used by news_sentiment and web_researcher agents.',
+    inputs:['RSS feeds','HTTP GET'], outputs:['news_feed','web_intel'],
+    optimize:'Add dedicated NewsAPI.org or Finnhub news key for higher quality, tagged news with sentiment pre-scored.' },
+
+  { id:'telegram_in', label:'Telegram',  sub:'Alerts Out · HITL', col:0, row:4, color:'#22d3ee', layer:'External Source',
+    desc:'Bi-directional Telegram channel: outbound for price alerts, morning brief, strong buy signals. Inbound via HITL controller inline buttons for manual trade approval.',
+    inputs:['Bot token','Chat ID'], outputs:['alert_log','hitl_approvals'],
+    optimize:'Add /status command handler so Bharathi can query portfolio from Telegram without opening the dashboard.' },
+
+  // ── PRICE CACHE (col 1) ───────────────────────────────────────────
+  { id:'price_cache', label:'Price Cache',  sub:'In-Memory Dict',  col:1, row:1.5, color:'#38bdf8', layer:'Cache Layer',
+    desc:'Module-level dict in app.py. Updated every 5 min by fetch_all_prices(). Keys = stock names, values = {price, change, change_pct, high, low, volume, updated}. Passed to agents as read-only lookup.',
+    inputs:['yahoo','nse'], outputs:['All agents','calculate_score','signal_tracker'],
+    optimize:'Currently lost on server restart. Add Redis or SQLite snapshot so price history survives restarts and can feed backtester directly.' },
+
+  // ── TIER 1 AGENTS (col 2) ─────────────────────────────────────────
+  { id:'market_scanner', label:'Market Scanner', sub:'T1 · Every 15m', col:2, row:0, color:'#a78bfa', layer:'Tier 1 Agent',
+    desc:'Scans all 20 watchlist stocks against 8 entry gate criteria: RSI range, volume surge, MACD crossover, EMA trend, sector momentum, FII flow, PCR, news sentiment. Writes top-10 with scores.',
+    inputs:['price_cache','shared_state'], outputs:['scanner_results','full_scan','advance_decline'],
+    optimize:'Currently uses static 20-stock watchlist. Add dynamic watchlist expansion — auto-add stocks from scanner that consistently rank top 5 for 3+ cycles.' },
+
+  { id:'news_sentiment', label:'News Sentiment', sub:'T1 · NLP scoring', col:2, row:1, color:'#a78bfa', layer:'Tier 1 Agent',
+    desc:'Fetches headlines from Google News RSS, scores sentiment (-10 to +10) per stock using keyword matching. Builds aggregate sentiment per stock and sector.',
+    inputs:['news','price_cache'], outputs:['news_sentiment','sentiment_scores'],
+    optimize:'Keyword scoring is brittle. Upgrade to Gemini Flash for semantic news scoring — same cost as current but 10× more accurate sector-specific sentiment.' },
+
+  { id:'commodity_crypto', label:'Commodity & Crypto', sub:'T1 · Gold · Oil · BTC', col:2, row:2, color:'#a78bfa', layer:'Tier 1 Agent',
+    desc:'Fetches Gold, Silver, Crude Oil, Natural Gas, BTC, ETH prices via Yahoo Finance. Builds macro context for Claude Intelligence prompt.',
+    inputs:['yahoo'], outputs:['commodity_results'],
+    optimize:'Add DXY (US Dollar Index) — strong negative correlation with Indian equity and gold. Critical for macro regime detection.' },
+
+  { id:'earnings_calendar', label:'Earnings Calendar', sub:'T1 · Event radar', col:2, row:3, color:'#a78bfa', layer:'Tier 1 Agent',
+    desc:'Tracks upcoming earnings, dividends, bonus, split events for watchlist stocks. Flags stocks with events in the next 5 trading days as HIGH_RISK for paper_trader to avoid.',
+    inputs:['web fetch'], outputs:['earnings_events','earnings_risk_flags'],
+    optimize:'Currently limited to Moneycontrol scraping. Add NSE corporate actions API for official dividend/bonus/split data.' },
+
+  { id:'web_researcher',  label:'Web Researcher',  sub:'T1 · Deep intel', col:2, row:4, color:'#a78bfa', layer:'Tier 1 Agent',
+    desc:'Deep-dives into 3 specific stocks each cycle using Gemini Flash to summarise web content, analyst ratings, recent filings. Adds qualitative intelligence for Claude to process.',
+    inputs:['news','Gemini Flash API'], outputs:['web_intel','analyst_ratings'],
+    optimize:'Gemini Flash context window allows processing full annual report PDFs. Add PDF fetch + summarise for top-3 STRONG BUY stocks each cycle.' },
+
+  // ── TIER 2 AGENTS (col 2, lower) ─────────────────────────────────
+  { id:'technical_analysis', label:'Technical Analysis', sub:'T2 · TA suite', col:2, row:5.2, color:'#818cf8', layer:'Tier 2 Agent',
+    desc:'Computes RSI, MACD, EMA20/50/200, Bollinger Bands, support/resistance levels for all watchlist stocks using 90-day OHLCV from Yahoo Finance.',
+    inputs:['yahoo','price_cache'], outputs:['technical_data','ta_summary'],
+    optimize:'Add ATR-based position sizing input so broker_connector can auto-size positions by volatility rather than fixed 10% capital allocation.' },
+
+  { id:'institutional_flow', label:'Institutional Flow', sub:'T2 · FII/DII', col:2, row:6.2, color:'#818cf8', layer:'Tier 2 Agent',
+    desc:'Tracks FII (Foreign Institutional Investor) and DII (Domestic Institutional Investor) net buy/sell from NSE data. Strong FII buying is a key entry gate for trade signals.',
+    inputs:['nse'], outputs:['institutional_flow','fii_net','dii_net','delivery_data'],
+    optimize:'Currently scrapes NSE daily FII data. Add NSE FII/FPI API endpoint for real-time intraday flow.' },
+
+  { id:'options_flow',   label:'Options Flow',    sub:'T2 · PCR · OI', col:2, row:7.2, color:'#818cf8', layer:'Tier 2 Agent',
+    desc:'Analyses Nifty option chain for PCR (Put-Call Ratio), max pain level, unusual OI build-up, call/put writing activity. Feeds Sovereign Risk Master.',
+    inputs:['nse','oi_heatmap'], outputs:['options_data','pcr','india_vix','iv_rank'],
+    optimize:'Add stock-level option chain analysis (not just Nifty index) for individual stock signals with open options positions.' },
+
+  { id:'sector_rotation', label:'Sector Rotation',  sub:'T2 · Momentum', col:2, row:8.2, color:'#818cf8', layer:'Tier 2 Agent',
+    desc:'Calculates relative strength of each sector (Banking, IT, Pharma, Defence, FMCG, Auto, Energy) over 1-week rolling window. Identifies hot sectors for signal boosting.',
+    inputs:['price_cache','scanner_results'], outputs:['sector_momentum','leading_sectors','lagging_sectors'],
+    optimize:'Add inter-market analysis: sector rotation driven by bond yields, DXY, crude oil correlations.' },
+
+  // ── TIER 3 AGENTS (col 3) ─────────────────────────────────────────
+  { id:'trade_signal',  label:'Trade Signal',    sub:'T3 · Gate filter', col:3, row:3, color:'#f59e0b', layer:'Tier 3 Agent',
+    desc:'Applies 8-gate conviction filter to scanner results: RSI, volume, MACD, EMA, sector, FII, PCR, news. Only stocks passing 5+ gates become trade candidates. Calculates entry/T1/T2/SL levels.',
+    inputs:['scanner_results','technical_data','institutional_flow','options_data','sector_momentum'], outputs:['trade_signals','actionable_signals'],
+    optimize:'Gates are currently equal-weighted. Upgrade to learned_weights.json weighting so high-accuracy gates (e.g. FII buying) count more.' },
+
+  { id:'risk_manager',  label:'Risk Manager',    sub:'T3 · Portfolio limits', col:3, row:5, color:'#f59e0b', layer:'Tier 3 Agent',
+    desc:'Applies portfolio-level risk rules to actionable signals: max 5 open positions, max 10% per position, daily loss circuit breaker at 3%, earnings event veto, concentration limit per sector.',
+    inputs:['actionable_signals','paper_portfolio','earnings_events'], outputs:['risk_reviewed_signals','risk_summary'],
+    optimize:'Add VaR (Value at Risk) calculation using 30-day return distribution for more accurate position-level risk scoring.' },
+
+  // ── SHARED STATE (centre) ─────────────────────────────────────────
+  { id:'shared_state', label:'SHARED STATE', sub:'Central Memory Bus', col:3.8, row:4.3, color:'#00C4CC', layer:'Shared State',
+    desc:'In-memory Python dict passed between all 15 agents sequentially. ~40 keys covering prices, signals, portfolio, analysis, sovereign outputs. Thread-safe (GIL). Lost on restart — agents rebuild from JSON files.',
+    inputs:['All agents write here'], outputs:['All agents read from here'],
+    optimize:'High Priority: add Redis as shared state backend so state survives restarts and can be inspected/modified externally. Low-hanging fruit: add state snapshot to disk every 5 min.' },
+
+  // ── TIER 4 AI (col 4) ────────────────────────────────────────────
+  { id:'claude_intelligence', label:'Claude Intelligence', sub:'T4 · Claude Haiku', col:4.8, row:2.5, color:'#f472b6', layer:'Tier 4 AI Agent',
+    desc:'Core intelligence layer. Sends structured prompt to Claude Haiku with all signal data, pattern library, accuracy stats, macro context. Returns ranked trade recommendations with reasoning and confidence scores.',
+    inputs:['risk_reviewed_signals','pattern_library','accuracy_stats','macro_context'], outputs:['claude_analysis','ai_alerts','signal_results'],
+    optimize:'Currently calls Claude Haiku once per 15-min cycle. Add streaming response display in dashboard so Bharathi sees Claude "thinking" in real-time.' },
+
+  { id:'pattern_memory',  label:'Pattern Memory',   sub:'T4 · Self-learning', col:4.8, row:4, color:'#f472b6', layer:'Tier 4 AI Agent',
+    desc:'Analyses signal_history.json to identify which condition combinations consistently win. Groups by RSI bucket × volume bucket × score tier × gates passed. Ranks top-20 patterns by win rate × trade count.',
+    inputs:['signal_history'], outputs:['pattern_library'],
+    optimize:'Minimum 5 trades per pattern means it takes weeks to activate. Seed with paper_trader synthetic data from backtesting engine to bootstrap learning faster.' },
+
+  // ── TIER 5 OUTPUT (col 5) ────────────────────────────────────────
+  { id:'paper_trader',  label:'Paper Trader',   sub:'T5 · NSE simulation', col:5.8, row:2, color:'#fb923c', layer:'Tier 5 Agent',
+    desc:'Executes strong-conviction signals (score ≥ 88, 6+ gates) as paper trades. Uses broker_connector.PaperBroker for realistic NSE order simulation with costs, slippage. Tracks open positions, P&L, T1/T2/SL levels.',
+    inputs:['risk_reviewed_signals','claude_analysis','price_cache'], outputs:['paper_portfolio','paper_trades','broker_order_book'],
+    optimize:'Add trailing SL: once T1 hit, auto-move SL to breakeven. Currently requires manual SL management.' },
+
+  { id:'morning_brief',  label:'Morning Brief',   sub:'T5 · Daily narrative', col:5.8, row:4.5, color:'#fb923c', layer:'Tier 5 Agent',
+    desc:'Generates structured daily market brief at 08:00 IST: index levels, top signal, sector call, macro headwinds, portfolio P&L summary. Sends via Telegram and stores in shared_state.',
+    inputs:['scanner_results','claude_analysis','commodity_results','paper_portfolio'], outputs:['morning_brief','telegram_alert'],
+    optimize:'M3 fix needed: wrap telegram send in try/except (current xfail). Add evening debrief at 15:30 with P&L recap and next-day watchlist.' },
+
+  // ── SOVEREIGN LAYER (col 6) ──────────────────────────────────────
+  { id:'scryer',  label:'The Scryer',   sub:'Sovereign · Source confidence', col:6.8, row:0.5, color:'#c084fc', layer:'Sovereign Layer',
+    desc:'Computes confidence score for each data source every cycle: how much does each signal source (scanner, FII, options, news) deviate from historical norms? Flags "shock vs reality" divergences.',
+    inputs:['scanner_results','institutional_flow','options_data'], outputs:['scryer_output','source_confidence_map'],
+    optimize:'Add cross-source disagreement detection: when scanner says BUY but FII is selling heavily — flag as HIGH UNCERTAINTY and block auto-execution.' },
+
+  { id:'quant',   label:'The Quant',    sub:'Sovereign · Conviction tiers', col:6.8, row:2, color:'#c084fc', layer:'Sovereign Layer',
+    desc:'Maps each signal to one of 4 execution tiers based on composite conviction score: AUTO_EXECUTE (≥85), HITL_REQUIRED (70-84), DEBATE_REQUIRED (55-69), SKIP (<55). Prevents over-trading.',
+    inputs:['scryer_output','risk_reviewed_signals'], outputs:['quant_output','conviction_map','auto_candidates','hitl_candidates','debate_candidates'],
+    optimize:'Add time-of-day filter: HIGH conviction signals near market open (09:20-10:00) have statistically different outcomes than mid-day. Weight time-of-day in conviction scoring.' },
+
+  { id:'risk_master', label:'Risk Master',   sub:'Sovereign · VETO engine', col:6.8, row:3.5, color:'#c084fc', layer:'Sovereign Layer',
+    desc:'Hard and soft VETO governance layer. Hard vetoes (immediate block): earnings in next 2 days, total loss circuit breaker hit, position already exists. Soft vetoes (require HITL): max drawdown warning, sector concentration.',
+    inputs:['quant_output','paper_portfolio','earnings_events'], outputs:['risk_master_output','cleared_auto','cleared_for_debate'],
+    optimize:'Add post-mortem feedback loop: if a vetoed trade would have been profitable, lower the veto threshold for that stock/condition.' },
+
+  { id:'debate_engine', label:'Debate Engine',  sub:'Sovereign · Bull vs Bear', col:6.8, row:5, color:'#c084fc', layer:'Sovereign Layer',
+    desc:'3-round LLM debate for borderline signals (conviction 55-69): Bull Advocate (Claude Haiku) → Bear Advocate (Gemini Flash) → Resolution Judge (Claude Haiku). Max 2 debates per cycle to control API cost.',
+    inputs:['cleared_for_debate','scryer_output'], outputs:['debate_results','final_verdicts'],
+    optimize:'Currently debate winner determines execution. Add historical tracking of debate outcomes vs actual results to calibrate Bull/Bear judge quality.' },
+
+  { id:'hitl',    label:'HITL Controller', sub:'Sovereign · Human approval', col:6.8, row:6.5, color:'#c084fc', layer:'Sovereign Layer',
+    desc:'Human-In-The-Loop: sends Telegram inline button message for HITL_REQUIRED signals (conviction 70-84). Bharathi approves or rejects within a timeout window. Timeouts default to NO-EXECUTE.',
+    inputs:['quant_output (hitl_candidates)'], outputs:['hitl_decisions','approved_trades'],
+    optimize:'Add voice message summary via Telegram for HITL decisions so Bharathi can approve without opening laptop (useful during market hours).' },
+
+  { id:'post_mortem', label:'Post Mortem',   sub:'Sovereign · LLM reflexion', col:6.8, row:7.8, color:'#c084fc', layer:'Sovereign Layer',
+    desc:'After each trade settles, sends outcome (win/loss/SL) to Claude for reflexion: "What did the agents miss? What should we watch for next time?" Stores learnings in SQLite memory_engine DB.',
+    inputs:['settled_trades','signal_history'], outputs:['post_mortem_log','reflexion_insights'],
+    optimize:'Reflexion insights are currently logged but not fed back into Claude Intelligence prompt. Wire post_mortem insights into claude_intelligence context window.' },
+
+  { id:'observer', label:'Observer',    sub:'Sovereign · NSE scan 4h', col:6.8, row:9.2, color:'#c084fc', layer:'Sovereign Layer',
+    desc:'Every 4 hours: scrapes NSE option chain OI heatmap (max pain, PCR, top CE/PE strikes), block deals of the day, 52-week breakouts, Screener.in promoter holdings. Enriches sovereign context.',
+    inputs:['nse','screener'], outputs:['observer_output','oi_heatmap','block_deals','52w_breakouts'],
+    optimize:'Add NSE circuit breaker scanner: stocks hitting upper/lower circuit are high-volatility — auto-flag as AVOID until price stabilises.' },
+
+  { id:'synthetic_bt', label:'Synthetic Backtester', sub:'Sovereign · Stress test 6h', col:6.8, row:10.5, color:'#c084fc', layer:'Sovereign Layer',
+    desc:'Every 6 hours: runs 3-scenario stress test on current open positions: Bull case (+8%), Base case (+2%), Bear case (NSE circuit breaker -20%). Estimates portfolio impact.',
+    inputs:['paper_portfolio','price_cache'], outputs:['synthetic_backtest','black_swan_probability'],
+    optimize:'Upgrade from 3 fixed scenarios to Monte Carlo simulation using 30-day return distribution for each held stock.' },
+
+  // ── LEARNING LAYER (col 5.8, lower) ─────────────────────────────
+  { id:'signal_tracker', label:'Signal Tracker',  sub:'Learning · Outcome log', col:5.0, row:7, color:'#34d399', layer:'Learning Layer',
+    desc:'Records every paper trade signal with full context. Every 5-minute price cycle, checks open signals against current prices to detect T1_HIT, T2_HIT, SL_HIT, EXPIRED outcomes. Updates signal_history.json.',
+    inputs:['paper_portfolio','price_cache'], outputs:['signal_history','accuracy_stats'],
+    optimize:'Currently checks outcomes synchronously in price fetch loop. Move to async background task to avoid blocking price updates.' },
+
+  { id:'weight_adjuster', label:'Weight Adjuster', sub:'Learning · Adaptive weights', col:5.0, row:8.5, color:'#34d399', layer:'Learning Layer',
+    desc:'Reads accuracy_stats.json and drifts learned_weights.json: sectors/stocks with win_rate > 60% get weight boost (max +30%), those < 40% get dampened (max -30%). Requires 10+ settled trades per sector.',
+    inputs:['accuracy_stats'], outputs:['learned_weights'],
+    optimize:'Weights currently applied to final score only. Apply to gate weighting too — if FII gate is wrong 70% of the time for IT sector, reduce its weight for that sector.' },
+
+  { id:'backtester',  label:'BacktestEngine',   sub:'Learning · Historical', col:5.0, row:10, color:'#34d399', layer:'Learning Layer',
+    desc:'Validates last N signals against actual Yahoo Finance OHLCV data. Computes win rate, Sharpe ratio, max drawdown, per-sector breakdown. Results displayed in Backtest tab.',
+    inputs:['signal_history','yahoo'], outputs:['backtest_results','win_rate','sharpe','drawdown'],
+    optimize:'Add walk-forward optimisation: automatically tune gate thresholds by running backtest across different parameter sets and selecting the highest Sharpe configuration.' },
+
+  // ── BROKER LAYER (col 4.5, lower) ────────────────────────────────
+  { id:'broker_connector', label:'Broker Connector', sub:'NSE Paper Broker', col:4.0, row:7.5, color:'#fbbf24', layer:'Broker Layer',
+    desc:'Full NSE-grade paper broker: PaperBroker implements BrokerInterface ABC. Supports MARKET/LIMIT/SL/SL-M/AMO orders, CNC/MIS/NRML product codes, Indian cost model (STT + brokerage + GST + stamp + DP). T1/T2 target booking, MIS auto-square at 15:15.',
+    inputs:['paper_trader (signals)'], outputs:['order_book','position_book','portfolio_snapshot','broker_order_book'],
+    optimize:'LIVE_TRADING_ENABLED = False hard-lock. To enable live trading in M4: implement LiveBrokerAdapter extending BrokerInterface for Zerodha Kite or IIFL API.' },
+
+  // ── OUTPUT LAYER (col 8) ─────────────────────────────────────────
+  { id:'dashboard', label:'Dashboard',   sub:'WebSocket · Real-time', col:8.0, row:2, color:'#4ade80', layer:'Output / UI',
+    desc:'Single-page app (index.html, 5400+ lines). 12 tabs: Watchlist, Scanner, Signals, Portfolio, Learning, Backtest, Sovereign, Settings. Flask-SocketIO pushes price_update every 5min + agents_update after each cycle. Falls back to 60s polling.',
+    inputs:['price_update (WS)','agents_update (WS)','REST APIs'], outputs:['User interaction','HITL decisions'],
+    optimize:'Replace static 20-stock watchlist with dynamic search + add/remove from dashboard. Add P&L chart using Chart.js or Recharts.' },
+
+  { id:'tg_out',  label:'Telegram Alerts', sub:'Push notifications', col:8.0, row:4.5, color:'#4ade80', layer:'Output / UI',
+    desc:'Outbound Telegram bot messages: STRONG BUY alerts (with entry/T1/T2/SL), morning brief at 08:00, HITL approval requests with inline buttons, error alerts on agent failure.',
+    inputs:['paper_trader','morning_brief','hitl'], outputs:['Phone notifications'],
+    optimize:'Add portfolio summary command (/portfolio) and watchlist query (/scan HDFC) as bot commands for mobile-first access.' },
+
+  { id:'data_store', label:'Data Store', sub:'JSON files · SQLite', col:8.0, row:7, color:'#4ade80', layer:'Output / UI',
+    desc:'Persistent storage: signal_history.json, paper_portfolio.json, paper_trades.json, pattern_library.json, accuracy_stats.json, learned_weights.json, agent_memory.db (SQLite), backtest_results.json.',
+    inputs:['All agents'], outputs:['Learning layer','Pattern Memory','Dashboard'],
+    optimize:'M3: Add daily SQLite snapshot of shared_state. M4: Migrate to PostgreSQL (Railway) for signal history querying + charting.' },
+];
+
+// ═══════════════════════════════════════════════════════════════════════
+//  EDGE DATA
+// ═══════════════════════════════════════════════════════════════════════
+const EDGES = [
+  // Sources → Cache/Agents
+  { s:'yahoo',    t:'price_cache',      hot:true  },
+  { s:'nse',      t:'price_cache',      hot:false },
+  { s:'nse',      t:'observer',         hot:false },
+  { s:'screener', t:'observer',         hot:false },
+  { s:'news',     t:'news_sentiment',   hot:false },
+  { s:'news',     t:'web_researcher',   hot:false },
+  { s:'telegram_in', t:'hitl',          hot:false },
+
+  // Price cache → Tier 1
+  { s:'price_cache', t:'market_scanner',   hot:true  },
+  { s:'price_cache', t:'news_sentiment',   hot:false },
+  { s:'price_cache', t:'commodity_crypto', hot:false },
+  { s:'price_cache', t:'technical_analysis', hot:true },
+  { s:'price_cache', t:'signal_tracker',   hot:false },
+
+  // Tier 1 → Shared State
+  { s:'market_scanner',   t:'shared_state', hot:true  },
+  { s:'news_sentiment',   t:'shared_state', hot:false },
+  { s:'commodity_crypto', t:'shared_state', hot:false },
+  { s:'earnings_calendar',t:'shared_state', hot:false },
+  { s:'web_researcher',   t:'shared_state', hot:false },
+
+  // Tier 2 → Shared State
+  { s:'technical_analysis',   t:'shared_state', hot:false },
+  { s:'institutional_flow',   t:'shared_state', hot:false },
+  { s:'options_flow',         t:'shared_state', hot:false },
+  { s:'sector_rotation',      t:'shared_state', hot:false },
+
+  // Tier 3
+  { s:'shared_state', t:'trade_signal',  hot:true  },
+  { s:'shared_state', t:'risk_manager',  hot:true  },
+  { s:'trade_signal', t:'risk_manager',  hot:true  },
+  { s:'risk_manager', t:'shared_state',  hot:false },
+
+  // Tier 4 AI
+  { s:'shared_state',   t:'claude_intelligence', hot:true  },
+  { s:'shared_state',   t:'pattern_memory',      hot:false },
+  { s:'pattern_memory', t:'claude_intelligence', hot:false },
+  { s:'claude_intelligence', t:'shared_state',   hot:true  },
+
+  // Tier 5
+  { s:'shared_state',   t:'paper_trader',  hot:true  },
+  { s:'shared_state',   t:'morning_brief', hot:false },
+  { s:'paper_trader',   t:'broker_connector', hot:true },
+
+  // Broker → outputs
+  { s:'broker_connector', t:'shared_state',  hot:false },
+  { s:'broker_connector', t:'data_store',    hot:false },
+
+  // Sovereign chain
+  { s:'shared_state', t:'scryer',       hot:false },
+  { s:'scryer',       t:'quant',        hot:true  },
+  { s:'quant',        t:'risk_master',  hot:true  },
+  { s:'risk_master',  t:'debate_engine',hot:false },
+  { s:'risk_master',  t:'hitl',         hot:false },
+  { s:'debate_engine',t:'shared_state', hot:false },
+  { s:'hitl',         t:'paper_trader', hot:false },
+  { s:'shared_state', t:'post_mortem',  hot:false },
+  { s:'post_mortem',  t:'data_store',   hot:false },
+  { s:'observer',     t:'shared_state', hot:false },
+  { s:'synthetic_bt', t:'shared_state', hot:false },
+
+  // Learning
+  { s:'signal_tracker',  t:'data_store',       hot:false },
+  { s:'data_store',      t:'pattern_memory',   hot:false },
+  { s:'data_store',      t:'weight_adjuster',  hot:false },
+  { s:'data_store',      t:'backtester',       hot:false },
+  { s:'weight_adjuster', t:'shared_state',     hot:false },
+
+  // Outputs
+  { s:'shared_state',   t:'dashboard',  hot:true,  ws:true },
+  { s:'paper_trader',   t:'tg_out',     hot:false },
+  { s:'morning_brief',  t:'tg_out',     hot:false },
+  { s:'paper_trader',   t:'signal_tracker', hot:false },
+  { s:'paper_trader',   t:'data_store', hot:false },
+];
+
+// ═══════════════════════════════════════════════════════════════════════
+//  LAYOUT CONSTANTS
+// ═══════════════════════════════════════════════════════════════════════
+const COL_W   = 130;   // column width
+const ROW_H   = 68;    // row height
+const NODE_W  = 120;   // node rect width
+const NODE_H  = 40;    // node rect height
+const HUB_RX  = 70;    // shared-state hub x radius
+const HUB_RY  = 28;
+
+const COLS = [80, 230, 390, 570, 760, 950, 1130, 1310, 1500];
+// map col index → x centre
+function cx(col) { return COLS[Math.floor(col)] + (col % 1) * (COLS[Math.floor(col)+1] - COLS[Math.floor(col)]); }
+function cy(row) { return 60 + row * ROW_H; }
+
+// assign positions
+NODES.forEach(n => {
+  if (n.id === 'shared_state') { n.x = cx(n.col); n.y = cy(n.row); }
+  else { n.x = cx(n.col); n.y = cy(n.row); }
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  BUILD SVG
+// ═══════════════════════════════════════════════════════════════════════
+const svg = d3.select('#svg');
+const W = 1700, H = 820;
+svg.attr('viewBox', `0 0 ${W} ${H}`);
+
+// zoom
+const zoom = d3.zoom().scaleExtent([0.35, 2.2]).on('zoom', e => g.attr('transform', e.transform));
+svg.call(zoom);
+const g = svg.append('g').attr('transform', 'translate(0,0) scale(0.72)');
+
+// glow filter
+const defs = svg.append('defs');
+['glow-cyan','glow-purple','glow-amber'].forEach((id,i) => {
+  const f = defs.append('filter').attr('id', id).attr('x','-30%').attr('y','-30%').attr('width','160%').attr('height','160%');
+  f.append('feGaussianBlur').attr('stdDeviation','4').attr('result','blur');
+  f.append('feFlood').attr('flood-color', i===0?'#00C4CC':i===1?'#c084fc':'#fbbf24').attr('flood-opacity','0.5').attr('result','color');
+  f.append('feComposite').attr('in','color').attr('in2','blur').attr('operator','in').attr('result','shadow');
+  const merge = f.append('feMerge');
+  merge.append('feMergeNode').attr('in','shadow');
+  merge.append('feMergeNode').attr('in','SourceGraphic');
+});
+
+// arrowheads per colour
+const arrowColors = ['#22d3ee','#a78bfa','#818cf8','#f59e0b','#f472b6','#fb923c','#c084fc','#34d399','#fbbf24','#4ade80','#00C4CC','#38bdf8'];
+arrowColors.forEach(c => {
+  const mid = defs.append('marker').attr('id','arr'+c.replace('#','')).attr('markerWidth',8).attr('markerHeight',8).attr('refX',6).attr('refY',3).attr('orient','auto');
+  mid.append('path').attr('d','M0,0 L0,6 L8,3 z').attr('fill',c);
+});
+
+// column labels
+const COL_LABELS = [
+  [80,  12,'EXTERNAL SOURCES'],
+  [230, 12,'CACHE'],
+  [390, 12,'TIER 1 AGENTS'],
+  [570, 12,'TIER 2–3 AGENTS'],
+  [760, 12,'TIER 3–4 AI'],
+  [950, 12,'TIER 5 OUTPUT'],
+  [1130,12,'SOVEREIGN LAYER'],
+  [1310,12,'LEARNING LAYER'],
+  [1500,12,'OUTPUTS / UI'],
+];
+COL_LABELS.forEach(([x,y,lbl]) => {
+  g.append('text').attr('x',x).attr('y',y).attr('text-anchor','middle').attr('class','col-label').text(lbl);
+});
+
+// ── DRAW EDGES ─────────────────────────────────────────────────────────
+function nodeById(id) { return NODES.find(n=>n.id===id); }
+
+function edgePath(sx, sy, tx, ty) {
+  const mx = (sx + tx) / 2;
+  return `M${sx},${sy} C${mx},${sy} ${mx},${ty} ${tx},${ty}`;
+}
+
+EDGES.forEach(e => {
+  const s = nodeById(e.s), t = nodeById(e.t);
+  if (!s || !t) return;
+
+  const isHub = (n) => n.id === 'shared_state';
+  let sx = s.x + (isHub(s) ? HUB_RX : NODE_W/2);
+  let sy = s.y + (isHub(s) ? 0       : NODE_H/2);
+  let tx = t.x - (isHub(t) ? HUB_RX : 0);
+  let ty = t.y + (isHub(t) ? 0       : NODE_H/2);
+
+  // If target is to the left of source, flip
+  if (t.x < s.x) {
+    sx = s.x - (isHub(s) ? HUB_RX : 0);
+    tx = t.x + (isHub(t) ? HUB_RX : NODE_W/2);
+  }
+
+  const col = e.hot ? s.color : '#334a52';
+  const cls = ['edge', e.hot?'edge-hot':'', e.ws?'edge-ws flow-anim':''].filter(Boolean).join(' ');
+
+  g.append('path')
+    .attr('d', edgePath(sx, sy, tx, ty))
+    .attr('class', cls)
+    .attr('stroke', col)
+    .attr('marker-end', `url(#arr${col.replace('#','')})`)
+    .attr('fill','none');
+});
+
+// ── DRAW NODES ────────────────────────────────────────────────────────
+NODES.forEach(n => {
+  if (n.id === 'shared_state') {
+    // Hub ellipse
+    const hub = g.append('g').attr('class','hub node').attr('data-id', n.id)
+      .attr('transform', `translate(${n.x},${n.y})`);
+    hub.append('ellipse').attr('rx', HUB_RX).attr('ry', HUB_RY).attr('class','pulse').attr('filter','url(#glow-cyan)');
+    hub.append('text').attr('text-anchor','middle').attr('dy','-4').attr('font-size','11').attr('font-weight','700').attr('fill','#00C4CC').text('SHARED');
+    hub.append('text').attr('text-anchor','middle').attr('dy','10').attr('font-size','11').attr('font-weight','700').attr('fill','#00C4CC').text('STATE');
+    hub.on('click', () => showDetail(n));
+    return;
+  }
+
+  const grp = g.append('g').attr('class','node').attr('data-id', n.id)
+    .attr('transform', `translate(${n.x - NODE_W/2},${n.y})`);
+
+  grp.append('rect')
+    .attr('width', NODE_W).attr('height', NODE_H)
+    .attr('rx',6).attr('ry',6)
+    .attr('fill', n.color + '22')
+    .attr('stroke', n.color)
+    .attr('stroke-width', 1.5);
+
+  grp.append('text').attr('x', NODE_W/2).attr('y', 14).attr('text-anchor','middle')
+    .attr('class','lbl').attr('fill', n.color).text(n.label);
+
+  grp.append('text').attr('x', NODE_W/2).attr('y', 28).attr('text-anchor','middle')
+    .attr('class','sub').attr('fill', '#a0c4cc').text(n.sub);
+
+  grp.on('click', () => showDetail(n));
+  grp.on('mouseenter', function() {
+    d3.select(this).select('rect')
+      .attr('fill', n.color + '44')
+      .attr('filter', 'url(#glow-cyan)');
+  });
+  grp.on('mouseleave', function() {
+    d3.select(this).select('rect')
+      .attr('fill', n.color + '22')
+      .attr('filter', null);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  DETAIL PANEL
+// ═══════════════════════════════════════════════════════════════════════
+function showDetail(n) {
+  const panel = document.getElementById('detail-content');
+  const tagColor = n.color;
+  const inputs  = (n.inputs  || []).map(i => `<div class="io-row">→ <span>${i}</span></div>`).join('');
+  const outputs = (n.outputs || []).map(o => `<div class="io-row">← <span>${o}</span></div>`).join('');
+  panel.innerHTML = `
+    <h3>${n.label}</h3>
+    <span class="tag" style="background:${tagColor}22;color:${tagColor}">${n.layer}</span>
+    <p>${n.desc}</p>
+    ${inputs  ? `<p style="color:#5a8a93;font-size:10px;margin-bottom:3px">INPUTS</p>${inputs}` : ''}
+    ${outputs ? `<p style="color:#5a8a93;font-size:10px;margin-top:6px;margin-bottom:3px">OUTPUTS</p>${outputs}` : ''}
+    ${n.optimize ? `
+      <div style="margin-top:10px;padding:8px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:6px;">
+        <div style="color:#fbbf24;font-size:9px;font-weight:700;letter-spacing:.05em;margin-bottom:4px">⚡ OPTIMISE / ENHANCE</div>
+        <div style="color:#d4b87a;font-size:10px;line-height:1.55">${n.optimize}</div>
+      </div>` : ''}
+  `;
+}
+
+// initial zoom fit
+svg.call(zoom.transform, d3.zoomIdentity.translate(20, 0).scale(0.72));
+</script>
+</body>
+</html>

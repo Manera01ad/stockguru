@@ -1,1 +1,15 @@
-[]
+[
+  {
+    "id": "BLD_20260304_101813_66ED",
+    "template": "promoter_holding_table",
+    "title": "Promoter Holding Tracker",
+    "why": "Screener.in data shows promoter holding trends \u2014 key insider signal missing from watchlist",
+    "data_source": "/api/observer-data",
+    "html_code": "<div class=\"card\" style=\"margin-top:1rem\">\n  <div class=\"card-head\">\n    <div class=\"card-title\">\ud83d\udcca Promoter Holding Tracker</div>\n    <div style=\"font-size:.72rem;color:var(--muted)\">Auto-generated</div>\n  </div>\n  <div id=\"builder-panel-promoter_holding_table\" style=\"padding:.75rem;color:var(--muted);font-size:.82rem\">\n    Loading Promoter Holding Tracker...\n  </div>\n  <script>\n  (async function fetchBuilderPanel_promoter_holding_table() {\n    try {\n      const d = await fetch('/api/observer-data').then(r => r.json());\n      const el = document.getElementById('builder-panel-promoter_holding_table');\n      const data = d?.observer.promoter_holdings || {};\n      el.innerHTML = '<pre style=\"font-size:.75rem;white-space:pre-wrap\">' +\n        JSON.stringify(data, null, 2).slice(0, 800) + '</pre>';\n    } catch(e) { }\n  })();\n  </script>\n</div>",
+    "status": "PENDING",
+    "created_at": "2026-03-04T10:18:13.051632",
+    "expires_at": "2026-03-05T10:18:13.051632",
+    "applied_at": null,
+    "lines": 20
+  }
+]

@@ -1325,6 +1325,7 @@ def api_get_keys():
         "telegram_configured": bool(TELEGRAM_TOKEN and TELEGRAM_CHAT_ID),
         "anthropic_configured": bool(ANTHROPIC_API_KEY),
         "gemini_configured": bool(GEMINI_API_KEY),
+        "env_path": os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")),
     })
 
 @app.route("/api/status")

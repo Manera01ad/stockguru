@@ -144,5 +144,253 @@
     "max_drawdown_scenario": "FLASH_CRASH",
     "recommended_hedge": "Consider trailing stops on largest positions.",
     "last_run": "01 Mar 13:00:00"
+  },
+  {
+    "run_id": "BACKTEST_20260302_0727",
+    "portfolio_snapshot": {
+      "capital": 100000.0,
+      "positions_count": 0,
+      "invested": 0
+    },
+    "scenarios": {
+      "FLASH_CRASH": {
+        "positions_hit": [],
+        "drawdown_pct": 0.0,
+        "narrative": "No open positions."
+      },
+      "SECTOR_SELLOFF": {
+        "positions_hit": [],
+        "drawdown_pct": 0.0,
+        "narrative": "No open positions."
+      },
+      "BLACK_SWAN": {
+        "positions_hit": [],
+        "drawdown_pct": 0.0,
+        "narrative": "No open positions."
+      }
+    },
+    "black_swan_probability": "LOW",
+    "max_drawdown_scenario": "N/A",
+    "recommended_hedge": "No positions to hedge.",
+    "last_run": "02 Mar 07:27:26"
+  },
+  {
+    "run_id": "BACKTEST_20260302_0727",
+    "portfolio_snapshot": {
+      "capital": 100000.0,
+      "positions_count": 2,
+      "invested": 42750.0,
+      "invested_pct": 42.8
+    },
+    "scenarios": {
+      "FLASH_CRASH": {
+        "positions_hit": [
+          "AIRTEL",
+          "HDFC BANK"
+        ],
+        "drawdown_pct": -2.14,
+        "shock": "-5% flash crash",
+        "sl_triggered": 2,
+        "narrative": "Review flash crash exposure."
+      },
+      "SECTOR_SELLOFF": {
+        "positions_hit": [],
+        "drawdown_pct": -0.0,
+        "shock": "-4% sector selloff (Telecom)",
+        "worst_sector": "Telecom",
+        "sl_triggered": 0,
+        "narrative": "Sector concentration risk noted."
+      },
+      "BLACK_SWAN": {
+        "positions_hit": [
+          "AIRTEL",
+          "HDFC BANK"
+        ],
+        "drawdown_pct": -2.14,
+        "shock": "-10% crash then +5% bounce",
+        "sl_triggered": 2,
+        "net_underwater": 0,
+        "narrative": "Tail risk is manageable."
+      }
+    },
+    "black_swan_probability": "LOW",
+    "max_drawdown_scenario": "FLASH_CRASH",
+    "recommended_hedge": "Consider trailing stops on largest positions.",
+    "last_run": "02 Mar 07:27:27"
+  },
+  {
+    "run_id": "BACKTEST_20260302_0727",
+    "portfolio_snapshot": {
+      "capital": 100000.0,
+      "positions_count": 0,
+      "invested": 0
+    },
+    "scenarios": {
+      "FLASH_CRASH": {
+        "positions_hit": [],
+        "drawdown_pct": 0.0,
+        "narrative": "No open positions."
+      },
+      "SECTOR_SELLOFF": {
+        "positions_hit": [],
+        "drawdown_pct": 0.0,
+        "narrative": "No open positions."
+      },
+      "BLACK_SWAN": {
+        "positions_hit": [],
+        "drawdown_pct": 0.0,
+        "narrative": "No open positions."
+      }
+    },
+    "black_swan_probability": "LOW",
+    "max_drawdown_scenario": "N/A",
+    "recommended_hedge": "No positions to hedge.",
+    "last_run": "02 Mar 07:27:34"
+  },
+  {
+    "run_id": "BACKTEST_20260302_0727",
+    "portfolio_snapshot": {
+      "capital": 100000.0,
+      "positions_count": 2,
+      "invested": 42750.0,
+      "invested_pct": 42.8
+    },
+    "scenarios": {
+      "FLASH_CRASH": {
+        "positions_hit": [
+          "AIRTEL",
+          "HDFC BANK"
+        ],
+        "drawdown_pct": -2.14,
+        "shock": "-5% flash crash",
+        "sl_triggered": 2,
+        "narrative": "Review flash crash exposure."
+      },
+      "SECTOR_SELLOFF": {
+        "positions_hit": [],
+        "drawdown_pct": -0.0,
+        "shock": "-4% sector selloff (Telecom)",
+        "worst_sector": "Telecom",
+        "sl_triggered": 0,
+        "narrative": "Sector concentration risk noted."
+      },
+      "BLACK_SWAN": {
+        "positions_hit": [
+          "HDFC BANK",
+          "AIRTEL"
+        ],
+        "drawdown_pct": -2.14,
+        "shock": "-10% crash then +5% bounce",
+        "sl_triggered": 2,
+        "net_underwater": 0,
+        "narrative": "Tail risk is manageable."
+      }
+    },
+    "black_swan_probability": "LOW",
+    "max_drawdown_scenario": "FLASH_CRASH",
+    "recommended_hedge": "Consider trailing stops on largest positions.",
+    "last_run": "02 Mar 07:27:35"
+  },
+  {
+    "run_id": "BACKTEST_20260302_0728",
+    "portfolio_snapshot": {
+      "capital": 100000.0,
+      "positions_count": 0,
+      "invested": 0
+    },
+    "scenarios": {
+      "FLASH_CRASH": {
+        "positions_hit": [],
+        "drawdown_pct": 0.0,
+        "narrative": "No open positions."
+      },
+      "SECTOR_SELLOFF": {
+        "positions_hit": [],
+        "drawdown_pct": 0.0,
+        "narrative": "No open positions."
+      },
+      "BLACK_SWAN": {
+        "positions_hit": [],
+        "drawdown_pct": 0.0,
+        "narrative": "No open positions."
+      }
+    },
+    "black_swan_probability": "LOW",
+    "max_drawdown_scenario": "N/A",
+    "recommended_hedge": "No positions to hedge.",
+    "last_run": "02 Mar 07:28:03"
+  },
+  {
+    "run_id": "BACKTEST_20260302_0728",
+    "portfolio_snapshot": {
+      "capital": 100000.0,
+      "positions_count": 2,
+      "invested": 42750.0,
+      "invested_pct": 42.8
+    },
+    "scenarios": {
+      "FLASH_CRASH": {
+        "positions_hit": [
+          "AIRTEL",
+          "HDFC BANK"
+        ],
+        "drawdown_pct": -2.14,
+        "shock": "-5% flash crash",
+        "sl_triggered": 2,
+        "narrative": "Review flash crash exposure."
+      },
+      "SECTOR_SELLOFF": {
+        "positions_hit": [],
+        "drawdown_pct": -0.0,
+        "shock": "-4% sector selloff (Telecom)",
+        "worst_sector": "Telecom",
+        "sl_triggered": 0,
+        "narrative": "Sector concentration risk noted."
+      },
+      "BLACK_SWAN": {
+        "positions_hit": [
+          "AIRTEL",
+          "HDFC BANK"
+        ],
+        "drawdown_pct": -2.14,
+        "shock": "-10% crash then +5% bounce",
+        "sl_triggered": 2,
+        "net_underwater": 0,
+        "narrative": "Tail risk is manageable."
+      }
+    },
+    "black_swan_probability": "LOW",
+    "max_drawdown_scenario": "FLASH_CRASH",
+    "recommended_hedge": "Consider trailing stops on largest positions.",
+    "last_run": "02 Mar 07:28:03"
+  },
+  {
+    "run_id": "BACKTEST_20260304_1017",
+    "portfolio_snapshot": {
+      "capital": 500000.0,
+      "positions_count": 0,
+      "invested": 0
+    },
+    "scenarios": {
+      "FLASH_CRASH": {
+        "positions_hit": [],
+        "drawdown_pct": 0.0,
+        "narrative": "No open positions."
+      },
+      "SECTOR_SELLOFF": {
+        "positions_hit": [],
+        "drawdown_pct": 0.0,
+        "narrative": "No open positions."
+      },
+      "BLACK_SWAN": {
+        "positions_hit": [],
+        "drawdown_pct": 0.0,
+        "narrative": "No open positions."
+      }
+    },
+    "black_swan_probability": "LOW",
+    "max_drawdown_scenario": "N/A",
+    "recommended_hedge": "No positions to hedge.",
+    "last_run": "04 Mar 10:17:32"
   }
 ]

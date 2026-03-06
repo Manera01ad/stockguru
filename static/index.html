@@ -3372,7 +3372,7 @@
                 SAVE KEYS TO .ENV FILE</div>
               <div style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.7">
                 Clicking <strong style="color:var(--text)">Save Keys</strong> will write your keys to the <code
-                  style="color:var(--accent);font-size:12px">D:\Stock agent\stockguru\.env</code> file and hot-reload
+                  style="color:var(--accent);font-size:12px" id="env-path-display">C:\Users\Hp\projects\stockguru\.env</code> file and hot-reload
                 the
                 server config. You only need to do this once.
               </div>
@@ -5041,6 +5041,7 @@
         if (d.paper_capital) document.getElementById('inp-paper-capital').value = d.paper_capital;
         if (d.flask_port) document.getElementById('inp-port').value = d.flask_port;
         if (d.price_refresh) document.getElementById('inp-refresh').value = d.price_refresh;
+        if (d.env_path) { const el = document.getElementById('env-path-display'); if (el) el.textContent = d.env_path; }
         const res = document.getElementById('save-result');
         res.style.display = 'block';
         res.className = 'save-result save-ok';
@@ -6403,6 +6404,7 @@
         fetchPrices(), fetchWatchlist(), fetchMood(), fetchAlerts(), fetchStatus(),
         fetchAgentStatus(), fetchScanner(), fetchSignals(), fetchAgentNews(),
         fetchClaudeAnalysis(), fetchMarketIntelligence(), fetchPaperPortfolio(), fetchLearningStats(),
+        fetch('/api/get-keys').then(r=>r.json()).then(d=>{ if(d.env_path){const el=document.getElementById('env-path-display');if(el)el.textContent=d.env_path;} }).catch(()=>{}),
         fetchOptionsAndFii(), fetchTechnical(), fetchAgentLog(),
         fetchChannels(), fetchBacktest(),
         fetchConnectors(), fetchRiskAnalytics(), fetchChartPatterns(),

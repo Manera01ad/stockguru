@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>StockGuru — Project Infographic</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;600;700;900&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #001a1f;
+    --sea: #002D34;
+    --forest: #162b22;
+    --cyan: #00C4CC;
+    --cyan2: #00e5ee;
+    --gold: #f5c518;
+    --green: #22c55e;
+    --red: #ef4444;
+    --white: #F2F5F6;
+    --muted: #8ba3a8;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--white);
+    min-height: 100vh;
+    padding: 0;
+    overflow-x: hidden;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    background: linear-gradient(135deg, #001a1f 0%, #002D34 50%, #162b22 100%);
+    border-bottom: 2px solid var(--cyan);
+    padding: 60px 40px 50px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(0,196,204,0.12) 0%, transparent 70%);
+  }
+  .hero-tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--cyan);
+    border: 1px solid rgba(0,196,204,0.4);
+    border-radius: 50px;
+    padding: 6px 18px;
+    margin-bottom: 20px;
+  }
+  .hero h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(52px, 8vw, 96px);
+    letter-spacing: 6px;
+    line-height: 1;
+    background: linear-gradient(90deg, var(--cyan) 0%, #fff 60%, var(--gold) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 12px;
+  }
+  .hero-sub {
+    font-size: 18px;
+    font-weight: 300;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 28px;
+  }
+  .hero-badge-row {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .hero-badge {
+    background: rgba(0,196,204,0.1);
+    border: 1px solid rgba(0,196,204,0.35);
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--cyan);
+  }
+
+  /* ── SECTION WRAPPER ── */
+  .section {
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 60px 32px;
+  }
+  .section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    letter-spacing: 4px;
+    color: var(--cyan);
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .section-divider {
+    width: 60px;
+    height: 3px;
+    background: linear-gradient(90deg, var(--cyan), var(--gold));
+    border-radius: 2px;
+    margin: 0 auto 40px;
+  }
+
+  /* ── PURPOSE STRIP ── */
+  .purpose-strip {
+    background: linear-gradient(90deg, var(--forest) 0%, var(--sea) 100%);
+    border-top: 1px solid rgba(0,196,204,0.2);
+    border-bottom: 1px solid rgba(0,196,204,0.2);
+    padding: 40px 32px;
+    text-align: center;
+  }
+  .purpose-strip p {
+    max-width: 900px;
+    margin: 0 auto;
+    font-size: 20px;
+    font-weight: 300;
+    line-height: 1.7;
+    color: #cde0e3;
+  }
+  .purpose-strip strong { color: var(--cyan); font-weight: 700; }
+
+  /* ── OBJECTIVE CARDS ── */
+  .obj-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+  }
+  .obj-card {
+    background: linear-gradient(145deg, rgba(22,43,34,0.9), rgba(0,45,52,0.8));
+    border: 1px solid rgba(0,196,204,0.2);
+    border-radius: 16px;
+    padding: 28px 24px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .obj-card:hover { transform: translateY(-4px); border-color: var(--cyan); }
+  .obj-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--accent, var(--cyan));
+  }
+  .obj-icon {
+    font-size: 36px;
+    margin-bottom: 14px;
+    display: block;
+  }
+  .obj-card h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--white);
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+  }
+  .obj-card p {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  /* ── FEATURES GRID ── */
+  .features-bg {
+    background: linear-gradient(180deg, var(--bg) 0%, var(--forest) 100%);
+    padding: 60px 0;
+  }
+  .feat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+  }
+  .feat-item {
+    background: rgba(0,196,204,0.06);
+    border: 1px solid rgba(0,196,204,0.15);
+    border-radius: 12px;
+    padding: 22px 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+  }
+  .feat-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 8px var(--cyan);
+    flex-shrink: 0;
+    margin-top: 5px;
+  }
+  .feat-item h4 { font-size: 14px; font-weight: 700; margin-bottom: 4px; color: var(--white); }
+  .feat-item p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+  /* ── AGENT PIPELINE ── */
+  .pipeline {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .pipe-node {
+    background: linear-gradient(135deg, var(--forest), var(--sea));
+    border: 1px solid rgba(0,196,204,0.35);
+    border-radius: 14px;
+    padding: 18px 20px;
+    text-align: center;
+    min-width: 150px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .pipe-node .pipe-icon { font-size: 28px; margin-bottom: 8px; }
+  .pipe-node h4 { font-size: 13px; font-weight: 700; color: var(--white); }
+  .pipe-node p { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .pipe-arrow {
+    font-size: 22px;
+    color: var(--cyan);
+    flex-shrink: 0;
+  }
+
+  /* ── SIGNAL SYSTEM ── */
+  .signals-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .signal-pill {
+    border-radius: 50px;
+    padding: 16px 32px;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    border: 2px solid;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 140px;
+  }
+  .signal-pill span { font-size: 11px; font-weight: 400; letter-spacing: 1px; opacity: 0.7; }
+  .s-buy    { background: rgba(34,197,94,0.15);  border-color: #22c55e; color: #22c55e; }
+  .s-watch  { background: rgba(0,196,204,0.15);  border-color: var(--cyan); color: var(--cyan); }
+  .s-hold   { background: rgba(245,197,24,0.15); border-color: var(--gold); color: var(--gold); }
+  .s-avoid  { background: rgba(239,68,68,0.15);  border-color: var(--red);  color: var(--red); }
+
+  /* ── ROADMAP ── */
+  .roadmap {
+    position: relative;
+    padding-left: 40px;
+  }
+  .roadmap::before {
+    content: '';
+    position: absolute;
+    left: 14px; top: 0; bottom: 0;
+    width: 2px;
+    background: linear-gradient(180deg, var(--cyan), var(--gold), var(--green));
+  }
+  .road-item {
+    position: relative;
+    margin-bottom: 28px;
+  }
+  .road-item::before {
+    content: '';
+    position: absolute;
+    left: -33px; top: 6px;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--dot-color, var(--cyan));
+    box-shadow: 0 0 10px var(--dot-color, var(--cyan));
+  }
+  .road-phase {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--dot-color, var(--cyan));
+    margin-bottom: 4px;
+  }
+  .road-item h4 { font-size: 16px; font-weight: 700; color: var(--white); margin-bottom: 6px; }
+  .road-item p  { font-size: 14px; color: var(--muted); line-height: 1.6; }
+  .badge-done { background: rgba(34,197,94,0.2); color: #22c55e; border: 1px solid #22c55e; border-radius: 4px; font-size: 11px; padding: 2px 8px; margin-left: 8px; vertical-align: middle; }
+  .badge-next { background: rgba(0,196,204,0.2); color: var(--cyan); border: 1px solid var(--cyan); border-radius: 4px; font-size: 11px; padding: 2px 8px; margin-left: 8px; vertical-align: middle; }
+
+  /* ── TECH STACK ── */
+  .stack-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+  }
+  .stack-card {
+    background: rgba(22,43,34,0.7);
+    border: 1px solid rgba(0,196,204,0.15);
+    border-radius: 12px;
+    padding: 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .stack-icon { font-size: 28px; flex-shrink: 0; }
+  .stack-card h4 { font-size: 14px; font-weight: 700; color: var(--white); }
+  .stack-card p  { font-size: 12px; color: var(--muted); }
+
+  /* ── STAT ROW ── */
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 16px;
+    text-align: center;
+  }
+  .stat-box {
+    background: linear-gradient(145deg, rgba(0,196,204,0.08), rgba(22,43,34,0.6));
+    border: 1px solid rgba(0,196,204,0.2);
+    border-radius: 14px;
+    padding: 24px 16px;
+  }
+  .stat-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 52px;
+    line-height: 1;
+    color: var(--cyan);
+  }
+  .stat-label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  /* ── DISCLAIMER ── */
+  .disclaimer {
+    background: rgba(245,197,24,0.07);
+    border: 1px solid rgba(245,197,24,0.3);
+    border-radius: 12px;
+    padding: 18px 24px;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .disclaimer .icon { font-size: 24px; flex-shrink: 0; }
+  .disclaimer p { font-size: 13px; color: #c9b26b; line-height: 1.6; }
+
+  /* ── FOOTER ── */
+  .footer {
+    background: var(--sea);
+    border-top: 2px solid rgba(0,196,204,0.2);
+    text-align: center;
+    padding: 30px;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+  .footer strong { color: var(--cyan); }
+</style>
+</head>
+<body>
+
+<!-- ───── HERO ───── -->
+<div class="hero">
+  <div class="hero-tag">🚀 Project Infographic · March 2026</div>
+  <h1>StockGuru</h1>
+  <div class="hero-sub">Real-Time Intelligence Hub for Indian Markets</div>
+  <div class="hero-badge-row">
+    <div class="hero-badge">🇮🇳 NSE / BSE</div>
+    <div class="hero-badge">🪙 Crypto & Commodities</div>
+    <div class="hero-badge">🤖 5-Agent AI System</div>
+    <div class="hero-badge">📲 Telegram Alerts</div>
+    <div class="hero-badge">📊 Live Dashboard</div>
+  </div>
+</div>
+
+<!-- ───── PURPOSE ───── -->
+<div class="purpose-strip">
+  <p>
+    StockGuru is a <strong>personal financial intelligence platform</strong> built for Indian retail traders.
+    It continuously monitors <strong>NSE/BSE stocks, Gold, Silver, Crude Oil, and Crypto</strong>,
+    scores them using live momentum algorithms, and delivers <strong>actionable BUY/WATCH/HOLD/AVOID signals</strong>
+    directly to your phone — so you never miss a high-probability opportunity.
+  </p>
+</div>
+
+<!-- ───── KEY STATS ───── -->
+<div class="section">
+  <div class="section-title">By The Numbers</div>
+  <div class="section-divider"></div>
+  <div class="stat-row">
+    <div class="stat-box">
+      <div class="stat-num">5</div>
+      <div class="stat-label">AI Agents</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num">15<span style="font-size:28px">m</span></div>
+      <div class="stat-label">Update Cycle</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num">88</div>
+      <div class="stat-label">Strong Buy Threshold</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num">2×</div>
+      <div class="stat-label">Daily Briefs (8AM / 4PM)</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num">0–100</div>
+      <div class="stat-label">Momentum Score Range</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num">3</div>
+      <div class="stat-label">Phases Planned</div>
+    </div>
+  </div>
+</div>
+
+<!-- ───── OBJECTIVES ───── -->
+<div style="background: linear-gradient(180deg, var(--bg) 0%, #001215 100%); padding: 60px 0;">
+  <div class="section" style="padding-top:0; padding-bottom:0;">
+    <div class="section-title">Core Objectives</div>
+    <div class="section-divider"></div>
+    <div class="obj-grid">
+
+      <div class="obj-card" style="--accent: #00C4CC;">
+        <span class="obj-icon">📡</span>
+        <h3>Real-Time Market Intelligence</h3>
+        <p>Fetch live prices from NSE/BSE every 15 minutes using IIFL API. Never trade on stale data again.</p>
+      </div>
+
+      <div class="obj-card" style="--accent: #f5c518;">
+        <span class="obj-icon">🧠</span>
+        <h3>AI-Powered Scoring Engine</h3>
+        <p>Score every watchlist stock 0–100 using multi-factor momentum analysis combining price, volume, and sentiment signals.</p>
+      </div>
+
+      <div class="obj-card" style="--accent: #22c55e;">
+        <span class="obj-icon">📲</span>
+        <h3>Instant Telegram Alerts</h3>
+        <p>Push Strong Buy (score ≥ 88) alerts directly to your Telegram, plus automated 8 AM Morning Brief and 4 PM Evening Debrief.</p>
+      </div>
+
+      <div class="obj-card" style="--accent: #a78bfa;">
+        <span class="obj-icon">🌐</span>
+        <h3>Beautiful Live Dashboard</h3>
+        <p>A Forest & Cyan fintech-grade UI with large, readable data tables, mood meters, news feeds, and tool arsenal — accessible at localhost:5000.</p>
+      </div>
+
+      <div class="obj-card" style="--accent: #fb923c;">
+        <span class="obj-icon">🪙</span>
+        <h3>Multi-Asset Coverage</h3>
+        <p>Monitor Indian equities alongside Gold, Silver, Crude Oil, and top Cryptocurrencies — all in one hub.</p>
+      </div>
+
+      <div class="obj-card" style="--accent: #f43f5e;">
+        <span class="obj-icon">📝</span>
+        <h3>Paper Trading Simulation</h3>
+        <p>Practice trades without real money. Track virtual P&amp;L to validate strategy before going live.</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ───── SIGNAL SYSTEM ───── -->
+<div class="section">
+  <div class="section-title">Signal System</div>
+  <div class="section-divider"></div>
+  <div class="signals-row">
+    <div class="signal-pill s-buy">🟢 BUY<span>Score ≥ 88 · Strong Action</span></div>
+    <div class="signal-pill s-watch">🔵 WATCH<span>Score 65–87 · Monitor Closely</span></div>
+    <div class="signal-pill s-hold">🟡 HOLD<span>Score 40–64 · Stay Patient</span></div>
+    <div class="signal-pill s-avoid">🔴 AVOID<span>Score &lt; 40 · High Risk</span></div>
+  </div>
+</div>
+
+<!-- ───── 5-AGENT PIPELINE ───── -->
+<div class="features-bg">
+  <div class="section" style="padding-top:0; padding-bottom:0;">
+    <div class="section-title">5-Agent Intelligence Pipeline</div>
+    <div class="section-divider"></div>
+    <div class="pipeline">
+      <div class="pipe-node">
+        <div class="pipe-icon">⏰</div>
+        <h4>Scheduler</h4>
+        <p>Triggers every 15 min</p>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node">
+        <div class="pipe-icon">🔍</div>
+        <h4>Market Scanner</h4>
+        <p>Live NSE/BSE prices</p>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node">
+        <div class="pipe-icon">📰</div>
+        <h4>News Sentiment</h4>
+        <p>AI news scoring</p>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node">
+        <div class="pipe-icon">📈</div>
+        <h4>Trade Signals</h4>
+        <p>Buy/Sell generator</p>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node">
+        <div class="pipe-icon">🪙</div>
+        <h4>Commodity/Crypto</h4>
+        <p>Multi-asset tracker</p>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node">
+        <div class="pipe-icon">🌅</div>
+        <h4>Morning Brief</h4>
+        <p>Daily AI summaries</p>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node" style="border-color: var(--gold);">
+        <div class="pipe-icon">📲</div>
+        <h4>Telegram Alert</h4>
+        <p>Straight to your phone</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ───── KEY FEATURES ───── -->
+<div class="section">
+  <div class="section-title">Key Features</div>
+  <div class="section-divider"></div>
+  <div class="feat-grid">
+    <div class="feat-item">
+      <div class="feat-dot"></div>
+      <div>
+        <h4>Live Price Fetching</h4>
+        <p>NSE/BSE stocks updated every 15 minutes via IIFL API integration.</p>
+      </div>
+    </div>
+    <div class="feat-item">
+      <div class="feat-dot"></div>
+      <div>
+        <h4>Momentum Scoring</h4>
+        <p>Proprietary 0–100 score combining momentum, volume, and news data.</p>
+      </div>
+    </div>
+    <div class="feat-item">
+      <div class="feat-dot"></div>
+      <div>
+        <h4>Telegram Integration</h4>
+        <p>Automated alerts for Strong Buy signals and scheduled daily reports.</p>
+      </div>
+    </div>
+    <div class="feat-item">
+      <div class="feat-dot"></div>
+      <div>
+        <h4>Forest & Cyan UI</h4>
+        <p>Professional dark fintech dashboard with Bebas Neue typography and glow effects.</p>
+      </div>
+    </div>
+    <div class="feat-item">
+      <div class="feat-dot"></div>
+      <div>
+        <h4>Multi-Asset Dashboard</h4>
+        <p>One screen for Equities, Gold, Silver, Crude Oil, and Crypto.</p>
+      </div>
+    </div>
+    <div class="feat-item">
+      <div class="feat-dot"></div>
+      <div>
+        <h4>One-Click Launcher</h4>
+        <p>START.bat & VBS launcher for portable, location-agnostic startup.</p>
+      </div>
+    </div>
+    <div class="feat-item">
+      <div class="feat-dot"></div>
+      <div>
+        <h4>Fault-Tolerant Agents</h4>
+        <p>Modular agent system — if one agent fails, others continue independently.</p>
+      </div>
+    </div>
+    <div class="feat-item">
+      <div class="feat-dot"></div>
+      <div>
+        <h4>Paper Trading Mode</h4>
+        <p>Practice BUY/SELL without real money to test strategies safely.</p>
+      </div>
+    </div>
+    <div class="feat-item">
+      <div class="feat-dot"></div>
+      <div>
+        <h4>AJAX Long-Polling</h4>
+        <p>Dashboard continuously syncs with Flask server for real-time data.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ───── TECH STACK ───── -->
+<div style="background: linear-gradient(180deg, #001215 0%, var(--forest) 100%); padding: 60px 0;">
+  <div class="section" style="padding-top:0; padding-bottom:0;">
+    <div class="section-title">Technology Stack</div>
+    <div class="section-divider"></div>
+    <div class="stack-grid">
+      <div class="stack-card">
+        <div class="stack-icon">🐍</div>
+        <div><h4>Python 3.11+</h4><p>Core language</p></div>
+      </div>
+      <div class="stack-card">
+        <div class="stack-icon">🌐</div>
+        <div><h4>Flask</h4><p>Web server &amp; API routes</p></div>
+      </div>
+      <div class="stack-card">
+        <div class="stack-icon">⚛️</div>
+        <div><h4>React / JS</h4><p>Live dashboard UI</p></div>
+      </div>
+      <div class="stack-card">
+        <div class="stack-icon">📡</div>
+        <div><h4>IIFL API</h4><p>NSE/BSE live data</p></div>
+      </div>
+      <div class="stack-card">
+        <div class="stack-icon">✈️</div>
+        <div><h4>Telegram Bot API</h4><p>Push notifications</p></div>
+      </div>
+      <div class="stack-card">
+        <div class="stack-icon">🗄️</div>
+        <div><h4>In-Memory Cache</h4><p>Shared RAM state across agents</p></div>
+      </div>
+      <div class="stack-card">
+        <div class="stack-icon">⏱️</div>
+        <div><h4>APScheduler</h4><p>Background task scheduling</p></div>
+      </div>
+      <div class="stack-card">
+        <div class="stack-icon">🚂</div>
+        <div><h4>Railway / Gunicorn</h4><p>Cloud deployment ready</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ───── ROADMAP ───── -->
+<div class="section">
+  <div class="section-title">Project Roadmap</div>
+  <div class="section-divider"></div>
+  <div class="roadmap">
+
+    <div class="road-item" style="--dot-color: #22c55e;">
+      <div class="road-phase">Phase 1 · Complete</div>
+      <h4>Foundation &amp; Analysis <span class="badge-done">✅ Done</span></h4>
+      <p>Analyzed existing codebase, generated initial design system, established Forest & Cyan visual identity.</p>
+    </div>
+
+    <div class="road-item" style="--dot-color: #22c55e;">
+      <div class="road-phase">Phase 2 · Complete</div>
+      <h4>Full UI Redesign &amp; Stability <span class="badge-done">✅ Done</span></h4>
+      <p>
+        Applied dual-tone Forest/Sea palette · Fixed CSS syntax and nesting errors · Upgraded typography (Bebas Neue 16px, body 15px) ·
+        Enabled horizontal scrolling tabs · Created VBS portable launcher · Added Architecture Visualization ·
+        Updated walkthrough documentation.
+      </p>
+    </div>
+
+    <div class="road-item" style="--dot-color: var(--cyan);">
+      <div class="road-phase">Phase 3 · Upcoming</div>
+      <h4>Enhancement Roadmap <span class="badge-next">🔜 Next</span></h4>
+      <p>
+        <strong style="color:var(--cyan)">Agent Skill System</strong> — On-demand agent prompts triggered from UI buttons (e.g., "Explain this 5% drop").<br/><br/>
+        <strong style="color:var(--cyan)">Live WebSockets</strong> — Replace AJAX polling with Flask-SocketIO for flicker-free instant price streaming.<br/><br/>
+        <strong style="color:var(--cyan)">Interactive Paper Trading</strong> — Connect Paper Trade buttons to SQLite DB to track virtual P&amp;L over days/weeks.
+      </p>
+    </div>
+
+  </div>
+</div>
+
+<!-- ───── ARCHITECTURE SUMMARY ───── -->
+<div style="background: linear-gradient(135deg, var(--sea) 0%, var(--forest) 100%); padding: 60px 0; border-top: 1px solid rgba(0,196,204,0.2); border-bottom: 1px solid rgba(0,196,204,0.2);">
+  <div class="section" style="padding-top:0; padding-bottom:0;">
+    <div class="section-title">Architecture at a Glance</div>
+    <div class="section-divider"></div>
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:24px;">
+
+      <div style="background:rgba(0,196,204,0.07); border:1px solid rgba(0,196,204,0.2); border-radius:14px; padding:24px;">
+        <div style="font-size:24px; margin-bottom:10px;">🌐</div>
+        <h3 style="color:var(--cyan); font-size:15px; margin-bottom:8px; font-weight:700;">Layer 1 · Frontend</h3>
+        <p style="color:var(--muted); font-size:14px; line-height:1.6;">React/JS Dashboard → AJAX Long-Polling → Flask API Routes → In-Memory Shared State → JSON Response → UI Update</p>
+      </div>
+
+      <div style="background:rgba(245,197,24,0.07); border:1px solid rgba(245,197,24,0.2); border-radius:14px; padding:24px;">
+        <div style="font-size:24px; margin-bottom:10px;">🤖</div>
+        <h3 style="color:var(--gold); font-size:15px; margin-bottom:8px; font-weight:700;">Layer 2 · Intelligence</h3>
+        <p style="color:var(--muted); font-size:14px; line-height:1.6;">Background Scheduler → Market Scanner → News Sentiment → Trade Signals → Commodity/Crypto → Morning Brief → RAM Cache</p>
+      </div>
+
+      <div style="background:rgba(34,197,94,0.07); border:1px solid rgba(34,197,94,0.2); border-radius:14px; padding:24px;">
+        <div style="font-size:24px; margin-bottom:10px;">📲</div>
+        <h3 style="color:#22c55e; font-size:15px; margin-bottom:8px; font-weight:700;">Layer 3 · Alert Delivery</h3>
+        <p style="color:var(--muted); font-size:14px; line-height:1.6;">Signal Generated → Filter: Score ≥ 88 → Telegram API → Webhook → Your Phone in seconds</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ───── DISCLAIMER ───── -->
+<div class="section">
+  <div class="disclaimer">
+    <div class="icon">⚠️</div>
+    <p>
+      <strong>Disclaimer:</strong> StockGuru is designed for <strong>paper trading and personal learning only</strong>.
+      It does not constitute SEBI-registered investment advice. Never invest real money based solely on AI scores.
+      Always conduct your own research before making any financial decisions.
+    </p>
+  </div>
+</div>
+
+<!-- ───── FOOTER ───── -->
+<div class="footer">
+  <strong>StockGuru</strong> — Real-Time Intelligence Hub · Built by Bharathi · Updated March 2026<br/>
+  <span style="margin-top:6px; display:block;">🔒 Private · Personal Trading Tool · Not for Public Distribution</span>
+</div>
+
+</body>
+</html>

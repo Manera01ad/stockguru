@@ -26,7 +26,7 @@
       "position": [470, 300],
       "parameters": {
         "method": "GET",
-        "url": "http://localhost:5000/api/status",
+        "url": "http://localhost:5050/api/status",
         "options": { "timeout": 5000 },
         "onError": "continueErrorOutput"
       }
@@ -39,7 +39,7 @@
       "position": [690, 460],
       "parameters": {
         "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
-        "text": "⚠️ *StockGuru Server is DOWN*\nThe Flask server at localhost:5000 is not responding.\n\nStart it manually: double-click START.bat",
+        "text": "⚠️ *StockGuru Server is DOWN*\nThe Flask server at localhost:5050 is not responding.\n\nStart it manually: double-click START.bat",
         "additionalFields": { "parse_mode": "Markdown" }
       },
       "credentials": { "telegramApi": { "id": "telegram-creds", "name": "Telegram" } }
@@ -52,7 +52,7 @@
       "position": [690, 300],
       "parameters": {
         "method": "POST",
-        "url": "http://localhost:5000/api/run-now",
+        "url": "http://localhost:5050/api/run-now",
         "options": { "timeout": 8000 }
       }
     },
@@ -75,7 +75,7 @@
       "position": [1130, 180],
       "parameters": {
         "method": "GET",
-        "url": "http://localhost:5000/api/claude-analysis"
+        "url": "http://localhost:5050/api/claude-analysis"
       }
     },
     {
@@ -86,7 +86,7 @@
       "position": [1130, 300],
       "parameters": {
         "method": "GET",
-        "url": "http://localhost:5000/api/agent-status"
+        "url": "http://localhost:5050/api/agent-status"
       }
     },
     {
@@ -97,7 +97,7 @@
       "position": [1130, 420],
       "parameters": {
         "method": "GET",
-        "url": "http://localhost:5000/api/sector-rotation"
+        "url": "http://localhost:5050/api/sector-rotation"
       }
     },
     {
@@ -108,7 +108,7 @@
       "position": [1130, 540],
       "parameters": {
         "method": "GET",
-        "url": "http://localhost:5000/api/risk-master-status",
+        "url": "http://localhost:5050/api/risk-master-status",
         "options": { "timeout": 5000 }
       }
     },
@@ -228,7 +228,7 @@
       "position": [470, 600],
       "parameters": {
         "method": "GET",
-        "url": "http://localhost:5000/api/risk-master-status",
+        "url": "http://localhost:5050/api/risk-master-status",
         "options": { "timeout": 5000 },
         "onError": "continueErrorOutput"
       }
