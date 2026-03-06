@@ -1757,6 +1757,8 @@
             class="tab-icon">💼</span><span class="tab-label">Portfolio</span></button>
         <button class="tab-btn" data-label="Alerts" onclick="showTab('alerts',this)"> <span
             class="tab-icon">🔔</span><span class="tab-label">Alerts</span></button>
+        <button class="tab-btn" data-label="Terminal" onclick="showTab('terminal',this);initTerminal()"> <span
+            class="tab-icon">📟</span><span class="tab-label">Terminal</span><span style="margin-left:5px;background:#00ff88;color:#000;font-size:8px;padding:1px 5px;border-radius:8px;font-weight:700">NEW</span></button>
       </div>
 
       <!-- Group: Tools -->
@@ -8195,6 +8197,645 @@ setTimeout(injectWorkflowPanels, 1500);
   }
 
 })();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     TRADING TERMINAL — Lightweight Charts + Order Book + Multi-Segment
+     ══════════════════════════════════════════════════════════════════════ -->
+
+<!-- TradingView Lightweight Charts (free, open-source) -->
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+
+<style>
+/* ── Terminal Tab ───────────────────────────────────────────────────── */
+#tab-terminal { display:none; }
+#tab-terminal.active { display:block; }
+
+.term-wrap {
+  display:flex; flex-direction:column; height:calc(100vh - 56px);
+  background: #0b0e14; overflow:hidden;
+}
+/* Top bar: ticker + stats */
+.term-topbar {
+  display:flex; align-items:center; gap:20px; padding:7px 16px;
+  background:#12161e; border-bottom:1px solid #1e2530; flex-shrink:0;
+  flex-wrap:wrap;
+}
+.term-price-main { font-size:24px; font-weight:700; color:#fff; letter-spacing:-.5px; }
+.term-price-chg.up   { color:#00e676; }
+.term-price-chg.dn   { color:#ff5252; }
+.term-stat-item { display:flex; flex-direction:column; gap:1px; }
+.term-stat-lbl  { font-size:9px; color:#556; letter-spacing:.06em; text-transform:uppercase; }
+.term-stat-val  { font-size:12px; color:#c8cdd8; font-weight:600; }
+
+/* Segment selector */
+.term-seg-bar {
+  display:flex; align-items:center; gap:6px; padding:6px 16px;
+  background:#0f1319; border-bottom:1px solid #1a1f28; flex-shrink:0; flex-wrap:wrap;
+}
+.term-seg-btn {
+  padding:4px 14px; border-radius:14px; font-size:11px; font-weight:600;
+  cursor:pointer; border:1px solid #2a3040; background:transparent; color:#6b7280;
+  transition:all .15s; font-family:inherit; letter-spacing:.04em;
+}
+.term-seg-btn:hover { background:#1e2530; color:#d1d5db; }
+.term-seg-btn.active { background:rgba(0,230,118,.15); border-color:rgba(0,230,118,.5); color:#00e676; }
+.term-seg-btn.seg-fno.active   { background:rgba(99,179,237,.15); border-color:rgba(99,179,237,.5); color:#63b3ed; }
+.term-seg-btn.seg-commodity.active { background:rgba(251,191,36,.15); border-color:rgba(251,191,36,.5); color:#fbbf24; }
+.term-seg-btn.seg-currency.active  { background:rgba(167,139,250,.15); border-color:rgba(167,139,250,.5); color:#a78bfa; }
+.term-seg-btn.seg-crypto.active    { background:rgba(251,146,60,.15); border-color:rgba(251,146,60,.5); color:#fb923c; }
+
+/* Sub-type bar (F&O: Futures/CE/PE) */
+.term-sub-bar {
+  display:none; align-items:center; gap:8px; padding:5px 16px;
+  background:#0b0e14; border-bottom:1px solid #1a1f28; flex-shrink:0; flex-wrap:wrap;
+}
+.term-sub-bar.visible { display:flex; }
+.term-sub-btn {
+  padding:3px 12px; border-radius:10px; font-size:10px; font-weight:600;
+  cursor:pointer; border:1px solid #2a3040; background:transparent; color:#6b7280;
+  transition:all .15s; font-family:inherit;
+}
+.term-sub-btn:hover { background:#1e2530; }
+.term-sub-btn.active { background:rgba(99,102,241,.2); border-color:#6366f1; color:#818cf8; }
+.term-sub-btn.ce { }
+.term-sub-btn.ce.active { background:rgba(0,230,118,.15); border-color:#00e676; color:#00e676; }
+.term-sub-btn.pe.active { background:rgba(255,82,82,.15); border-color:#ff5252; color:#ff5252; }
+
+/* Symbol strip */
+.term-sym-bar {
+  display:flex; align-items:center; gap:4px; padding:5px 16px;
+  background:#0f1319; border-bottom:1px solid #1a1f28; flex-shrink:0; overflow-x:auto;
+}
+.term-sym-bar::-webkit-scrollbar { height:3px; }
+.term-sym-bar::-webkit-scrollbar-thumb { background:#2a3040; border-radius:2px; }
+.term-sym-pill {
+  padding:3px 10px; border-radius:10px; font-size:10px; font-weight:600;
+  cursor:pointer; border:1px solid #2a3040; background:transparent; color:#8892a0;
+  white-space:nowrap; transition:all .15s; flex-shrink:0; font-family:inherit;
+}
+.term-sym-pill:hover { background:#1e2530; color:#c8cdd8; }
+.term-sym-pill.active { background:rgba(99,102,241,.2); border-color:#6366f1; color:#a5b4fc; }
+.term-sym-search {
+  padding:3px 10px; background:#1a1f2b; border:1px solid #2a3040; border-radius:10px;
+  color:#c8cdd8; font-size:11px; outline:none; width:120px; flex-shrink:0; font-family:inherit;
+}
+.term-sym-search::placeholder { color:#445; }
+
+/* Main body: order book + chart */
+.term-body { display:flex; flex:1; min-height:0; overflow:hidden; }
+
+/* Order Book */
+.term-ob {
+  width:200px; flex-shrink:0; display:flex; flex-direction:column;
+  border-right:1px solid #1a1f28; background:#0b0e14;
+}
+.term-ob-head {
+  padding:6px 10px; font-size:9px; font-weight:700; letter-spacing:.1em;
+  color:#556; border-bottom:1px solid #1a1f28; display:flex; justify-content:space-between;
+}
+.term-ob-scroll { flex:1; overflow:hidden; display:flex; flex-direction:column; }
+.term-ob-asks   { flex:1; overflow-y:auto; display:flex; flex-direction:column; justify-content:flex-end; }
+.term-ob-bids   { flex:1; overflow-y:auto; }
+.term-ob-asks::-webkit-scrollbar,
+.term-ob-bids::-webkit-scrollbar { width:2px; }
+.ob-row {
+  display:grid; grid-template-columns:1fr 1fr; gap:2px;
+  padding:2px 10px; position:relative; cursor:default;
+}
+.ob-row:hover { background:rgba(255,255,255,.03); }
+.ob-row .ob-bar {
+  position:absolute; top:0; right:0; height:100%; opacity:.18; border-radius:2px 0 0 2px;
+}
+.ob-row.ask .ob-bar { background:#ff5252; }
+.ob-row.bid .ob-bar { background:#00e676; }
+.ob-row.ask .ob-price { color:#ff6b6b; font-size:11px; font-weight:600; position:relative; }
+.ob-row.bid .ob-price { color:#00e676; font-size:11px; font-weight:600; position:relative; }
+.ob-qty { font-size:10px; color:#8892a0; text-align:right; position:relative; }
+.term-ob-spread {
+  padding:5px 10px; border-top:1px solid #1a1f28; border-bottom:1px solid #1a1f28;
+  text-align:center; font-size:10px; font-weight:700; color:#fbbf24; background:#0f1319;
+  letter-spacing:.04em;
+}
+.term-ob-footer {
+  padding:5px 10px; border-top:1px solid #1a1f28; display:flex; gap:6px;
+  font-size:9px; color:#556; justify-content:space-between; flex-shrink:0;
+}
+
+/* Chart area */
+.term-chart-wrap {
+  flex:1; display:flex; flex-direction:column; min-width:0; background:#0b0e14;
+}
+.term-chart-toolbar {
+  display:flex; align-items:center; gap:8px; padding:5px 12px;
+  border-bottom:1px solid #1a1f28; flex-shrink:0; flex-wrap:wrap;
+}
+.term-tf-btn {
+  padding:2px 9px; border-radius:8px; font-size:10px; font-weight:600;
+  cursor:pointer; border:1px solid transparent; background:transparent;
+  color:#6b7280; transition:all .12s; font-family:inherit;
+}
+.term-tf-btn:hover { color:#c8cdd8; background:#1e2530; }
+.term-tf-btn.active { background:rgba(99,102,241,.2); border-color:#6366f1; color:#a5b4fc; }
+.term-tf-sep { width:1px; height:14px; background:#2a3040; }
+.term-chart-type-btn {
+  padding:2px 9px; border-radius:8px; font-size:10px; cursor:pointer;
+  border:1px solid #2a3040; background:transparent; color:#6b7280; font-family:inherit;
+  transition:all .12s;
+}
+.term-chart-type-btn.active { background:#1e2530; color:#c8cdd8; }
+.term-ma-badge {
+  padding:1px 8px; border-radius:8px; font-size:9px; font-weight:700;
+  cursor:pointer; border:1px solid; opacity:.8;
+}
+.term-ma-badge.ma7  { color:#fbbf24; border-color:rgba(251,191,36,.5); }
+.term-ma-badge.ma25 { color:#f472b6; border-color:rgba(244,114,182,.5); }
+.term-ma-badge.ma99 { color:#a78bfa; border-color:rgba(167,139,250,.5); }
+.term-ma-badge.hidden { opacity:.3; }
+.term-vol-label { font-size:9px; color:#556; margin-left:auto; }
+#term-chart    { flex:1; min-height:0; }
+#term-vol-chart { height:80px; flex-shrink:0; border-top:1px solid #1a1f28; }
+</style>
+
+<!-- ── TERMINAL HTML ──────────────────────────────────────────────────────── -->
+<div class="section" id="tab-terminal">
+<div class="term-wrap">
+
+  <!-- Top bar: price + stats -->
+  <div class="term-topbar">
+    <div>
+      <div style="font-size:10px;color:#556;letter-spacing:.08em;margin-bottom:2px" id="term-sym-label">BTC/USDT</div>
+      <div style="display:flex;align-items:baseline;gap:8px">
+        <span class="term-price-main" id="term-price">--</span>
+        <span class="term-price-chg" id="term-price-chg">--</span>
+      </div>
+    </div>
+    <div class="term-stat-item"><div class="term-stat-lbl">24H High</div><div class="term-stat-val" id="term-stat-high">--</div></div>
+    <div class="term-stat-item"><div class="term-stat-lbl">24H Low</div><div class="term-stat-val" id="term-stat-low">--</div></div>
+    <div class="term-stat-item"><div class="term-stat-lbl">24H Vol</div><div class="term-stat-val" id="term-stat-vol">--</div></div>
+    <div class="term-stat-item"><div class="term-stat-lbl">Prev Close</div><div class="term-stat-val" id="term-stat-prev">--</div></div>
+    <div class="term-stat-item"><div class="term-stat-lbl">Open</div><div class="term-stat-val" id="term-stat-open">--</div></div>
+    <div class="term-stat-item"><div class="term-stat-lbl">Currency</div><div class="term-stat-val" id="term-stat-curr">--</div></div>
+    <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+      <span id="term-live-dot" style="width:7px;height:7px;background:#00e676;border-radius:50%;display:inline-block;animation:blink 1.2s infinite"></span>
+      <span style="font-size:10px;color:#556">Live</span>
+    </div>
+  </div>
+
+  <!-- Segment selector -->
+  <div class="term-seg-bar">
+    <span style="font-size:10px;color:#445;font-weight:700;letter-spacing:.08em;margin-right:4px">SEGMENT</span>
+    <button class="term-seg-btn seg-cash active"      onclick="termSelectSegment('cash',this)">💵 CASH</button>
+    <button class="term-seg-btn seg-fno"              onclick="termSelectSegment('fno',this)">⚡ F&amp;O</button>
+    <button class="term-seg-btn seg-commodity"        onclick="termSelectSegment('commodity',this)">🏅 COMMODITY</button>
+    <button class="term-seg-btn seg-currency"         onclick="termSelectSegment('currency',this)">💱 CURRENCY</button>
+    <button class="term-seg-btn seg-crypto"           onclick="termSelectSegment('crypto',this)">🔮 CRYPTO</button>
+    <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+      <input class="term-sym-search" id="term-search" placeholder="🔍 Symbol..." oninput="termSearchFilter(this.value)" />
+    </div>
+  </div>
+
+  <!-- F&O Sub-type bar -->
+  <div class="term-sub-bar" id="term-fno-subbar">
+    <span style="font-size:9px;color:#445;letter-spacing:.08em">TYPE:</span>
+    <button class="term-sub-btn active" onclick="termSetSubtype('futures',this)">FUTURES</button>
+    <button class="term-sub-btn ce"     onclick="termSetSubtype('ce',this)">CE ▲ CALLS</button>
+    <button class="term-sub-btn pe"     onclick="termSetSubtype('pe',this)">PE ▼ PUTS</button>
+    <div id="term-strike-wrap" style="display:none;align-items:center;gap:6px;margin-left:10px">
+      <span style="font-size:9px;color:#445">EXPIRY:</span>
+      <select id="term-expiry-sel" style="background:#1a1f2b;border:1px solid #2a3040;color:#c8cdd8;font-size:10px;padding:2px 6px;border-radius:6px;outline:none">
+        <option>Weekly</option><option>Monthly</option><option>Next Month</option>
+      </select>
+      <span style="font-size:9px;color:#445">STRIKE:</span>
+      <select id="term-strike-sel" style="background:#1a1f2b;border:1px solid #2a3040;color:#c8cdd8;font-size:10px;padding:2px 6px;border-radius:6px;outline:none">
+        <option>ATM</option>
+        <option>ATM-100</option><option>ATM-200</option><option>ATM-300</option>
+        <option>ATM+100</option><option>ATM+200</option><option>ATM+300</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Crypto sub-type bar -->
+  <div class="term-sub-bar" id="term-crypto-subbar">
+    <span style="font-size:9px;color:#445;letter-spacing:.08em">TYPE:</span>
+    <button class="term-sub-btn active" onclick="termSetCryptoType('spot',this)">SPOT</button>
+    <button class="term-sub-btn"        onclick="termSetCryptoType('futures',this)">FUTURES</button>
+    <button class="term-sub-btn"        onclick="termSetCryptoType('options',this)">OPTIONS</button>
+  </div>
+
+  <!-- Symbol pills -->
+  <div class="term-sym-bar" id="term-sym-bar"></div>
+
+  <!-- Body: order book + chart -->
+  <div class="term-body">
+
+    <!-- Order Book -->
+    <div class="term-ob" id="term-ob-panel">
+      <div class="term-ob-head">
+        <span>PRICE</span><span>QTY</span>
+      </div>
+      <div class="term-ob-scroll">
+        <div class="term-ob-asks" id="term-ob-asks">
+          <div style="text-align:center;padding:20px;color:#445;font-size:11px">Loading…</div>
+        </div>
+        <div class="term-ob-spread" id="term-ob-spread">SPREAD —</div>
+        <div class="term-ob-bids" id="term-ob-bids"></div>
+      </div>
+      <div class="term-ob-footer">
+        <span id="term-ob-buy-pct">Buy 50%</span>
+        <span id="term-ob-sell-pct">Sell 50%</span>
+      </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="term-chart-wrap">
+      <div class="term-chart-toolbar">
+        <!-- Timeframe buttons -->
+        <button class="term-tf-btn" onclick="termSetTF('1m','1d',this)">1m</button>
+        <button class="term-tf-btn" onclick="termSetTF('5m','5d',this)">5m</button>
+        <button class="term-tf-btn active" onclick="termSetTF('15m','5d',this)">15m</button>
+        <button class="term-tf-btn" onclick="termSetTF('60m','1mo',this)">1H</button>
+        <button class="term-tf-btn" onclick="termSetTF('1d','3mo',this)">1D</button>
+        <button class="term-tf-btn" onclick="termSetTF('1wk','1y',this)">1W</button>
+        <div class="term-tf-sep"></div>
+        <!-- Chart type -->
+        <button class="term-chart-type-btn active" onclick="termSetChartType('candle',this)">🕯 Candles</button>
+        <button class="term-chart-type-btn" onclick="termSetChartType('line',this)">📈 Line</button>
+        <button class="term-chart-type-btn" onclick="termSetChartType('bar',this)">▮▮ Bars</button>
+        <div class="term-tf-sep"></div>
+        <!-- MA toggles -->
+        <span class="term-ma-badge ma7"  id="badge-ma7"  onclick="termToggleMA('ma7')">MA7</span>
+        <span class="term-ma-badge ma25" id="badge-ma25" onclick="termToggleMA('ma25')">MA25</span>
+        <span class="term-ma-badge ma99" id="badge-ma99" onclick="termToggleMA('ma99')">MA99</span>
+        <span class="term-vol-label">Vol</span>
+      </div>
+      <div id="term-chart"></div>
+      <div id="term-vol-chart"></div>
+    </div>
+
+  </div><!-- end term-body -->
+</div><!-- end term-wrap -->
+</div><!-- end tab-terminal -->
+
+<style>
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+</style>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════
+// TRADING TERMINAL — JavaScript
+// ══════════════════════════════════════════════════════════════════════════
+(function() {
+
+// ── State ────────────────────────────────────────────────────────────────
+let _termChart      = null;
+let _termVolChart   = null;
+let _candleSeries   = null;
+let _volSeries      = null;
+let _maSeries       = { ma7: null, ma25: null, ma99: null };
+let _maVisible      = { ma7: true, ma25: true, ma99: true };
+let _chartType      = 'candle';
+let _currSym        = 'BTC-USD';
+let _currLabel      = 'BTC/USDT';
+let _currSegment    = 'crypto';
+let _currTF         = '15m';
+let _currRange      = '5d';
+let _obInterval     = null;
+let _chartInterval  = null;
+let _termInited     = false;
+let _allSymbols     = [];   // full list for search
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+function _fmt(n, dec=2) {
+  if (n == null || isNaN(n)) return '--';
+  if (n >= 1e7) return (n/1e7).toFixed(1)+'Cr';
+  if (n >= 1e5) return (n/1e5).toFixed(1)+'L';
+  if (n >= 1e3 && dec <= 0) return (n/1e3).toFixed(1)+'K';
+  return Number(n).toLocaleString('en-IN', {minimumFractionDigits: dec, maximumFractionDigits: dec});
+}
+function _pDec(price) {
+  if (!price) return 2;
+  if (price >= 1000) return 2;
+  if (price >= 10)   return 3;
+  return 4;
+}
+
+// ── MA calculation ────────────────────────────────────────────────────────
+function _calcEMA(data, period, key='close') {
+  const k = 2 / (period + 1);
+  let ema = null;
+  return data.map(c => {
+    if (ema === null) { ema = c[key]; return { time: c.time, value: parseFloat(ema.toFixed(4)) }; }
+    ema = c[key] * k + ema * (1 - k);
+    return { time: c.time, value: parseFloat(ema.toFixed(4)) };
+  }).filter(d => d.value != null);
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+window.initTerminal = function() {
+  if (_termInited) { return; }
+  _termInited = true;
+
+  if (typeof LightweightCharts === 'undefined') {
+    console.warn('[Terminal] LightweightCharts not loaded yet — retrying');
+    setTimeout(initTerminal, 800);
+    _termInited = false;
+    return;
+  }
+
+  _buildCharts();
+  termSelectSegment('crypto', document.querySelector('.term-seg-btn.seg-crypto'));
+  setTimeout(() => termLoadSymbol('BTC-USD', 'BTC/USDT'), 400);
+
+  // Order book refresh every 3s
+  _obInterval = setInterval(() => { if (document.getElementById('tab-terminal').classList.contains('active')) _refreshOB(); }, 3000);
+  // Chart price refresh every 8s
+  _chartInterval = setInterval(() => { if (document.getElementById('tab-terminal').classList.contains('active')) _refreshLastCandle(); }, 8000);
+};
+
+function _buildCharts() {
+  const chartEl = document.getElementById('term-chart');
+  const volEl   = document.getElementById('term-vol-chart');
+  if (!chartEl) return;
+
+  // Main chart height = parent minus vol chart
+  const totalH = chartEl.parentElement.offsetHeight - 80 - 40;
+
+  const commonOpts = {
+    layout:     { background: { color: '#0b0e14' }, textColor: '#8892a0' },
+    grid:       { vertLines: { color: '#141921' }, horzLines: { color: '#141921' } },
+    crosshair:  { mode: 1 },
+    rightPriceScale: { borderColor: '#1e2530', scaleMargins: { top: 0.08, bottom: 0.08 } },
+    timeScale:  { borderColor: '#1e2530', timeVisible: true, secondsVisible: false },
+    handleScroll: { mouseWheel: true, pressedMouseMove: true },
+    handleScale:  { mouseWheel: true, pinch: true },
+  };
+
+  _termChart = LightweightCharts.createChart(chartEl, { ...commonOpts, width: chartEl.offsetWidth, height: Math.max(300, totalH) });
+
+  _termVolChart = LightweightCharts.createChart(volEl, {
+    ...commonOpts,
+    width: volEl.offsetWidth,
+    height: 76,
+    rightPriceScale: { scaleMargins: { top: 0.2, bottom: 0 }, borderColor: '#1e2530' },
+    timeScale:  { visible: false },
+  });
+
+  _candleSeries = _termChart.addCandlestickSeries({
+    upColor: '#00e676', downColor: '#ff5252',
+    borderUpColor: '#00e676', borderDownColor: '#ff5252',
+    wickUpColor: '#00e676', wickDownColor: '#ff5252',
+  });
+  _volSeries = _termVolChart.addHistogramSeries({
+    priceFormat: { type: 'volume' },
+    priceScaleId: '',
+    color: '#263041',
+  });
+
+  // MA series
+  _maSeries.ma7  = _termChart.addLineSeries({ color: '#fbbf24', lineWidth: 1, crosshairMarkerVisible: false });
+  _maSeries.ma25 = _termChart.addLineSeries({ color: '#f472b6', lineWidth: 1, crosshairMarkerVisible: false });
+  _maSeries.ma99 = _termChart.addLineSeries({ color: '#a78bfa', lineWidth: 1, crosshairMarkerVisible: false });
+
+  // Sync time scales
+  _termChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+    if (range) _termVolChart.timeScale().setVisibleLogicalRange(range);
+  });
+
+  // Resize observer
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(() => {
+      if (_termChart) _termChart.applyOptions({ width: chartEl.offsetWidth });
+      if (_termVolChart) _termVolChart.applyOptions({ width: volEl.offsetWidth });
+    });
+    ro.observe(chartEl.parentElement);
+  }
+}
+
+// ── Segment select ────────────────────────────────────────────────────────
+window.termSelectSegment = function(seg, btn) {
+  _currSegment = seg;
+  document.querySelectorAll('.term-seg-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  // Show/hide sub-bars
+  document.getElementById('term-fno-subbar').classList.toggle('visible', seg === 'fno');
+  document.getElementById('term-crypto-subbar').classList.toggle('visible', seg === 'crypto');
+
+  // Load symbol list
+  fetch(`/api/terminal-symbols?segment=${seg}`)
+    .then(r => r.json())
+    .then(d => {
+      _allSymbols = d.symbols || [];
+      _renderSymPills(_allSymbols);
+      // Auto-load first symbol
+      if (_allSymbols.length) termLoadSymbol(_allSymbols[0].sym, _allSymbols[0].label);
+    }).catch(() => {});
+};
+
+window.termSetSubtype = function(type, btn) {
+  document.querySelectorAll('#term-fno-subbar .term-sub-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const showStrike = type === 'ce' || type === 'pe';
+  document.getElementById('term-strike-wrap').style.display = showStrike ? 'flex' : 'none';
+};
+
+window.termSetCryptoType = function(type, btn) {
+  document.querySelectorAll('#term-crypto-subbar .term-sub-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+};
+
+function _renderSymPills(syms) {
+  const bar = document.getElementById('term-sym-bar');
+  bar.innerHTML = syms.map((s, i) =>
+    `<button class="term-sym-pill${i===0?' active':''}" onclick="termLoadSymbol('${s.sym}','${s.label}',this)" title="${s.name}">${s.label}</button>`
+  ).join('');
+}
+
+window.termSearchFilter = function(val) {
+  const q = val.trim().toUpperCase();
+  const filtered = q ? _allSymbols.filter(s => s.label.includes(q) || s.name.toUpperCase().includes(q)) : _allSymbols;
+  _renderSymPills(filtered);
+};
+
+// ── Load symbol ───────────────────────────────────────────────────────────
+window.termLoadSymbol = async function(sym, label, pillEl) {
+  _currSym = sym; _currLabel = label;
+  document.getElementById('term-sym-label').textContent = label;
+  document.getElementById('term-price').textContent = '…';
+
+  // Update active pill
+  if (pillEl) {
+    document.querySelectorAll('.term-sym-pill').forEach(p => p.classList.remove('active'));
+    pillEl.classList.add('active');
+  }
+
+  await _loadChart();
+  _refreshOB();
+};
+
+// ── Load OHLCV data ───────────────────────────────────────────────────────
+async function _loadChart() {
+  try {
+    const r = await fetch(`/api/ohlcv?sym=${encodeURIComponent(_currSym)}&interval=${_currTF}&range=${_currRange}`);
+    const d = await r.json();
+    _renderChart(d);
+    _updateTopBar(d);
+  } catch(e) { console.warn('[Terminal] chart load error', e); }
+}
+
+function _renderChart(d) {
+  if (!d.candles || !d.candles.length || !_candleSeries) return;
+  const dec = _pDec(d.price || 1);
+
+  if (_chartType === 'candle') {
+    _candleSeries.setData(d.candles.map(c => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close })));
+    _candleSeries.applyOptions({ priceFormat: { type: 'price', precision: dec, minMove: 1/Math.pow(10,dec) } });
+  } else if (_chartType === 'line') {
+    _candleSeries.setData(d.candles.map(c => ({ time: c.time, value: c.close })));
+  } else {
+    // bar — same as candle data
+    _candleSeries.setData(d.candles.map(c => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close })));
+  }
+
+  // Volume
+  const maxVol = Math.max(...d.candles.map(c => c.volume));
+  _volSeries.setData(d.candles.map(c => ({
+    time: c.time, value: c.volume,
+    color: c.close >= c.open ? 'rgba(0,230,118,.4)' : 'rgba(255,82,82,.35)',
+  })));
+
+  // MAs
+  _maSeries.ma7.setData(_maVisible.ma7 ? _calcEMA(d.candles, 7) : []);
+  _maSeries.ma25.setData(_maVisible.ma25 ? _calcEMA(d.candles, 25) : []);
+  _maSeries.ma99.setData(_maVisible.ma99 ? _calcEMA(d.candles, 99) : []);
+
+  _termChart.timeScale().fitContent();
+}
+
+function _updateTopBar(d) {
+  if (!d.price) return;
+  const dec = _pDec(d.price);
+  const fmt = n => _fmt(n, dec);
+  const chgPct = d.change_pct || 0;
+  document.getElementById('term-price').textContent = fmt(d.price);
+  const chgEl = document.getElementById('term-price-chg');
+  chgEl.textContent = `${chgPct > 0 ? '+' : ''}${chgPct.toFixed(2)}%`;
+  chgEl.className = 'term-price-chg ' + (chgPct >= 0 ? 'up' : 'dn');
+  document.getElementById('term-stat-high').textContent = fmt(d.day_high);
+  document.getElementById('term-stat-low').textContent  = fmt(d.day_low);
+  document.getElementById('term-stat-vol').textContent  = _fmt(d.volume, 0);
+  document.getElementById('term-stat-prev').textContent = fmt(d.prev_close);
+  document.getElementById('term-stat-curr').textContent = d.currency || '--';
+  if (d.candles && d.candles.length) document.getElementById('term-stat-open').textContent = fmt(d.candles[0].open);
+}
+
+async function _refreshLastCandle() {
+  if (!_currSym || !_candleSeries) return;
+  try {
+    const r = await fetch(`/api/ohlcv?sym=${encodeURIComponent(_currSym)}&interval=${_currTF}&range=1d`);
+    const d = await r.json();
+    if (d.candles && d.candles.length) {
+      const last = d.candles[d.candles.length-1];
+      _candleSeries.update({ time: last.time, open: last.open, high: last.high, low: last.low, close: last.close });
+      _volSeries.update({ time: last.time, value: last.volume, color: last.close >= last.open ? 'rgba(0,230,118,.4)' : 'rgba(255,82,82,.35)' });
+    }
+    _updateTopBar(d);
+  } catch(e) {}
+}
+
+// ── Order book ────────────────────────────────────────────────────────────
+async function _refreshOB() {
+  try {
+    const r = await fetch(`/api/orderbook?sym=${encodeURIComponent(_currSym)}&depth=12`);
+    const d = await r.json();
+    _renderOB(d);
+  } catch(e) {}
+}
+
+function _renderOB(d) {
+  if (!d.bids || !d.asks) return;
+  const dec = _pDec(d.price || 1);
+  const fmt = n => _fmt(n, dec);
+  const maxQ = Math.max(...[...d.asks, ...d.bids].map(r => r.qty), 1);
+
+  document.getElementById('term-ob-asks').innerHTML = d.asks.slice().reverse().map(row => {
+    const barW = (row.qty / maxQ * 100).toFixed(1);
+    return `<div class="ob-row ask">
+      <div class="ob-bar" style="width:${barW}%"></div>
+      <div class="ob-price">${fmt(row.price)}</div>
+      <div class="ob-qty">${row.qty.toFixed(2)}</div>
+    </div>`;
+  }).join('');
+
+  const spread = d.spread ? (d.spread).toFixed(dec) : '--';
+  document.getElementById('term-ob-spread').textContent = `SPREAD  ${spread}`;
+
+  document.getElementById('term-ob-bids').innerHTML = d.bids.map(row => {
+    const barW = (row.qty / maxQ * 100).toFixed(1);
+    return `<div class="ob-row bid">
+      <div class="ob-bar" style="width:${barW}%"></div>
+      <div class="ob-price">${fmt(row.price)}</div>
+      <div class="ob-qty">${row.qty.toFixed(2)}</div>
+    </div>`;
+  }).join('');
+
+  // Buy/sell ratio
+  const totalBid = d.bids.reduce((s, r) => s + r.qty, 0);
+  const totalAsk = d.asks.reduce((s, r) => s + r.qty, 0);
+  const total    = totalBid + totalAsk || 1;
+  const buyPct   = ((totalBid / total) * 100).toFixed(0);
+  const sellPct  = ((totalAsk / total) * 100).toFixed(0);
+  document.getElementById('term-ob-buy-pct').textContent  = `Buy ${buyPct}%`;
+  document.getElementById('term-ob-sell-pct').textContent = `Sell ${sellPct}%`;
+  document.getElementById('term-ob-buy-pct').style.color  = '#00e676';
+  document.getElementById('term-ob-sell-pct').style.color = '#ff5252';
+}
+
+// ── Timeframe / chart type / MA toggles ──────────────────────────────────
+window.termSetTF = function(tf, range, btn) {
+  _currTF = tf; _currRange = range;
+  document.querySelectorAll('.term-tf-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  _loadChart();
+};
+
+window.termSetChartType = function(type, btn) {
+  _chartType = type;
+  document.querySelectorAll('.term-chart-type-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  if (!_candleSeries || !_termChart) return;
+  _termChart.removeSeries(_candleSeries);
+  _termChart.removeSeries(_maSeries.ma7);
+  _termChart.removeSeries(_maSeries.ma25);
+  _termChart.removeSeries(_maSeries.ma99);
+
+  if (type === 'line') {
+    _candleSeries = _termChart.addLineSeries({ color: '#6366f1', lineWidth: 2 });
+  } else if (type === 'bar') {
+    _candleSeries = _termChart.addBarSeries({ upColor: '#00e676', downColor: '#ff5252' });
+  } else {
+    _candleSeries = _termChart.addCandlestickSeries({
+      upColor: '#00e676', downColor: '#ff5252',
+      borderUpColor: '#00e676', borderDownColor: '#ff5252',
+      wickUpColor: '#00e676', wickDownColor: '#ff5252',
+    });
+  }
+  _maSeries.ma7  = _termChart.addLineSeries({ color: '#fbbf24', lineWidth: 1, crosshairMarkerVisible: false });
+  _maSeries.ma25 = _termChart.addLineSeries({ color: '#f472b6', lineWidth: 1, crosshairMarkerVisible: false });
+  _maSeries.ma99 = _termChart.addLineSeries({ color: '#a78bfa', lineWidth: 1, crosshairMarkerVisible: false });
+  _loadChart();
+};
+
+window.termToggleMA = function(key) {
+  _maVisible[key] = !_maVisible[key];
+  const badge = document.getElementById('badge-' + key);
+  if (badge) badge.classList.toggle('hidden', !_maVisible[key]);
+  _loadChart();
+};
+
+})(); // end IIFE
 </script>
 
 </body>

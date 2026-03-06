@@ -2571,3 +2571,243 @@ if __name__ == "__main__":
     else:
         # Fallback to plain Flask (no WebSocket)
         app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
+
+# ── TERMINAL ENDPOINTS ────────────────────────────────────────────────────────
+
+# ── Segment symbol catalogues ─────────────────────────────────────────────────
+_TERMINAL_SYMBOLS = {
+    "cash": [
+        {"label": "RELIANCE", "sym": "RELIANCE.NS", "name": "Reliance Industries"},
+        {"label": "TCS",      "sym": "TCS.NS",      "name": "Tata Consultancy Services"},
+        {"label": "INFY",     "sym": "INFY.NS",     "name": "Infosys"},
+        {"label": "HDFCBANK", "sym": "HDFCBANK.NS", "name": "HDFC Bank"},
+        {"label": "ICICIBANK","sym": "ICICIBANK.NS","name": "ICICI Bank"},
+        {"label": "SBIN",     "sym": "SBIN.NS",     "name": "State Bank of India"},
+        {"label": "WIPRO",    "sym": "WIPRO.NS",    "name": "Wipro"},
+        {"label": "AXISBANK", "sym": "AXISBANK.NS", "name": "Axis Bank"},
+        {"label": "BAJFINANCE","sym":"BAJFINANCE.NS","name":"Bajaj Finance"},
+        {"label": "KOTAKBANK","sym": "KOTAKBANK.NS","name": "Kotak Mahindra Bank"},
+        {"label": "MARUTI",   "sym": "MARUTI.NS",   "name": "Maruti Suzuki"},
+        {"label": "LT",       "sym": "LT.NS",       "name": "Larsen & Toubro"},
+        {"label": "HINDUNILVR","sym":"HINDUNILVR.NS","name":"Hindustan Unilever"},
+        {"label": "ADANIENT", "sym": "ADANIENT.NS", "name": "Adani Enterprises"},
+        {"label": "TATAMOTORS","sym":"TATAMOTORS.NS","name":"Tata Motors"},
+        {"label": "SUNPHARMA","sym": "SUNPHARMA.NS","name": "Sun Pharmaceutical"},
+        {"label": "TITAN",    "sym": "TITAN.NS",    "name": "Titan Company"},
+        {"label": "ASIANPAINT","sym":"ASIANPAINT.NS","name":"Asian Paints"},
+        {"label": "ULTRACEMCO","sym":"ULTRACEMCO.NS","name":"UltraTech Cement"},
+        {"label": "POWERGRID","sym": "POWERGRID.NS","name": "Power Grid Corp"},
+    ],
+    "fno": [
+        {"label": "NIFTY 50", "sym": "^NSEI",     "name": "Nifty 50 Index"},
+        {"label": "BANKNIFTY","sym": "^NSEBANK",  "name": "Bank Nifty Index"},
+        {"label": "FINNIFTY", "sym": "NIFTY_FIN_SERVICE.NS","name":"Fin Nifty"},
+        {"label": "MIDCPNIFTY","sym":"^NSEMDCP50","name":"Midcap Nifty"},
+        {"label": "RELIANCE", "sym": "RELIANCE.NS","name":"Reliance F&O"},
+        {"label": "HDFCBANK", "sym": "HDFCBANK.NS","name":"HDFC Bank F&O"},
+        {"label": "ICICIBANK","sym": "ICICIBANK.NS","name":"ICICI Bank F&O"},
+        {"label": "INFY",     "sym": "INFY.NS",    "name":"Infosys F&O"},
+        {"label": "SBIN",     "sym": "SBIN.NS",    "name":"SBI F&O"},
+        {"label": "TATAMOTORS","sym":"TATAMOTORS.NS","name":"Tata Motors F&O"},
+        {"label": "BAJFINANCE","sym":"BAJFINANCE.NS","name":"Bajaj Finance F&O"},
+        {"label": "AXISBANK", "sym": "AXISBANK.NS","name":"Axis Bank F&O"},
+    ],
+    "commodity": [
+        {"label": "GOLD",     "sym": "GC=F",    "name": "Gold Futures"},
+        {"label": "SILVER",   "sym": "SI=F",    "name": "Silver Futures"},
+        {"label": "CRUDE OIL","sym": "CL=F",    "name": "Crude Oil WTI"},
+        {"label": "BRENT",    "sym": "BZ=F",    "name": "Brent Crude"},
+        {"label": "NAT GAS",  "sym": "NG=F",    "name": "Natural Gas"},
+        {"label": "COPPER",   "sym": "HG=F",    "name": "Copper Futures"},
+        {"label": "ALUMINIUM","sym": "ALI=F",   "name": "Aluminium"},
+        {"label": "GOLDBEES", "sym": "GOLDBEES.NS","name":"Gold BeES ETF"},
+    ],
+    "currency": [
+        {"label": "USD/INR",  "sym": "USDINR=X", "name": "USD to INR"},
+        {"label": "EUR/INR",  "sym": "EURINR=X", "name": "EUR to INR"},
+        {"label": "GBP/INR",  "sym": "GBPINR=X", "name": "GBP to INR"},
+        {"label": "JPY/INR",  "sym": "JPYINR=X", "name": "JPY to INR"},
+        {"label": "EUR/USD",  "sym": "EURUSD=X", "name": "EUR to USD"},
+        {"label": "GBP/USD",  "sym": "GBPUSD=X", "name": "GBP to USD"},
+    ],
+    "crypto": [
+        {"label": "BTC/USDT", "sym": "BTC-USD",  "name": "Bitcoin"},
+        {"label": "ETH/USDT", "sym": "ETH-USD",  "name": "Ethereum"},
+        {"label": "BNB/USDT", "sym": "BNB-USD",  "name": "Binance Coin"},
+        {"label": "SOL/USDT", "sym": "SOL-USD",  "name": "Solana"},
+        {"label": "XRP/USDT", "sym": "XRP-USD",  "name": "Ripple"},
+        {"label": "DOGE/USDT","sym": "DOGE-USD", "name": "Dogecoin"},
+        {"label": "ADA/USDT", "sym": "ADA-USD",  "name": "Cardano"},
+        {"label": "AVAX/USDT","sym": "AVAX-USD", "name": "Avalanche"},
+    ],
+}
+
+@app.route("/api/terminal-symbols")
+def api_terminal_symbols():
+    segment = request.args.get("segment", "cash").lower()
+    return jsonify({"symbols": _TERMINAL_SYMBOLS.get(segment, []), "segment": segment})
+
+
+@app.route("/api/ohlcv")
+def api_ohlcv():
+    """
+    Fetch OHLCV candle data for a symbol via Yahoo Finance.
+    Query params: sym=RELIANCE.NS, interval=5m|15m|1h|1d|1wk, range=1d|5d|1mo|3mo|6mo|1y
+    """
+    sym      = request.args.get("sym", "^NSEI")
+    interval = request.args.get("interval", "5m")
+    rng      = request.args.get("range", "1d")
+
+    # Validate interval/range combos (Yahoo Finance limitations)
+    valid_combos = {
+        "1m":  ["1d"],
+        "2m":  ["1d","5d"],
+        "5m":  ["1d","5d"],
+        "15m": ["1d","5d","1mo"],
+        "30m": ["1d","5d","1mo"],
+        "60m": ["5d","1mo","3mo"],
+        "1h":  ["5d","1mo","3mo"],
+        "1d":  ["1mo","3mo","6mo","1y","2y","5y"],
+        "1wk": ["3mo","6mo","1y","2y","5y"],
+        "1mo": ["1y","2y","5y"],
+    }
+    allowed_ranges = valid_combos.get(interval, ["1d","5d","1mo"])
+    if rng not in allowed_ranges:
+        rng = allowed_ranges[0]
+
+    try:
+        url = (f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}"
+               f"?interval={interval}&range={rng}&includePrePost=false")
+        r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
+        d = r.json()
+
+        result = d.get("chart", {}).get("result", [])
+        if not result:
+            return jsonify({"candles": [], "error": "No data returned"})
+
+        res       = result[0]
+        meta      = res.get("meta", {})
+        ts_list   = res.get("timestamp", [])
+        quote     = res.get("indicators", {}).get("quote", [{}])[0]
+
+        opens   = quote.get("open",   [])
+        highs   = quote.get("high",   [])
+        lows    = quote.get("low",    [])
+        closes  = quote.get("close",  [])
+        volumes = quote.get("volume", [])
+
+        candles = []
+        for i, ts in enumerate(ts_list):
+            o = opens[i]   if i < len(opens)   else None
+            h = highs[i]   if i < len(highs)   else None
+            l = lows[i]    if i < len(lows)     else None
+            c = closes[i]  if i < len(closes)   else None
+            v = volumes[i] if i < len(volumes)  else 0
+            if None in (o, h, l, c) or o != o:  # skip NaN
+                continue
+            candles.append({
+                "time":   int(ts),
+                "open":   round(float(o), 4),
+                "high":   round(float(h), 4),
+                "low":    round(float(l), 4),
+                "close":  round(float(c), 4),
+                "volume": int(v or 0),
+            })
+
+        curr_price = meta.get("regularMarketPrice", 0)
+        prev_close = meta.get("chartPreviousClose", curr_price) or curr_price
+        change_pct = round(((curr_price - prev_close) / prev_close) * 100, 2) if prev_close else 0
+
+        return jsonify({
+            "candles":    candles,
+            "symbol":     sym,
+            "name":       meta.get("longName", meta.get("shortName", sym)),
+            "currency":   meta.get("currency", "INR"),
+            "price":      round(curr_price, 4),
+            "prev_close": round(prev_close, 4),
+            "change_pct": change_pct,
+            "day_high":   meta.get("regularMarketDayHigh", curr_price),
+            "day_low":    meta.get("regularMarketDayLow",  curr_price),
+            "volume":     meta.get("regularMarketVolume",  0),
+            "interval":   interval,
+            "range":      rng,
+        })
+    except Exception as e:
+        log.error("OHLCV fetch error %s: %s", sym, e)
+        return jsonify({"candles": [], "error": str(e)}), 500
+
+
+@app.route("/api/orderbook")
+def api_orderbook():
+    """
+    Generate a realistic order book (bid/ask ladder) for a symbol.
+    Uses current price from price_cache if available, else fetches from Yahoo.
+    """
+    sym   = request.args.get("sym", "^NSEI")
+    depth = int(request.args.get("depth", 15))
+    import math, random
+
+    # Try price_cache first
+    pc_key  = sym.replace(".NS", "").replace("^", "")
+    entry   = shared_state.get("price_cache", {}).get(sym) or \
+              shared_state.get("price_cache", {}).get(pc_key, {})
+    price   = entry.get("price", 0) if entry else 0
+
+    if not price:
+        # Fallback: quick Yahoo fetch
+        try:
+            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}?interval=1m&range=1d"
+            r   = requests.get(url, headers={"User-Agent":"Mozilla/5.0"}, timeout=6)
+            price = r.json()["chart"]["result"][0]["meta"].get("regularMarketPrice", 0)
+        except:
+            return jsonify({"bids": [], "asks": [], "spread": 0, "price": 0})
+
+    if not price or price <= 0:
+        return jsonify({"bids": [], "asks": [], "spread": 0, "price": 0})
+
+    # Tick size based on price level (Indian market rules)
+    if price >= 250:    tick = 0.05
+    elif price >= 50:   tick = 0.05
+    else:               tick = 0.01
+    if "USD" in sym or "BTC" in sym or "ETH" in sym:
+        tick = round(price * 0.0001, 4)
+    if sym in ("^NSEI", "^NSEBANK"):
+        tick = 0.10
+
+    spread_ticks = 1
+    spread = round(spread_ticks * tick, 4)
+    best_bid = round(math.floor(price / tick) * tick, 4)
+    best_ask = round(best_bid + spread, 4)
+
+    rng_seed = int(price * 100) % 999
+    rnd = random.Random(rng_seed + int(datetime.now().minute))
+
+    def _qty(level):
+        base = max(1, int(price * 50 / max(price,1)))
+        multiplier = max(0.2, 1.5 - level * 0.1 + rnd.uniform(-0.2, 0.4))
+        return round(base * multiplier, 4)
+
+    asks = []
+    bids = []
+    cum_ask = 0.0
+    cum_bid = 0.0
+    for i in range(depth):
+        a_price  = round(best_ask + i * tick, 4)
+        a_qty    = _qty(i)
+        cum_ask += a_qty
+        asks.append({"price": a_price, "qty": round(a_qty, 4), "total": round(cum_ask, 4)})
+
+        b_price  = round(best_bid - i * tick, 4)
+        b_qty    = _qty(i)
+        cum_bid += b_qty
+        bids.append({"price": b_price, "qty": round(b_qty, 4), "total": round(cum_bid, 4)})
+
+    return jsonify({
+        "symbol":   sym,
+        "price":    price,
+        "best_bid": best_bid,
+        "best_ask": best_ask,
+        "spread":   spread,
+        "bids":     bids,
+        "asks":     asks,
+    })
