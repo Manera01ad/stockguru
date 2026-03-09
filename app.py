@@ -148,6 +148,17 @@ except Exception as _conx:
 
 load_dotenv()
 
+# ── AUTO-LOAD keys from LOCAL_KEYS_PATH if set ───────────────────────────────
+# If the user has configured a custom folder path (saved as LOCAL_KEYS_PATH in
+# .env), load that file too so credentials survive server restarts automatically.
+_local_keys_path = os.getenv("LOCAL_KEYS_PATH", "").strip()
+if _local_keys_path:
+    _alt_env = (os.path.join(_local_keys_path, ".env")
+                if os.path.isdir(_local_keys_path) else _local_keys_path)
+    if os.path.isfile(_alt_env):
+        load_dotenv(_alt_env, override=True)
+        log.info(f"🔑 Auto-loaded credentials from {_alt_env}")
+
 # ── DATA FEED MANAGER (auto-selects best configured feed) ────────────────────
 try:
     from stockguru_agents.feeds import feed_manager as _feed_mgr
@@ -1851,7 +1862,123 @@ def api_get_feed_keys():
     for field, env_key in _FEED_FIELD_MAP.items():
         raw = os.getenv(env_key, "")
         result[field] = mask(raw)
+    # Also return the saved custom path so the UI can pre-fill the path input
+    result["local_keys_path"] = os.getenv("LOCAL_KEYS_PATH", "")
     return jsonify(result)
+
+
+@app.route("/api/load-from-path", methods=["POST"])
+@limiter.limit("10 per minute")
+def api_load_from_path():
+    """
+    Import credentials from a .env file in a user-specified folder.
+    Body: { "path": "C:\\Users\\Hp\\projects\\stockguru", "remember": true }
+    - Reads the .env from that folder (or the exact file if a file path is given)
+    - Merges recognised keys into this app's own .env
+    - If remember=true, saves LOCAL_KEYS_PATH so auto-load works on every restart
+    """
+    try:
+        data     = request.get_json() or {}
+        raw_path = data.get("path", "").strip()
+        remember = bool(data.get("remember", False))
+
+        if not raw_path:
+            return jsonify({"error": "path is required"}), 400
+
+        # Accept both a folder (appends /.env) and a direct file path
+        if os.path.isdir(raw_path):
+            env_file = os.path.join(raw_path, ".env")
+        else:
+            env_file = raw_path
+
+        if not os.path.isfile(env_file):
+            return jsonify({"error": f"File not found: {env_file}"}), 404
+
+        # Keys we will accept from the external file (feed + common API keys)
+        _IMPORTABLE = set(_FEED_ENV_KEYS) | {
+            "TELEGRAM_TOKEN", "TELEGRAM_CHAT_ID",
+            "ANTHROPIC_API_KEY", "GEMINI_API_KEY",
+            "OPENAI_API_KEY",
+        }
+
+        # Parse and hot-set
+        loaded = {}
+        with open(env_file, "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                s = line.strip()
+                if s and not s.startswith("#") and "=" in s:
+                    k, _, v = s.partition("=")
+                    k, v = k.strip(), v.strip()
+                    if k in _IMPORTABLE and v:
+                        loaded[k] = v
+                        os.environ[k] = v   # hot-set for this process
+
+        if not loaded:
+            return jsonify({"error": "No recognised keys found in that file"}), 400
+
+        # Merge into this app's local .env
+        local_env = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+        try:
+            with open(local_env, "r") as f:
+                lines = f.readlines()
+        except FileNotFoundError:
+            lines = []
+
+        existing = {}
+        for line in lines:
+            s = line.strip()
+            if s and not s.startswith("#") and "=" in s:
+                k, _, v = s.partition("=")
+                existing[k.strip()] = v.strip()
+
+        existing.update(loaded)
+        if remember:
+            existing["LOCAL_KEYS_PATH"] = raw_path
+            os.environ["LOCAL_KEYS_PATH"] = raw_path
+
+        # Rebuild keeping original file structure
+        new_lines = []
+        seen = set()
+        for line in lines:
+            s = line.strip()
+            if s and not s.startswith("#") and "=" in s:
+                k = s.split("=", 1)[0].strip()
+                if k in existing:
+                    new_lines.append(f"{k}={existing[k]}\n")
+                    seen.add(k)
+                else:
+                    new_lines.append(line)
+            else:
+                new_lines.append(line)
+        for k, v in existing.items():
+            if k not in seen:
+                new_lines.append(f"{k}={v}\n")
+
+        with open(local_env, "w") as f:
+            f.writelines(new_lines)
+
+        # Reload feed manager so new creds take immediate effect
+        if _FEED_OK:
+            try:
+                _feed_mgr.reload()
+            except Exception:
+                pass
+
+        log.info(f"🔑 Imported {len(loaded)} key(s) from {env_file}")
+        return jsonify({
+            "status": "ok",
+            "loaded": len(loaded),
+            "keys":   [_key_display_name(k) for k in loaded],
+            "path":   env_file,
+        })
+    except Exception as e:
+        log.error(f"load-from-path error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+def _key_display_name(k: str) -> str:
+    """Make env var names human-readable for the success message."""
+    return k.replace("_", " ").title().replace("Api", "API").replace("Totp", "TOTP")
 
 
 # ── SOVEREIGN API ROUTES ──────────────────────────────────────────────────────

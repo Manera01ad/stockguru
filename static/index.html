@@ -1819,7 +1819,7 @@
             class="tab-icon">🔌</span><span class="tab-label">Channels</span></button>
         <button class="tab-btn" data-label="Backtest" onclick="showTab('backtest',this)"> <span
             class="tab-icon">📈</span><span class="tab-label">Backtest</span></button>
-        <button class="tab-btn" data-label="API Keys" onclick="showTab('apikeys',this);initFeedStatus();initLiveTradeToggle()"> <span
+        <button class="tab-btn" data-label="API Keys" onclick="showTab('apikeys',this);initFeedStatus();initLiveTradeToggle();loadFeedKeys()"> <span
             class="tab-icon">🔑</span><span class="tab-label">API Keys</span></button>
         <button class="tab-btn" data-label="Sovereign"
           onclick="showTab('sovereign',this);document.getElementById('builder-badge').style.display='none'"> <span
@@ -3802,6 +3802,38 @@
 
             <!-- SAVE BUTTON -->
             <div class="keys-card" style="border-color:rgba(0,229,160,.3)">
+              <!-- ── LOAD FROM FOLDER ──────────────────────────────────── -->
+              <div style="font-family:'Bebas Neue';font-size:18px;letter-spacing:2px;color:#818cf8;margin-bottom:14px">
+                📁 LOAD CREDENTIALS FROM FOLDER
+              </div>
+              <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.7">
+                Paste your project folder path below. The app reads the <code style="color:#818cf8;font-size:12px">.env</code>
+                from that folder and imports all credentials — no re-typing needed after restarts.
+              </div>
+              <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+                <input type="text" class="key-input" id="inp-local-env-path"
+                       placeholder="C:\Users\Hp\projects\stockguru"
+                       style="flex:1;min-width:240px;font-family:'Space Mono',monospace;font-size:11px"
+                       autocomplete="off">
+                <button class="btn" onclick="loadFromPath()"
+                  style="padding:11px 20px;font-size:12px;white-space:nowrap;
+                         background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.4);color:#818cf8">
+                  📂 Import Keys
+                </button>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+                <input type="checkbox" id="chk-remember-path"
+                       style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer">
+                <label for="chk-remember-path"
+                       style="font-size:12px;color:var(--muted);cursor:pointer;line-height:1.4">
+                  Remember this path — auto-import on every server start
+                  <span style="color:#445;font-size:10px">(saves LOCAL_KEYS_PATH to .env)</span>
+                </label>
+              </div>
+              <div class="save-result" id="path-load-result" style="display:none"></div>
+              <hr style="border:none;border-top:1px solid #1a2030;margin:18px 0">
+
+              <!-- ── SAVE KEYS ─────────────────────────────────────────────── -->
               <div
                 style="font-family:'Bebas Neue';font-size:18px;letter-spacing:2px;color:var(--accent);margin-bottom:14px">
                 💾
@@ -5920,7 +5952,10 @@
     async function loadFeedKeys() {
       try {
         const d = await fetch(`${API}/get-feed-keys`).then(r => r.json());
-        const setVal = (id, val) => { const el = document.getElementById(id); if (el && val) { el.value = val; el.classList.add('filled'); } };
+        const setVal = (id, val) => {
+          const el = document.getElementById(id);
+          if (el && val) { el.value = val; el.classList.add('filled'); }
+        };
         setVal('inp-upstox-token',    d.upstox_access_token);
         setVal('inp-truedata-user',   d.truedata_username);
         setVal('inp-truedata-pass',   d.truedata_password);
@@ -5936,15 +5971,56 @@
         setVal('inp-fyers-appid',     d.fyers_app_id);
         setVal('inp-zerodha-apikey',  d.zerodha_api_key);
         setVal('inp-zerodha-token',   d.zerodha_access_token);
-        const res = document.getElementById('feed-save-result');
-        res.style.display = 'block';
-        res.className = 'save-result save-ok';
-        res.textContent = '✅ Current feed credentials loaded.';
+        // Pre-fill saved folder path (if user previously clicked "Remember")
+        if (d.local_keys_path) {
+          const pathEl = document.getElementById('inp-local-env-path');
+          if (pathEl) { pathEl.value = d.local_keys_path; pathEl.classList.add('filled'); }
+          const chk = document.getElementById('chk-remember-path');
+          if (chk) chk.checked = true;
+        }
       } catch(e) {
-        const res = document.getElementById('feed-save-result');
+        console.warn('[loadFeedKeys] could not load from server:', e);
+      }
+    }
+
+    async function loadFromPath() {
+      const pathEl = document.getElementById('inp-local-env-path');
+      const path   = (pathEl?.value || '').trim();
+      const res    = document.getElementById('path-load-result');
+
+      if (!path) {
         res.style.display = 'block';
         res.className = 'save-result save-err';
-        res.textContent = '❌ Could not load keys from server.';
+        res.textContent = '❌ Please enter a folder path first.';
+        return;
+      }
+
+      res.style.display = 'block';
+      res.className = 'save-result';
+      res.style.color = 'var(--muted)';
+      res.textContent = `⏳ Reading .env from ${path} …`;
+
+      const remember = document.getElementById('chk-remember-path')?.checked || false;
+      try {
+        const d = await fetch(`${API}/load-from-path`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path, remember }),
+        }).then(r => r.json());
+
+        if (d.error) {
+          res.className = 'save-result save-err';
+          res.textContent = `❌ ${d.error}`;
+        } else {
+          res.className = 'save-result save-ok';
+          res.textContent = `✅ Imported ${d.loaded} credential(s): ${d.keys.join(', ')}${remember ? '  · Path saved as default.' : ''}`;
+          // Refresh masked inputs to show new values
+          await loadFeedKeys();
+          setTimeout(initFeedStatus, 800);
+        }
+      } catch(e) {
+        res.className = 'save-result save-err';
+        res.textContent = `❌ Network error: ${e.message}`;
       }
     }
 
@@ -7753,6 +7829,8 @@
     // Boot: initial full fetch, then init WebSocket
     fetchAll();
     initWebSocket();
+    // Auto-populate API key inputs from .env so users never have to re-enter credentials
+    setTimeout(loadFeedKeys, 1200);
     // ── END M2 WebSocket ──────────────────────────────────────────────────────
   </script>
 
