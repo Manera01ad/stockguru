@@ -3317,8 +3317,7 @@
                     Checking...</span>
                 </div>
                 <div class="sys-item">
-                  <div class="sys-item-label">PRICE FEED</div><span class="status-indicator si-ok">✅ Yahoo Finance
-                    (free)</span>
+                  <div class="sys-item-label">PRICE FEED</div><span class="status-indicator si-ok" id="sys-price-feed">✅ Yahoo Finance (free)</span>
                 </div>
                 <div class="sys-item">
                   <div class="sys-item-label">PRICES LOADED</div><span class="status-indicator si-ok" id="sys-prices">✅
@@ -5422,6 +5421,14 @@
         setStatus('anthropic-key-status', claudeOk, claudeOk ? '✅ Configured' : '⏳ Not configured');
         setStatus('gemini-key-status', geminiOk, geminiOk ? '✅ Configured' : '⏳ Not configured');
         document.getElementById('sys-prices').textContent = `✅ ${d.prices_loaded} symbols`;
+        // Update live price feed name
+        const feedEl = document.getElementById('sys-price-feed');
+        if (feedEl && d.price_feed) {
+          const isLive = d.price_feed && !d.price_feed.toLowerCase().includes('yahoo');
+          feedEl.textContent = (isLive ? '🟢 ' : '✅ ') + d.price_feed + (isLive ? ' · LIVE' : ' (free)');
+          feedEl.className = 'status-indicator ' + (isLive ? '' : 'si-ok');
+          feedEl.style.color = isLive ? 'var(--accent)' : '';
+        }
       } catch (e) { }
     }
 

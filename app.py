@@ -439,28 +439,56 @@ def fetch_yahoo_price(symbol):
 
 def fetch_all_prices():
     global last_update
-    log.info("🔄 Fetching live prices...")
+    use_feed_mgr = _FEED_OK and _feed_mgr and _feed_mgr.active_name != "yahoo"
+    feed_label   = (_feed_mgr.active_label if use_feed_mgr else "Yahoo Finance")
+    log.info(f"🔄 Fetching live prices via {feed_label}...")
     for name, symbol in YAHOO_SYMBOLS.items():
-        data = fetch_yahoo_price(symbol)
+        data = None
+        # ── Route through feed manager (Shoonya, Angel, etc.) if configured ──
+        if use_feed_mgr:
+            try:
+                raw = _feed_mgr.get_quote(symbol)
+                if raw and raw.get("price", 0) > 0 and "error" not in raw:
+                    data = {
+                        "price":      raw.get("price", 0),
+                        "change":     round(raw.get("price", 0) - raw.get("prev_close", raw.get("price", 0)), 2),
+                        "change_pct": raw.get("change_pct", 0),
+                        "prev":       raw.get("prev_close", 0),
+                        "volume":     raw.get("volume", 0),
+                        "day_high":   raw.get("day_high", 0),
+                        "day_low":    raw.get("day_low", 0),
+                        "feed":       _feed_mgr.active_name,
+                    }
+            except Exception as fe:
+                log.debug(f"Feed manager quote failed for {symbol}: {fe}")
+
+        # ── Fallback to Yahoo Finance ──
+        if not data:
+            data = fetch_yahoo_price(symbol)
+            if data:
+                data["feed"] = "yahoo"
+
         if data:
             price_cache[name] = {**data, "symbol": symbol, "updated": datetime.now().strftime("%H:%M:%S")}
             if name in ("NIFTY 50", "SENSEX", "BANK NIFTY", "INDIA VIX"):
                 shared_state["index_prices"][name] = data
-            
-            # --- REAL-TIME TICKER EMIT (Like a Real Broker) ---
+
+            # --- REAL-TIME TICKER EMIT ---
             if socketio:
                 socketio.emit("price_update", {
                     "prices": {name: price_cache[name]},
                     "last_update": datetime.now().strftime("%H:%M:%S"),
+                    "feed": data.get("feed", "yahoo"),
                     "event": "tick_update"
                 })
-        
+
         if last_update != "Initializing...":
-            time.sleep(0.15)  # faster between fetches on Railway
-    
+            time.sleep(0.15)
+
     last_update = datetime.now().strftime("%d %b %Y %H:%M:%S IST")
     shared_state["_price_cache"] = price_cache
-    log.info(f"✅ Price feed cycle complete at {last_update}")
+    shared_state["_active_feed"] = feed_label
+    log.info(f"✅ Price feed cycle complete via {feed_label} at {last_update}")
 
     # Check signal outcomes every price cycle
     if LEARNING_AVAILABLE:
@@ -1579,6 +1607,7 @@ def api_status():
         "anthropic_configured": bool(ANTHROPIC_API_KEY),
         "gemini_configured": bool(GEMINI_API_KEY),
         "prices_loaded": len(price_cache), "last_update": last_update,
+        "price_feed": shared_state.get("_active_feed", _feed_mgr.active_label if (_FEED_OK and _feed_mgr) else "Yahoo Finance"),
         "watchlist_count": len(WATCHLIST), "alerts_sent": len(alert_log),
         "paper_trades": portfolio.get("stats", {}).get("total_trades", 0),
         "paper_win_rate": portfolio.get("stats", {}).get("win_rate", 0),
