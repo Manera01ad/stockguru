@@ -125,7 +125,11 @@ class ShoonyaFeed(DataFeed):
             return ShoonyaFeed._session
         try:
             import pyotp
-            totp = pyotp.TOTP(os.getenv("SHOONYA_TOTP_KEY", "")).now()
+            totp_secret = os.getenv("SHOONYA_TOTP_KEY", "").replace(" ", "")
+            try:
+                totp = pyotp.TOTP(totp_secret).now()
+            except Exception as e:
+                raise ValueError(f"Invalid TOTP Secret. It must be a base32 encoded string. Error: {e}")
             import hashlib
             pwd_hash = hashlib.sha256(
                 os.getenv("SHOONYA_PASSWORD", "").encode()

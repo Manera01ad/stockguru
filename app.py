@@ -3063,6 +3063,10 @@ def api_feed_status():
 def api_feed_reload():
     """Force re-detect active feed (after updating .env keys at runtime)."""
     try:
+        from dotenv import load_dotenv
+        env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+        load_dotenv(env_path, override=True)
+        
         if _FEED_OK and _feed_mgr:
             _feed_mgr.reload()
             return jsonify({"status": "ok", "active_feed": _feed_mgr.active_name,
