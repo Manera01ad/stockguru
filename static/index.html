@@ -5678,15 +5678,16 @@
         const name   = document.getElementById('feed-active-name');
         const detail = document.getElementById('feed-active-detail');
         if (!banner) return;
-        const active = d.active || {};
-        const isRT   = active.is_realtime;
+        const isRT = d.is_realtime || false;
         dot.style.background = isRT ? 'var(--accent)' : '#f5c518';
         banner.style.background = isRT ? 'rgba(0,229,160,.08)' : 'rgba(245,197,24,.08)';
         banner.style.borderColor = isRT ? 'rgba(0,229,160,.25)' : 'rgba(245,197,24,.25)';
-        name.textContent = `${isRT ? '🟢' : '🟡'} Active Feed: ${active.label || 'Yahoo Finance'}${active.latency_ms ? ' — ' + active.latency_ms + 'ms' : ''}`;
-        detail.textContent = isRT ? `✅ Real-time data · ${active.ob_levels || 0}-level order book` : '⚠️ 15-min delayed · simulated order book';
-        // Update per-card status badges
-        const feeds = d.feeds || {};
+        name.textContent = `${isRT ? '🟢' : '🟡'} Active Feed: ${d.active_label || 'Yahoo Finance'}${d.latency_ms ? ' — ' + d.latency_ms + 'ms' : ''}`;
+        detail.textContent = isRT ? `✅ Real-time data · ${d.ob_levels || 0}-level order book` : '⚠️ 15-min delayed · simulated order book';
+        // d.feeds is an array — convert to map by name for easy lookup
+        const feedsArr = Array.isArray(d.feeds) ? d.feeds : [];
+        const feeds = {};
+        feedsArr.forEach(f => { if (f.name) feeds[f.name] = f; });
         const statusMap = {
           upstox:   'fstatus-upstox',  truedata: 'fstatus-truedata',
           shoonya:  'fstatus-shoonya', angel:    'fstatus-angel',
@@ -5696,9 +5697,9 @@
           const el = document.getElementById(elId);
           if (!el || !feeds[key]) continue;
           const f = feeds[key];
-          if (f.active)       { el.textContent = '🟢 ACTIVE'; el.style.color = 'var(--accent)'; }
+          if (f.active)          { el.textContent = '🟢 ACTIVE'; el.style.color = 'var(--accent)'; }
           else if (f.configured) { el.textContent = '🟡 Configured'; el.style.color = '#f5c518'; }
-          else                { el.textContent = '⭕ Not configured'; el.style.color = 'var(--muted)'; }
+          else                   { el.textContent = '⭕ Not configured'; el.style.color = 'var(--muted)'; }
         }
       } catch(e) {
         const name = document.getElementById('feed-active-name');

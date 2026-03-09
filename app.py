@@ -1726,7 +1726,7 @@ def api_update_feed_keys():
             try:
                 _feed_mgr.reload()
                 st = _feed_mgr.status()
-                active_feed = st.get("active", {}).get("label", "Yahoo Finance")
+                active_feed = st.get("active_label", "Yahoo Finance")
             except Exception:
                 pass
 
