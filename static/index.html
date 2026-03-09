@@ -5242,8 +5242,21 @@
                 <span id="term-feed-label" style="font-size:10px;color:#818cf8;font-weight:600;letter-spacing:.04em">Yahoo Finance</span>
                 <span id="term-feed-latency" style="font-size:9px;color:#445">15min</span>
               </div>
-              <span id="term-live-dot" style="width:7px;height:7px;background:#00e676;border-radius:50%;display:inline-block;animation:blink 1.2s infinite"></span>
-              <span id="term-live-badge" style="font-size:9px;font-weight:700;letter-spacing:.06em;color:#00e676;opacity:0.3;transition:opacity .2s;text-transform:uppercase">● LIVE</span>
+              <!-- Live + auto-refresh countdown pill -->
+              <div id="term-live-refresh" style="display:flex;align-items:center;gap:5px;
+                   background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.2);
+                   border-radius:20px;padding:3px 10px;transition:background .2s">
+                <span id="term-live-dot" style="width:6px;height:6px;background:#00e676;border-radius:50%;
+                      display:inline-block;animation:blink 1.2s infinite;flex-shrink:0"></span>
+                <span id="term-live-badge" style="font-size:9px;font-weight:700;letter-spacing:.06em;
+                      color:#00e676;opacity:0.5;transition:opacity .15s;text-transform:uppercase">LIVE</span>
+                <span style="color:#2a3a2a;font-size:10px;margin:0 1px">|</span>
+                <span style="font-size:9px;color:#445;letter-spacing:.04em">REFRESH</span>
+                <span id="term-countdown" style="font-size:11px;font-weight:700;
+                      color:#00c47a;font-family:'Space Mono',monospace;
+                      min-width:14px;text-align:right;transition:color .15s">5</span>
+                <span style="font-size:9px;color:#334;font-weight:600">s</span>
+              </div>
             </div>
           </div>
         
@@ -9398,6 +9411,9 @@ let _currTF         = '15m';
 let _currRange      = '5d';
 let _obInterval     = null;
 let _chartInterval  = null;
+let _countdownTimer = null;
+let _countdownSecs  = 5;
+const _REFRESH_SECS = 5;    // must match _chartInterval ms / 1000
 let _termInited     = false;
 let _allSymbols     = [];   // full list for search
 
@@ -9516,8 +9532,12 @@ window.initTerminal = function() {
 
   // Order book refresh every 3s
   _obInterval = setInterval(() => { if (document.getElementById('tab-terminal').classList.contains('active')) _refreshOB(); }, 3000);
-  // Chart price refresh every 8s
-  _chartInterval = setInterval(() => { if (document.getElementById('tab-terminal').classList.contains('active')) _refreshLastCandle(); }, 5000); // 5s poll for live OHLC bar refresh
+  // Chart price refresh every 5s
+  _chartInterval = setInterval(() => { if (document.getElementById('tab-terminal').classList.contains('active')) _refreshLastCandle(); }, _REFRESH_SECS * 1000);
+
+  // ── Countdown timer ───────────────────────────────────────────────────
+  // Ticks every second; resets to _REFRESH_SECS after _refreshLastCandle() fires
+  _startCountdown();
 };
 
 function _getChartHeight() {
@@ -9791,8 +9811,51 @@ function _updateTopBar(d) {
   if (d.candles && d.candles.length) document.getElementById('term-stat-open').textContent = fmt(d.candles[0].open);
 }
 
+// ── Auto-refresh countdown ────────────────────────────────────────────────
+function _startCountdown() {
+  if (_countdownTimer) clearInterval(_countdownTimer);
+  _countdownSecs = _REFRESH_SECS;
+  _setCountdownDisplay(_REFRESH_SECS);
+
+  _countdownTimer = setInterval(() => {
+    _countdownSecs--;
+    if (_countdownSecs <= 0) {
+      // Reached 0 — show ↻ spinner briefly while refresh fires
+      _setCountdownDisplay('↻', '#fff');
+      _countdownSecs = _REFRESH_SECS;           // will be reset again by _refreshLastCandle
+    } else {
+      // Colour shifts red as countdown approaches 0
+      const pct    = _countdownSecs / _REFRESH_SECS;          // 1 → 0
+      const r      = Math.round(0   + (255 - 0)   * (1 - pct));
+      const g      = Math.round(196 + (0   - 196) * (1 - pct));
+      const colour = `rgb(${r},${g},0)`;
+      _setCountdownDisplay(_countdownSecs, colour);
+    }
+  }, 1000);
+}
+
+function _setCountdownDisplay(val, colour) {
+  const el   = document.getElementById('term-countdown');
+  const pill = document.getElementById('term-live-refresh');
+  if (!el) return;
+  el.textContent = val;
+  if (colour) el.style.color = colour;
+  // Pulse the pill border when spinner shows
+  if (val === '↻' && pill) {
+    pill.style.background  = 'rgba(0,230,118,.22)';
+    pill.style.borderColor = 'rgba(0,230,118,.6)';
+    setTimeout(() => {
+      pill.style.background  = '';
+      pill.style.borderColor = '';
+    }, 300);
+  }
+}
+
 async function _refreshLastCandle() {
   if (!_currSym || !_candleSeries) return;
+  // Reset countdown immediately so it reflects the new cycle
+  _countdownSecs = _REFRESH_SECS;
+  _setCountdownDisplay(_REFRESH_SECS, '#00c47a');
   try {
     const r = await fetch(`/api/ohlcv?sym=${encodeURIComponent(_currSym)}&interval=${_currTF}&range=1d&seg=${_currSegment}`);
     const d = await r.json();
