@@ -9501,18 +9501,6 @@ setTimeout(injectWorkflowPanels, 1500);
 (function() {
 
 // ── State ────────────────────────────────────────────────────────────────
-let _termChart      = null;
-let _termVolChart   = null;
-let _candleSeries   = null;
-let _volSeries      = null;
-let _maSeries       = { ma7: null, ma25: null, ma99: null };
-let _maVisible      = { ma7: true, ma25: true, ma99: true };
-let _chartType      = 'candle';
-// Live-bar trackers — prevent open/high/low from resetting on every tick
-let _liveBarTs      = 0;
-let _liveBarOpen    = 0;
-let _liveBarHigh    = 0;
-let _liveBarLow     = Infinity;
 let _currSym        = 'BTC-USD';
 let _currLabel      = 'BTC/USDT';
 let _currSegment    = 'crypto';
@@ -9520,7 +9508,6 @@ let _currTF         = '15m';
 let _currRange      = '5d';
 let _chartType      = 'candle';
 let _obInterval     = null;
-let _chartInterval  = null;
 let _countdownTimer = null;
 let _countdownSecs  = 5;
 const _REFRESH_SECS = 5;    // must match _chartInterval ms / 1000
@@ -9844,35 +9831,11 @@ window.termSetChartType = function(type, btn) {
   _chartType = type;
   document.querySelectorAll('.term-chart-type-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-
-  if (!_candleSeries || !_termChart) return;
-  _termChart.removeSeries(_candleSeries);
-  _termChart.removeSeries(_maSeries.ma7);
-  _termChart.removeSeries(_maSeries.ma25);
-  _termChart.removeSeries(_maSeries.ma99);
-
-  if (type === 'line') {
-    _candleSeries = _termChart.addLineSeries({ color: '#6366f1', lineWidth: 2 });
-  } else if (type === 'bar') {
-    _candleSeries = _termChart.addBarSeries({ upColor: '#00e676', downColor: '#ff5252' });
-  } else {
-    _candleSeries = _termChart.addCandlestickSeries({
-      upColor: '#00e676', downColor: '#ff5252',
-      borderUpColor: '#00e676', borderDownColor: '#ff5252',
-      wickUpColor: '#00e676', wickDownColor: '#ff5252',
-    });
-  }
-  _maSeries.ma7  = _termChart.addLineSeries({ color: '#fbbf24', lineWidth: 1, crosshairMarkerVisible: false });
-  _maSeries.ma25 = _termChart.addLineSeries({ color: '#f472b6', lineWidth: 1, crosshairMarkerVisible: false });
-  _maSeries.ma99 = _termChart.addLineSeries({ color: '#a78bfa', lineWidth: 1, crosshairMarkerVisible: false });
-  _loadChart();
 };
 
 window.termToggleMA = function(key) {
-  _maVisible[key] = !_maVisible[key];
   const badge = document.getElementById('badge-' + key);
-  if (badge) badge.classList.toggle('hidden', !_maVisible[key]);
-  _loadChart();
+  if (badge) badge.classList.toggle('hidden');
 };
 
 })(); // end IIFE
