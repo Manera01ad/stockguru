@@ -19,6 +19,10 @@ class DataFeed(ABC):
         """Return True if all required env vars are present and non-empty."""
         return all(os.getenv(k, "").strip() for k in self.REQUIRED_ENV)
 
+    def is_enabled(self) -> bool:
+        """Return True unless explicitly disabled via {NAME}_ENABLED=0 in env."""
+        return os.getenv(f"{self.NAME.upper()}_ENABLED", "1").strip() != "0"
+
     # ── Core interface ─────────────────────────────────────────────────────
     @abstractmethod
     def get_quote(self, symbol: str) -> Dict:

@@ -1737,6 +1737,59 @@ def api_update_feed_keys():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+_VALID_FEED_NAMES = {"upstox", "truedata", "shoonya", "angel", "fyers", "zerodha"}
+
+@app.route("/api/toggle-feed", methods=["POST"])
+@limiter.limit("20 per minute")
+def api_toggle_feed():
+    """Enable or disable a specific feed without touching its credentials."""
+    try:
+        data    = request.get_json() or {}
+        feed    = data.get("feed", "").lower().strip()
+        enabled = bool(data.get("enabled", True))
+        if feed not in _VALID_FEED_NAMES:
+            return jsonify({"status": "error", "message": f"Unknown feed: {feed}"}), 400
+
+        env_key = f"{feed.upper()}_ENABLED"
+        val     = "1" if enabled else "0"
+        os.environ[env_key] = val
+
+        # Persist to .env
+        env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+        try:
+            with open(env_path, "r") as f:
+                lines = f.readlines()
+        except FileNotFoundError:
+            lines = []
+
+        found = False
+        new_lines = []
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith(f"{env_key}="):
+                new_lines.append(f"{env_key}={val}\n")
+                found = True
+            else:
+                new_lines.append(line)
+        if not found:
+            new_lines.append(f"{env_key}={val}\n")
+
+        with open(env_path, "w") as f:
+            f.writelines(new_lines)
+
+        # Reload feed manager
+        active_feed = "yahoo"
+        if _FEED_OK and _feed_mgr:
+            _feed_mgr.reload()
+            active_feed = _feed_mgr.active_name
+
+        log.info(f"🔌 Feed '{feed}' {'enabled' if enabled else 'disabled'}")
+        return jsonify({"status": "ok", "feed": feed, "enabled": enabled, "active_feed": active_feed})
+    except Exception as e:
+        log.error(f"toggle-feed error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 @app.route("/api/get-feed-keys")
 def api_get_feed_keys():
     """Return masked broker credentials from .env for pre-filling the UI."""

@@ -92,10 +92,10 @@ class FeedManager:
 
     # ── Feed selection ─────────────────────────────────────────────────────
     def _select_active(self):
-        """Pick the highest-priority configured feed."""
+        """Pick the highest-priority configured and enabled feed."""
         for name in self.FEED_PRIORITY:
             feed = self._feeds.get(name)
-            if feed and feed.is_configured():
+            if feed and feed.is_configured() and feed.is_enabled():
                 self._active_name = name
                 log.info(f"✅ Active data feed: {feed.LABEL} ({name})")
                 return
@@ -150,7 +150,8 @@ class FeedManager:
             feed = self._feeds.get(name)
             if feed:
                 s = feed.status()
-                s["active"] = (name == self._active_name)
+                s["active"]   = (name == self._active_name)
+                s["enabled"]  = feed.is_enabled()
                 all_feeds.append(s)
         return {
             "active_feed":  self._active_name,

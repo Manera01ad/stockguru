@@ -1530,6 +1530,23 @@
       border: 1px solid rgba(0, 200, 150, 0.25)
     }
 
+    /* Feed ON/OFF toggle switch */
+    .feed-toggle { display:flex; align-items:center; gap:7px; cursor:pointer; user-select:none }
+    .feed-toggle input { display:none }
+    .feed-toggle-track {
+      width:36px; height:20px; border-radius:10px;
+      background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.18);
+      position:relative; transition:background .25s,border-color .25s; flex-shrink:0;
+    }
+    .feed-toggle-track::after {
+      content:''; position:absolute; top:3px; left:3px;
+      width:12px; height:12px; border-radius:50%;
+      background:#888; transition:left .2s,background .2s;
+    }
+    .feed-toggle input:checked ~ .feed-toggle-track { background:rgba(0,196,204,.35); border-color:var(--accent); }
+    .feed-toggle input:checked ~ .feed-toggle-track::after { left:19px; background:var(--accent); }
+    .feed-toggle-label { font-family:'Space Mono'; font-size:9px; color:var(--muted); letter-spacing:.04em }
+
     .si-warn {
       background: rgba(255, 209, 102, 0.1);
       color: var(--accent4);
@@ -3466,7 +3483,14 @@
                     <div style="font-family:'Bebas Neue';font-size:16px;letter-spacing:2px;color:var(--accent)">⚡ UPSTOX V2</div>
                     <span style="font-family:'Space Mono';font-size:9px;color:var(--muted)">~200ms · 5-level OB · FREE</span>
                   </div>
-                  <span class="status-indicator" id="fstatus-upstox">⭕ Not configured</span>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <label class="feed-toggle" title="Enable / Disable Upstox">
+                      <input type="checkbox" id="ftoggle-upstox" checked onchange="toggleFeed('upstox',this.checked)">
+                      <span class="feed-toggle-track"></span>
+                      <span class="feed-toggle-label" id="ftoggle-label-upstox">ON</span>
+                    </label>
+                    <span class="status-indicator" id="fstatus-upstox">⭕ Not configured</span>
+                  </div>
                 </div>
                 <div class="key-group" style="margin-bottom:0">
                   <div class="key-label"><span>🔑</span>ACCESS TOKEN <span style="font-family:'Space Mono';font-size:9px;color:var(--red);font-weight:400">(expires daily)</span></div>
@@ -3489,7 +3513,14 @@
                     <div style="font-family:'Bebas Neue';font-size:16px;letter-spacing:2px;color:#00c4ff">📊 TRUEDATA</div>
                     <span style="font-family:'Space Mono';font-size:9px;color:var(--muted)">~100ms · 20-level OB · ₹800/mo · credentials never expire</span>
                   </div>
-                  <span class="status-indicator" id="fstatus-truedata">⭕ Not configured</span>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <label class="feed-toggle" title="Enable / Disable TrueData">
+                      <input type="checkbox" id="ftoggle-truedata" checked onchange="toggleFeed('truedata',this.checked)">
+                      <span class="feed-toggle-track"></span>
+                      <span class="feed-toggle-label" id="ftoggle-label-truedata">ON</span>
+                    </label>
+                    <span class="status-indicator" id="fstatus-truedata">⭕ Not configured</span>
+                  </div>
                 </div>
                 <div class="g2e" style="margin-bottom:0">
                   <div class="key-group" style="margin-bottom:0">
@@ -3518,7 +3549,14 @@
                     <div style="font-family:'Bebas Neue';font-size:16px;letter-spacing:2px;color:#ff61a0">🔥 SHOONYA (FINVASIA)</div>
                     <span style="font-family:'Space Mono';font-size:9px;color:var(--muted)">Full DOM · FREE · no daily token</span>
                   </div>
-                  <span class="status-indicator" id="fstatus-shoonya">⭕ Not configured</span>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <label class="feed-toggle" title="Enable / Disable Shoonya">
+                      <input type="checkbox" id="ftoggle-shoonya" checked onchange="toggleFeed('shoonya',this.checked)">
+                      <span class="feed-toggle-track"></span>
+                      <span class="feed-toggle-label" id="ftoggle-label-shoonya">ON</span>
+                    </label>
+                    <span class="status-indicator" id="fstatus-shoonya">⭕ Not configured</span>
+                  </div>
                 </div>
                 <div class="g2e" style="margin-bottom:0">
                   <div class="key-group" style="margin-bottom:0">
@@ -3561,7 +3599,14 @@
                     <div style="font-family:'Bebas Neue';font-size:16px;letter-spacing:2px;color:#4285f4">👼 ANGEL ONE (SMARTAPI)</div>
                     <span style="font-family:'Space Mono';font-size:9px;color:var(--muted)">~200ms · FREE</span>
                   </div>
-                  <span class="status-indicator" id="fstatus-angel">⭕ Not configured</span>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <label class="feed-toggle" title="Enable / Disable Angel One">
+                      <input type="checkbox" id="ftoggle-angel" checked onchange="toggleFeed('angel',this.checked)">
+                      <span class="feed-toggle-track"></span>
+                      <span class="feed-toggle-label" id="ftoggle-label-angel">ON</span>
+                    </label>
+                    <span class="status-indicator" id="fstatus-angel">⭕ Not configured</span>
+                  </div>
                 </div>
                 <div class="g2e" style="margin-bottom:0">
                   <div class="key-group" style="margin-bottom:0">
@@ -3604,7 +3649,14 @@
                     <div style="font-family:'Bebas Neue';font-size:16px;letter-spacing:2px;color:#ff9d3d">🦅 FYERS API V3</div>
                     <span style="font-family:'Space Mono';font-size:9px;color:var(--muted)">~200ms · expires daily</span>
                   </div>
-                  <span class="status-indicator" id="fstatus-fyers">⭕ Not configured</span>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <label class="feed-toggle" title="Enable / Disable Fyers">
+                      <input type="checkbox" id="ftoggle-fyers" checked onchange="toggleFeed('fyers',this.checked)">
+                      <span class="feed-toggle-track"></span>
+                      <span class="feed-toggle-label" id="ftoggle-label-fyers">ON</span>
+                    </label>
+                    <span class="status-indicator" id="fstatus-fyers">⭕ Not configured</span>
+                  </div>
                 </div>
                 <div class="g2e" style="margin-bottom:0">
                   <div class="key-group" style="margin-bottom:0">
@@ -3633,7 +3685,14 @@
                     <div style="font-family:'Bebas Neue';font-size:16px;letter-spacing:2px;color:#7b61ff">🟣 ZERODHA KITECONNECT</div>
                     <span style="font-family:'Space Mono';font-size:9px;color:var(--muted)">~200ms · expires daily · ₹2000/yr</span>
                   </div>
-                  <span class="status-indicator" id="fstatus-zerodha">⭕ Not configured</span>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <label class="feed-toggle" title="Enable / Disable Zerodha">
+                      <input type="checkbox" id="ftoggle-zerodha" checked onchange="toggleFeed('zerodha',this.checked)">
+                      <span class="feed-toggle-track"></span>
+                      <span class="feed-toggle-label" id="ftoggle-label-zerodha">ON</span>
+                    </label>
+                    <span class="status-indicator" id="fstatus-zerodha">⭕ Not configured</span>
+                  </div>
                 </div>
                 <div class="g2e" style="margin-bottom:0">
                   <div class="key-group" style="margin-bottom:0">
@@ -5694,11 +5753,20 @@
           fyers:    'fstatus-fyers',   zerodha:  'fstatus-zerodha',
         };
         for (const [key, elId] of Object.entries(statusMap)) {
-          const el = document.getElementById(elId);
+          const el    = document.getElementById(elId);
+          const tog   = document.getElementById(`ftoggle-${key}`);
+          const label = document.getElementById(`ftoggle-label-${key}`);
+          const card  = document.getElementById(`fcard-${key}`);
           if (!el || !feeds[key]) continue;
           const f = feeds[key];
-          if (f.active)          { el.textContent = '🟢 ACTIVE'; el.style.color = 'var(--accent)'; }
-          else if (f.configured) { el.textContent = '🟡 Configured'; el.style.color = '#f5c518'; }
+          // Sync toggle state
+          if (tog) { tog.checked = f.enabled !== false; }
+          if (label) label.textContent = (f.enabled !== false) ? 'ON' : 'OFF';
+          if (card) card.style.opacity = (f.enabled !== false) ? '1' : '0.45';
+          // Status badge
+          if (!f.enabled)        { el.textContent = '⏸ Disabled';     el.style.color = 'var(--muted)'; }
+          else if (f.active)     { el.textContent = '🟢 ACTIVE';       el.style.color = 'var(--accent)'; }
+          else if (f.configured) { el.textContent = '🟡 Configured';   el.style.color = '#f5c518'; }
           else                   { el.textContent = '⭕ Not configured'; el.style.color = 'var(--muted)'; }
         }
       } catch(e) {
@@ -5746,6 +5814,22 @@
         res.textContent = '❌ Could not connect to server.';
       }
       btn.disabled = false; btn.textContent = '💾 Save Feed Credentials';
+    }
+
+    // ── PER-BROKER ON/OFF TOGGLE ──────────────────────────────
+    async function toggleFeed(broker, enabled) {
+      const label = document.getElementById(`ftoggle-label-${broker}`);
+      const card  = document.getElementById(`fcard-${broker}`);
+      if (label) label.textContent = enabled ? 'ON' : 'OFF';
+      if (card)  card.style.opacity = enabled ? '1' : '0.45';
+      try {
+        await fetch(`${API}/toggle-feed`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ feed: broker, enabled })
+        });
+        setTimeout(initFeedStatus, 600);
+      } catch(e) { console.warn('toggleFeed error', e); }
     }
 
     // ── PER-BROKER SAVE & CONNECT ─────────────────────────────
@@ -9421,7 +9505,7 @@ function _buildCharts() {
     grid:       { vertLines: { color: '#141921' }, horzLines: { color: '#141921' } },
     crosshair:  { mode: 1 },
     rightPriceScale: { borderColor: '#1e2530', scaleMargins: { top: 0.06, bottom: 0.06 } },
-    timeScale:  { borderColor: '#1e2530', timeVisible: true, secondsVisible: false, rightOffset: 5 },
+    timeScale:  { borderColor: '#1e2530', timeVisible: true, secondsVisible: false, rightOffset: 5, timezone: 'Asia/Kolkata' },
     handleScroll: { mouseWheel: true, pressedMouseMove: true },
     handleScale:  { mouseWheel: true, pinch: true },
   };
