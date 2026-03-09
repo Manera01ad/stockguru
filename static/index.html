@@ -9640,7 +9640,7 @@ window.termLoadSymbol = async function(sym, label, pillEl) {
 // ── Load OHLCV data ───────────────────────────────────────────────────────
 async function _loadChart() {
   try {
-    const r = await fetch(`/api/ohlcv?sym=${encodeURIComponent(_currSym)}&interval=${_currTF}&range=${_currRange}`);
+    const r = await fetch(`/api/ohlcv?sym=${encodeURIComponent(_currSym)}&interval=${_currTF}&range=${_currRange}&seg=${_currSegment}`);
     const d = await r.json();
     _renderChart(d);
     _updateTopBar(d);
@@ -9696,7 +9696,7 @@ function _updateTopBar(d) {
 async function _refreshLastCandle() {
   if (!_currSym || !_candleSeries) return;
   try {
-    const r = await fetch(`/api/ohlcv?sym=${encodeURIComponent(_currSym)}&interval=${_currTF}&range=1d`);
+    const r = await fetch(`/api/ohlcv?sym=${encodeURIComponent(_currSym)}&interval=${_currTF}&range=1d&seg=${_currSegment}`);
     const d = await r.json();
     if (d.candles && d.candles.length) {
       const last = d.candles[d.candles.length-1];

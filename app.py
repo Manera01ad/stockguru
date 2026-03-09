@@ -3001,23 +3001,49 @@ def api_terminal_symbols():
     return jsonify({"symbols": _TERMINAL_SYMBOLS.get(segment, []), "segment": segment})
 
 
+# ── Segment → display currency ────────────────────────────────────────────────
+# Cash / F&O / Commodity (MCX) → prices in INR
+# Currency pairs / Crypto → prices in USD
+_SEG_CURRENCY = {
+    "cash":      "INR",
+    "fno":       "INR",
+    "commodity": "INR",
+    "currency":  "USD",
+    "crypto":    "USD",
+}
+
+def _resolve_display_currency(sym: str, seg: str) -> str:
+    """Return 'INR' or 'USD' for the terminal header Currency stat."""
+    if seg in _SEG_CURRENCY:
+        return _SEG_CURRENCY[seg]
+    # Auto-detect when no segment provided
+    if sym.endswith(".NS") or sym.endswith(".BO") or sym.endswith("-EQ"):
+        return "INR"
+    if sym.startswith("^NSE") or sym.startswith("^BSE") or sym.startswith("^INDIA"):
+        return "INR"
+    return "USD"
+
+
 @app.route("/api/ohlcv")
 def api_ohlcv():
     """
     Fetch OHLCV candle data — routed through active DataFeed connector.
     Falls back to Yahoo Finance if no connector is configured.
     Query params: sym=RELIANCE.NS, interval=5m|15m|1h|1d|1wk, range=1d|5d|1mo|3mo|6mo|1y
+                  seg=cash|fno|commodity|currency|crypto  (used for correct currency label)
     """
     sym      = request.args.get("sym", "^NSEI")
     interval = request.args.get("interval", "5m")
     rng      = request.args.get("range", "1d")
+    seg      = request.args.get("seg", "").lower().strip()
     try:
         if _FEED_OK and _feed_mgr:
             result = _feed_mgr.get_candles(sym, interval, rng)
         else:
             from stockguru_agents.feeds.yahoo_feed import YahooFeed
             result = YahooFeed().get_candles(sym, interval, rng)
-        result["feed"] = _feed_mgr.active_name if (_FEED_OK and _feed_mgr) else "yahoo"
+        result["feed"]     = _feed_mgr.active_name if (_FEED_OK and _feed_mgr) else "yahoo"
+        result["currency"] = _resolve_display_currency(sym, seg)
         return jsonify(result)
     except Exception as e:
         log.error("OHLCV error %s: %s", sym, e)
