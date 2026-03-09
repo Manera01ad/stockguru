@@ -3476,6 +3476,10 @@
                   </div>
                   <div class="key-hint">Get from: <a href="https://developer.upstox.com" target="_blank">developer.upstox.com</a> → Login API → Generate token each morning. Token resets at midnight IST.</div>
                 </div>
+                <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                  <button class="btn" onclick="saveBrokerSection('upstox')" id="save-btn-upstox" style="padding:8px 20px;font-size:11px;background:rgba(0,229,160,.15);border-color:rgba(0,229,160,.5);color:var(--accent)">💾 Save &amp; Connect</button>
+                  <span id="save-result-upstox" style="font-family:'Space Mono';font-size:10px"></span>
+                </div>
               </div>
 
               <!-- ── TRUEDATA ── -->
@@ -3501,6 +3505,10 @@
                   </div>
                 </div>
                 <div class="key-hint" style="margin-top:8px">Get from: <a href="https://truedata.in" target="_blank">truedata.in</a> → Subscribe → Account credentials (best pick for stability — 20-level depth, no daily reset)</div>
+                <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                  <button class="btn" onclick="saveBrokerSection('truedata')" id="save-btn-truedata" style="padding:8px 20px;font-size:11px;background:rgba(0,196,255,.15);border-color:rgba(0,196,255,.5);color:#00c4ff">💾 Save &amp; Connect</button>
+                  <span id="save-result-truedata" style="font-family:'Space Mono';font-size:10px"></span>
+                </div>
               </div>
 
               <!-- ── SHOONYA / FINVASIA ── -->
@@ -3540,6 +3548,10 @@
                   </div>
                 </div>
                 <div class="key-hint" style="margin-top:8px">Get from: <a href="https://shoonya.finvasia.com" target="_blank">shoonya.finvasia.com</a> → Developer → API credentials. TOTP secret = the base32 key from your authenticator setup.</div>
+                <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                  <button class="btn" onclick="saveBrokerSection('shoonya')" id="save-btn-shoonya" style="padding:8px 20px;font-size:11px;background:rgba(255,97,160,.15);border-color:rgba(255,97,160,.5);color:#ff61a0">💾 Save &amp; Connect</button>
+                  <span id="save-result-shoonya" style="font-family:'Space Mono';font-size:10px"></span>
+                </div>
               </div>
 
               <!-- ── ANGEL ONE ── -->
@@ -3579,6 +3591,10 @@
                   </div>
                 </div>
                 <div class="key-hint" style="margin-top:8px">Get from: <a href="https://smartapi.angelbroking.com" target="_blank">smartapi.angelbroking.com</a> → Create App → Copy API Key</div>
+                <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                  <button class="btn" onclick="saveBrokerSection('angel')" id="save-btn-angel" style="padding:8px 20px;font-size:11px;background:rgba(66,133,244,.15);border-color:rgba(66,133,244,.5);color:#4285f4">💾 Save &amp; Connect</button>
+                  <span id="save-result-angel" style="font-family:'Space Mono';font-size:10px"></span>
+                </div>
               </div>
 
               <!-- ── FYERS ── -->
@@ -3604,6 +3620,10 @@
                   </div>
                 </div>
                 <div class="key-hint" style="margin-top:8px">Get from: <a href="https://myapi.fyers.in" target="_blank">myapi.fyers.in</a> → My Apps → Access Token (regenerate daily)</div>
+                <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                  <button class="btn" onclick="saveBrokerSection('fyers')" id="save-btn-fyers" style="padding:8px 20px;font-size:11px;background:rgba(255,157,61,.15);border-color:rgba(255,157,61,.5);color:#ff9d3d">💾 Save &amp; Connect</button>
+                  <span id="save-result-fyers" style="font-family:'Space Mono';font-size:10px"></span>
+                </div>
               </div>
 
               <!-- ── ZERODHA ── -->
@@ -3629,6 +3649,10 @@
                   </div>
                 </div>
                 <div class="key-hint" style="margin-top:8px">Get from: <a href="https://kite.trade" target="_blank">kite.trade</a> → My Apps → Generate daily access token via login flow</div>
+                <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                  <button class="btn" onclick="saveBrokerSection('zerodha')" id="save-btn-zerodha" style="padding:8px 20px;font-size:11px;background:rgba(123,97,255,.15);border-color:rgba(123,97,255,.5);color:#7b61ff">💾 Save &amp; Connect</button>
+                  <span id="save-result-zerodha" style="font-family:'Space Mono';font-size:10px"></span>
+                </div>
               </div>
 
               <!-- ── YAHOO FINANCE (fallback) ── -->
@@ -5721,6 +5745,70 @@
         res.textContent = '❌ Could not connect to server.';
       }
       btn.disabled = false; btn.textContent = '💾 Save Feed Credentials';
+    }
+
+    // ── PER-BROKER SAVE & CONNECT ─────────────────────────────
+    async function saveBrokerSection(broker) {
+      const btn = document.getElementById(`save-btn-${broker}`);
+      const res = document.getElementById(`save-result-${broker}`);
+      if (!btn || !res) return;
+
+      const brokerFields = {
+        upstox: {
+          upstox_access_token: document.getElementById('inp-upstox-token')?.value.trim() || '',
+        },
+        truedata: {
+          truedata_username: document.getElementById('inp-truedata-user')?.value.trim() || '',
+          truedata_password: document.getElementById('inp-truedata-pass')?.value.trim() || '',
+        },
+        shoonya: {
+          shoonya_user:     document.getElementById('inp-shoonya-user')?.value.trim()   || '',
+          shoonya_password: document.getElementById('inp-shoonya-pass')?.value.trim()   || '',
+          shoonya_api_key:  document.getElementById('inp-shoonya-apikey')?.value.trim() || '',
+          shoonya_totp_key: document.getElementById('inp-shoonya-totp')?.value.trim()   || '',
+        },
+        angel: {
+          angel_api_key:   document.getElementById('inp-angel-apikey')?.value.trim()   || '',
+          angel_client_id: document.getElementById('inp-angel-clientid')?.value.trim() || '',
+          angel_mpin:      document.getElementById('inp-angel-mpin')?.value.trim()     || '',
+          angel_totp_key:  document.getElementById('inp-angel-totp')?.value.trim()     || '',
+        },
+        fyers: {
+          fyers_access_token: document.getElementById('inp-fyers-token')?.value.trim()  || '',
+          fyers_app_id:       document.getElementById('inp-fyers-appid')?.value.trim()  || '',
+        },
+        zerodha: {
+          zerodha_api_key:      document.getElementById('inp-zerodha-apikey')?.value.trim() || '',
+          zerodha_access_token: document.getElementById('inp-zerodha-token')?.value.trim()  || '',
+        },
+      };
+
+      const data = brokerFields[broker];
+      if (!data) return;
+
+      btn.disabled = true; btn.textContent = '⏳ Saving...';
+      res.style.color = 'var(--muted)'; res.textContent = 'Connecting...';
+
+      try {
+        const r = await fetch(`${API}/update-feed-keys`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const d = await r.json();
+        if (d.status === 'ok') {
+          res.style.color = 'var(--green)';
+          res.textContent = '✅ Saved! Active: ' + (d.active_feed || 'checking...');
+          setTimeout(initFeedStatus, 800);
+        } else {
+          res.style.color = 'var(--red)';
+          res.textContent = '❌ ' + (d.message || 'Save failed');
+        }
+      } catch(e) {
+        res.style.color = 'var(--red)';
+        res.textContent = '❌ Server not reachable';
+      }
+      btn.disabled = false; btn.textContent = '💾 Save & Connect';
     }
 
     async function loadFeedKeys() {
