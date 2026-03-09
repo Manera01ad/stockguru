@@ -245,28 +245,44 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 ANTHROPIC_API_KEY= os.getenv("ANTHROPIC_API_KEY", "")
 GEMINI_API_KEY   = os.getenv("GEMINI_API_KEY", "")
 
-YAHOO_SYMBOLS = {
-    "NIFTY 50":    "^NSEI",
-    "SENSEX":      "^BSESN",
-    "BANK NIFTY":  "^NSEBANK",
-    "INDIA VIX":   "^INDIAVIX",
-    "AIRTEL":      "BHARTIARTL.NS",
-    "HDFC BANK":   "HDFCBANK.NS",
-    "ICICI BANK":  "ICICIBANK.NS",
-    "BAJAJ FIN":   "BAJFINANCE.NS",
-    "BEL":         "BEL.NS",
-    "MUTHOOT":     "MUTHOOTFIN.NS",
-    "ZOMATO":      "ZOMATO.NS",
-    "INDIGO":      "INDIGO.NS",
-    "GOLD MCX":    "GC=F",
-    "SILVER MCX":  "SI=F",
-    "CRUDE OIL":   "CL=F",
-    "NAT GAS":     "NG=F",
-    "USD/INR":     "INR=X",
-    "BTC/INR":     "BTC-INR",
-    "ETH/INR":     "ETH-INR",
-    "SOL/INR":     "SOL-INR",
+# ── DUAL SYMBOL MAP ──────────────────────────────────────────────────────────
+# Each instrument has:
+#   yahoo   → Yahoo Finance symbol  (delayed, always available)
+#   shoonya → (exchange, tsym)      (live, requires Shoonya credentials)
+#   angel   → symboltoken           (live, Angel One SmartAPI)
+#   mcx     → True if MCX commodity (Shoonya uses MCX exchange)
+# Toggle between feeds using the ON/OFF switches in the API Keys tab.
+# ─────────────────────────────────────────────────────────────────────────────
+INSTRUMENTS = {
+    # ── INDICES ──────────────────────────────────────────────────────────────
+    "NIFTY 50":   {"yahoo": "^NSEI",        "shoonya": ("NSE", "Nifty 50"),    "mcx": False},
+    "SENSEX":     {"yahoo": "^BSESN",       "shoonya": ("BSE", "SENSEX"),      "mcx": False},
+    "BANK NIFTY": {"yahoo": "^NSEBANK",     "shoonya": ("NSE", "Nifty Bank"),  "mcx": False},
+    "INDIA VIX":  {"yahoo": "^INDIAVIX",    "shoonya": ("NSE", "India VIX"),   "mcx": False},
+    # ── NSE EQUITIES ─────────────────────────────────────────────────────────
+    "AIRTEL":     {"yahoo": "BHARTIARTL.NS","shoonya": ("NSE", "BHARTIARTL-EQ"),"mcx": False},
+    "HDFC BANK":  {"yahoo": "HDFCBANK.NS",  "shoonya": ("NSE", "HDFCBANK-EQ"),  "mcx": False},
+    "ICICI BANK": {"yahoo": "ICICIBANK.NS", "shoonya": ("NSE", "ICICIBANK-EQ"), "mcx": False},
+    "BAJAJ FIN":  {"yahoo": "BAJFINANCE.NS","shoonya": ("NSE", "BAJFINANCE-EQ"),"mcx": False},
+    "BEL":        {"yahoo": "BEL.NS",       "shoonya": ("NSE", "BEL-EQ"),       "mcx": False},
+    "MUTHOOT":    {"yahoo": "MUTHOOTFIN.NS","shoonya": ("NSE", "MUTHOOTFIN-EQ"),"mcx": False},
+    "ZOMATO":     {"yahoo": "ZOMATO.NS",    "shoonya": ("NSE", "ZOMATO-EQ"),    "mcx": False},
+    "INDIGO":     {"yahoo": "INDIGO.NS",    "shoonya": ("NSE", "INDIGO-EQ"),    "mcx": False},
+    # ── MCX COMMODITIES (Shoonya: MCX exchange, Yahoo: futures codes) ────────
+    "GOLD MCX":   {"yahoo": "GC=F",         "shoonya": ("MCX", "GOLD"),         "mcx": True},
+    "SILVER MCX": {"yahoo": "SI=F",         "shoonya": ("MCX", "SILVER"),       "mcx": True},
+    "CRUDE OIL":  {"yahoo": "CL=F",         "shoonya": ("MCX", "CRUDEOIL"),     "mcx": True},
+    "NAT GAS":    {"yahoo": "NG=F",         "shoonya": ("MCX", "NATURALGAS"),   "mcx": True},
+    # ── CURRENCY (CDS) ───────────────────────────────────────────────────────
+    "USD/INR":    {"yahoo": "INR=X",        "shoonya": ("CDS", "USDINR"),       "mcx": False},
+    # ── CRYPTO (Yahoo only — Shoonya does not support crypto) ────────────────
+    "BTC/INR":    {"yahoo": "BTC-INR",      "shoonya": None,                    "mcx": False},
+    "ETH/INR":    {"yahoo": "ETH-INR",      "shoonya": None,                    "mcx": False},
+    "SOL/INR":    {"yahoo": "SOL-INR",      "shoonya": None,                    "mcx": False},
 }
+
+# Backwards-compatible alias — Yahoo symbols keyed by display name
+YAHOO_SYMBOLS = {name: info["yahoo"] for name, info in INSTRUMENTS.items()}
 
 WATCHLIST = [
     {"name":"AIRTEL",    "symbol":"BHARTIARTL.NS", "sector":"Telecom",   "pe":24, "roe":18, "de":0.8, "base_score":93},
@@ -439,15 +455,20 @@ def fetch_yahoo_price(symbol):
 
 def fetch_all_prices():
     global last_update
-    use_feed_mgr = _FEED_OK and _feed_mgr and _feed_mgr.active_name != "yahoo"
+    active_feed  = _feed_mgr.active_name if (_FEED_OK and _feed_mgr) else "yahoo"
+    use_feed_mgr = active_feed != "yahoo"
     feed_label   = (_feed_mgr.active_label if use_feed_mgr else "Yahoo Finance")
     log.info(f"🔄 Fetching live prices via {feed_label}...")
-    for name, symbol in YAHOO_SYMBOLS.items():
+    for name, info in INSTRUMENTS.items():
+        yahoo_sym  = info["yahoo"]
+        shoonya_sym= info.get("shoonya")          # (exchange, tsym) or None
+        # Use native symbol for active feed; Yahoo symbol as key for fallback
+        symbol     = yahoo_sym                     # used for fallback + cache key
         data = None
         # ── Route through feed manager (Shoonya, Angel, etc.) if configured ──
-        if use_feed_mgr:
+        if use_feed_mgr and shoonya_sym is not None:
             try:
-                raw = _feed_mgr.get_quote(symbol)
+                raw = _feed_mgr.get_quote(yahoo_sym)  # feed manager maps internally
                 if raw and raw.get("price", 0) > 0 and "error" not in raw:
                     data = {
                         "price":      raw.get("price", 0),
