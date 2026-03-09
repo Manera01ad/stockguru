@@ -5243,6 +5243,7 @@
                 <span id="term-feed-latency" style="font-size:9px;color:#445">15min</span>
               </div>
               <span id="term-live-dot" style="width:7px;height:7px;background:#00e676;border-radius:50%;display:inline-block;animation:blink 1.2s infinite"></span>
+              <span id="term-live-badge" style="font-size:9px;font-weight:700;letter-spacing:.06em;color:#00e676;opacity:0.3;transition:opacity .2s;text-transform:uppercase">● LIVE</span>
             </div>
           </div>
         
@@ -7650,14 +7651,53 @@
           const x = data.prices[firstSym];
           tickEl.textContent = `[${firstSym}: ${x.price}]`;
           tickEl.style.display = 'inline';
-          // Fade out after a moment
           setTimeout(() => { if (tickEl.textContent.includes(firstSym)) tickEl.style.opacity = '0.3'; }, 300);
           setTimeout(() => { if (tickEl.textContent.includes(firstSym)) tickEl.style.display = 'none'; }, 2000);
           tickEl.style.opacity = '1';
         }
 
+        // ── Live terminal chart price injection ─────────────────────────────
+        // Match the current terminal symbol against the incoming price batch.
+        // We update the price header INSTANTLY so the user sees real-time prices,
+        // while the full OHLCV candle stays on a 5-second poll for accurate bars.
+        if (_currSym && _candleSeries) {
+          const match = (_allSymbols || []).find(s => s.sym === _currSym);
+          if (match) {
+            const p = data.prices[match.label];
+            if (p && p.price) {
+              const dec = _pDec(p.price);
+              // Flash the price display
+              const priceEl = document.getElementById('term-price');
+              if (priceEl) {
+                priceEl.textContent = _fmt(p.price, dec);
+                priceEl.style.color = '#00e676';
+                setTimeout(() => { priceEl.style.color = ''; }, 400);
+              }
+              const chgPct = p.change_pct || 0;
+              const chgEl = document.getElementById('term-price-chg');
+              if (chgEl) {
+                chgEl.textContent = `${chgPct > 0 ? '+' : ''}${chgPct.toFixed(2)}%`;
+                chgEl.className = 'term-price-chg ' + (chgPct >= 0 ? 'up' : 'dn');
+              }
+              // Push the tick into the current candle bar (updates close in real-time)
+              try {
+                const nowTs   = Math.floor(Date.now() / 1000);
+                const tfSecs  = {'1m':60,'5m':300,'15m':900,'30m':1800,'60m':3600,'1h':3600,'1d':86400}[_currTF] || 300;
+                const barTs   = nowTs - (nowTs % tfSecs);
+                if (_chartType === 'candle' || _chartType === 'bar') {
+                  _candleSeries.update({ time: barTs, open: p.price, high: p.price, low: p.price, close: p.price });
+                } else {
+                  _candleSeries.update({ time: barTs, value: p.price });
+                }
+                // Flash the LIVE badge
+                const liveBadge = document.getElementById('term-live-badge');
+                if (liveBadge) { liveBadge.style.opacity = '1'; setTimeout(() => liveBadge.style.opacity = '0.3', 500); }
+              } catch(te) { /* series not ready yet */ }
+            }
+          }
+        }
+
         // Like a real broker terminal, we only re-render the prices that actually changed
-        // This is much faster than fetchPrices()
         Promise.all([fetchPrices(), fetchWatchlist(), fetchMood()])
           .then(triggerHeartbeat)
           .catch(() => { });
@@ -9477,7 +9517,7 @@ window.initTerminal = function() {
   // Order book refresh every 3s
   _obInterval = setInterval(() => { if (document.getElementById('tab-terminal').classList.contains('active')) _refreshOB(); }, 3000);
   // Chart price refresh every 8s
-  _chartInterval = setInterval(() => { if (document.getElementById('tab-terminal').classList.contains('active')) _refreshLastCandle(); }, 8000);
+  _chartInterval = setInterval(() => { if (document.getElementById('tab-terminal').classList.contains('active')) _refreshLastCandle(); }, 5000); // 5s poll for live OHLC bar refresh
 };
 
 function _getChartHeight() {
@@ -9507,12 +9547,48 @@ function _buildCharts() {
   const chartH = _getChartHeight();
   const chartW = chartEl.offsetWidth || (window.innerWidth - 210);  // minus sidebar
 
+  // ── IST timezone helpers (LightweightCharts v4 has no built-in timezone option)
+  // Shift each UTC Unix timestamp +5h30m so the chart axis shows IST times ──────
+  const _IST_OFFSET_S = 19800; // 5 * 3600 + 30 * 60 = 19800 seconds
+
+  function _fmtISTaxis(ts, type) {
+    // Build a Date whose UTC fields map to IST local clock
+    const d = new Date((ts + _IST_OFFSET_S) * 1000);
+    const h   = String(d.getUTCHours()).padStart(2, '0');
+    const min = String(d.getUTCMinutes()).padStart(2, '0');
+    const DD  = d.getUTCDate();
+    const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()];
+    const YY  = d.getUTCFullYear();
+    // type: 0=Year  1=Month  2=DayOfMonth  3=Time  4=TimeWithSeconds
+    if (type === 0) return String(YY);
+    if (type === 1) return `${MON} ${YY}`;
+    if (type === 2) return `${DD} ${MON}`;
+    return `${h}:${min}`;   // 3 or 4 → HH:MM IST
+  }
+
   const commonOpts = {
     layout:     { background: { color: '#0b0e14' }, textColor: '#8892a0' },
     grid:       { vertLines: { color: '#141921' }, horzLines: { color: '#141921' } },
     crosshair:  { mode: 1 },
     rightPriceScale: { borderColor: '#1e2530', scaleMargins: { top: 0.06, bottom: 0.06 } },
-    timeScale:  { borderColor: '#1e2530', timeVisible: true, secondsVisible: false, rightOffset: 5, timezone: 'Asia/Kolkata' },
+    // IST display: timeFormatter → crosshair tooltip  |  tickMarkFormatter → x-axis labels
+    localization: {
+      timeFormatter: (ts) => {
+        const d = new Date((ts + _IST_OFFSET_S) * 1000);
+        const h   = String(d.getUTCHours()).padStart(2, '0');
+        const min = String(d.getUTCMinutes()).padStart(2, '0');
+        const DD  = d.getUTCDate();
+        const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()];
+        return `${DD} ${MON}  ${h}:${min} IST`;
+      },
+    },
+    timeScale: {
+      borderColor: '#1e2530',
+      timeVisible: true,
+      secondsVisible: false,
+      rightOffset: 5,
+      tickMarkFormatter: _fmtISTaxis,   // renders x-axis tick labels in IST
+    },
     handleScroll: { mouseWheel: true, pressedMouseMove: true },
     handleScale:  { mouseWheel: true, pinch: true },
   };
@@ -9647,33 +9723,55 @@ async function _loadChart() {
   } catch(e) { console.warn('[Terminal] chart load error', e); }
 }
 
+// ── Candle data cleaner ───────────────────────────────────────────────────
+// LightweightCharts v4 is strict: times must be strictly ascending, no NaN.
+// This deduplicates, filters invalid rows, and sorts before passing to the chart.
+function _cleanCandles(raw) {
+  if (!Array.isArray(raw) || !raw.length) return [];
+  const seen = new Map();
+  for (const c of raw) {
+    if (!c || !c.time) continue;
+    const o = +c.open, h = +c.high, l = +c.low, cl = +c.close;
+    if (!isFinite(o) || !isFinite(h) || !isFinite(l) || !isFinite(cl)) continue;
+    if (o <= 0 || h < l || l <= 0) continue;
+    seen.set(+c.time, { time: +c.time, open: o, high: h, low: l, close: cl, volume: +(c.volume || 0) });
+  }
+  return Array.from(seen.values()).sort((a, b) => a.time - b.time);
+}
+
 function _renderChart(d) {
   if (!d.candles || !d.candles.length || !_candleSeries) return;
-  const dec = _pDec(d.price || 1);
+  const dec     = _pDec(d.price || 1);
+  const candles = _cleanCandles(d.candles);
+  if (!candles.length) { console.warn('[Terminal] No valid candles after cleaning'); return; }
 
-  if (_chartType === 'candle') {
-    _candleSeries.setData(d.candles.map(c => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close })));
-    _candleSeries.applyOptions({ priceFormat: { type: 'price', precision: dec, minMove: 1/Math.pow(10,dec) } });
-  } else if (_chartType === 'line') {
-    _candleSeries.setData(d.candles.map(c => ({ time: c.time, value: c.close })));
-  } else {
-    // bar — same as candle data
-    _candleSeries.setData(d.candles.map(c => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close })));
+  try {
+    if (_chartType === 'candle') {
+      _candleSeries.setData(candles);
+      _candleSeries.applyOptions({ priceFormat: { type: 'price', precision: dec, minMove: 1/Math.pow(10,dec) } });
+    } else if (_chartType === 'line') {
+      _candleSeries.setData(candles.map(c => ({ time: c.time, value: c.close })));
+    } else {
+      // bar
+      _candleSeries.setData(candles);
+    }
+
+    // Volume
+    _volSeries.setData(candles.map(c => ({
+      time: c.time, value: c.volume,
+      color: c.close >= c.open ? 'rgba(0,230,118,.4)' : 'rgba(255,82,82,.35)',
+    })));
+
+    // MAs
+    _maSeries.ma7.setData(_maVisible.ma7  ? _calcEMA(candles, 7)  : []);
+    _maSeries.ma25.setData(_maVisible.ma25 ? _calcEMA(candles, 25) : []);
+    _maSeries.ma99.setData(_maVisible.ma99 ? _calcEMA(candles, 99) : []);
+
+    _termChart.timeScale().fitContent();
+  } catch(err) {
+    console.error('[Terminal] setData error:', err.message, '| candles:', candles.length,
+                  '| first:', candles[0]?.time, 'last:', candles[candles.length-1]?.time);
   }
-
-  // Volume
-  const maxVol = Math.max(...d.candles.map(c => c.volume));
-  _volSeries.setData(d.candles.map(c => ({
-    time: c.time, value: c.volume,
-    color: c.close >= c.open ? 'rgba(0,230,118,.4)' : 'rgba(255,82,82,.35)',
-  })));
-
-  // MAs
-  _maSeries.ma7.setData(_maVisible.ma7 ? _calcEMA(d.candles, 7) : []);
-  _maSeries.ma25.setData(_maVisible.ma25 ? _calcEMA(d.candles, 25) : []);
-  _maSeries.ma99.setData(_maVisible.ma99 ? _calcEMA(d.candles, 99) : []);
-
-  _termChart.timeScale().fitContent();
 }
 
 function _updateTopBar(d) {
@@ -9699,12 +9797,27 @@ async function _refreshLastCandle() {
     const r = await fetch(`/api/ohlcv?sym=${encodeURIComponent(_currSym)}&interval=${_currTF}&range=1d&seg=${_currSegment}`);
     const d = await r.json();
     if (d.candles && d.candles.length) {
-      const last = d.candles[d.candles.length-1];
-      _candleSeries.update({ time: last.time, open: last.open, high: last.high, low: last.low, close: last.close });
-      _volSeries.update({ time: last.time, value: last.volume, color: last.close >= last.open ? 'rgba(0,230,118,.4)' : 'rgba(255,82,82,.35)' });
+      const candles = _cleanCandles(d.candles);
+      if (candles.length) {
+        const last = candles[candles.length - 1];
+        try {
+          // update() extends the last bar or adds a new one if the timestamp is newer
+          if (_chartType === 'candle' || _chartType === 'bar') {
+            _candleSeries.update({ time: last.time, open: last.open, high: last.high, low: last.low, close: last.close });
+          } else {
+            _candleSeries.update({ time: last.time, value: last.close });
+          }
+          _volSeries.update({ time: last.time, value: last.volume,
+            color: last.close >= last.open ? 'rgba(0,230,118,.4)' : 'rgba(255,82,82,.35)' });
+        } catch(updateErr) {
+          // If update fails (e.g. new bar has earlier time than existing), do full reload
+          console.warn('[Terminal] update() failed, full reload:', updateErr.message);
+          _renderChart(d);
+        }
+      }
     }
     _updateTopBar(d);
-  } catch(e) {}
+  } catch(e) { console.warn('[Terminal] _refreshLastCandle error', e); }
 }
 
 // ── Order book ────────────────────────────────────────────────────────────
