@@ -7,8 +7,8 @@ strFolder = objFSO.GetParentFolderName(objFile)
 ' Change directory to the script folder
 WshShell.CurrentDirectory = strFolder
 
-' Run START.bat with window hidden (0)
-' This runs the server in the background and opens the browser automatically
-WshShell.Run "cmd /c START.bat", 0, False
+' Run START.bat with normal window (1) so logs and bugs are visible
+' (Use 0 to hide completely, 7 to run minimized)
+WshShell.Run "cmd /c START.bat", 1, False
 
 Set WshShell = Nothing

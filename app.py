@@ -1046,7 +1046,7 @@ def run_all_agents():
             _realized = port.get("realized_pnl", 0)
             _emit("paper", "💼", f"{open_pos} open positions | Win rate {_win_rate:.0f}% | P&L ₹{_realized:+,.0f}",
                   "ACTIVE" if open_pos > 0 else "WATCHING",
-                  f"Paper trading engine evaluated {len(candidate_signals)} signals this cycle using 8-gate conviction filter. "
+                  f"Paper trading engine evaluated {len(shared_state.get('risk_reviewed_signals', []) or shared_state.get('actionable_signals', []))} signals this cycle using 8-gate conviction filter. "
                   f"Gates: score≥75, volume surge, above 200DMA, risk/reward≥1.2, sector tailwind, Claude approval, risk clearance, market hours. "
                   f"{'Entered: ' + _recent_trade.get('symbol','?') + ' @ ₹' + str(_recent_trade.get('entry_price','?')) if _recent_trade.get('result')=='EXECUTED' else 'No new entries this cycle — gates not all met or max positions reached'}. "
                   f"Portfolio: {open_pos}/5 positions | Win rate {_win_rate:.0f}%",

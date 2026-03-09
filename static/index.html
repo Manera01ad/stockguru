@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -5972,12 +5972,13 @@
         setVal('inp-zerodha-apikey',  d.zerodha_api_key);
         setVal('inp-zerodha-token',   d.zerodha_access_token);
         // Pre-fill saved folder path (if user previously clicked "Remember")
-        if (d.local_keys_path) {
-          const pathEl = document.getElementById('inp-local-env-path');
-          if (pathEl) { pathEl.value = d.local_keys_path; pathEl.classList.add('filled'); }
-          const chk = document.getElementById('chk-remember-path');
-          if (chk) chk.checked = true;
-        }
+        // Fall back to default project path so user never has to type it
+        const DEFAULT_PATH = 'C:\\Users\\Hp\\projects\\stockguru';
+        const savedPath = d.local_keys_path || DEFAULT_PATH;
+        const pathEl = document.getElementById('inp-local-env-path');
+        if (pathEl) { pathEl.value = savedPath; pathEl.classList.add('filled'); }
+        const chk = document.getElementById('chk-remember-path');
+        if (chk) chk.checked = true;  // default to remembering the path
       } catch(e) {
         console.warn('[loadFeedKeys] could not load from server:', e);
       }
@@ -7769,12 +7770,24 @@
                 chgEl.className = 'term-price-chg ' + (chgPct >= 0 ? 'up' : 'dn');
               }
               // Push the tick into the current candle bar (updates close in real-time)
+              // Preserves open/high/low so live candles form correctly like TradingView
               try {
                 const nowTs   = Math.floor(Date.now() / 1000);
                 const tfSecs  = {'1m':60,'5m':300,'15m':900,'30m':1800,'60m':3600,'1h':3600,'1d':86400}[_currTF] || 300;
                 const barTs   = nowTs - (nowTs % tfSecs);
                 if (_chartType === 'candle' || _chartType === 'bar') {
-                  _candleSeries.update({ time: barTs, open: p.price, high: p.price, low: p.price, close: p.price });
+                  if (barTs !== _liveBarTs) {
+                    // New candle bar — open at this tick's price
+                    _liveBarTs   = barTs;
+                    _liveBarOpen = p.price;
+                    _liveBarHigh = p.price;
+                    _liveBarLow  = p.price;
+                  } else {
+                    // Same bar — track running high/low, never reset open
+                    if (p.price > _liveBarHigh) _liveBarHigh = p.price;
+                    if (p.price < _liveBarLow)  _liveBarLow  = p.price;
+                  }
+                  _candleSeries.update({ time: barTs, open: _liveBarOpen, high: _liveBarHigh, low: _liveBarLow, close: p.price });
                 } else {
                   _candleSeries.update({ time: barTs, value: p.price });
                 }
@@ -9482,11 +9495,17 @@ let _volSeries      = null;
 let _maSeries       = { ma7: null, ma25: null, ma99: null };
 let _maVisible      = { ma7: true, ma25: true, ma99: true };
 let _chartType      = 'candle';
+// Live-bar trackers — prevent open/high/low from resetting on every tick
+let _liveBarTs      = 0;
+let _liveBarOpen    = 0;
+let _liveBarHigh    = 0;
+let _liveBarLow     = Infinity;
 let _currSym        = 'BTC-USD';
 let _currLabel      = 'BTC/USDT';
 let _currSegment    = 'crypto';
 let _currTF         = '15m';
 let _currRange      = '5d';
+let _chartType      = 'candle';
 let _obInterval     = null;
 let _chartInterval  = null;
 let _countdownTimer = null;
@@ -9798,6 +9817,8 @@ window.termSearchFilter = function(val) {
 // ── Load symbol ───────────────────────────────────────────────────────────
 window.termLoadSymbol = async function(sym, label, pillEl) {
   _currSym = sym; _currLabel = label;
+  // Reset live-bar state when switching symbols — new symbol = fresh candles
+  _liveBarTs = 0; _liveBarOpen = 0; _liveBarHigh = 0; _liveBarLow = Infinity;
   document.getElementById('term-sym-label').textContent = label;
   document.getElementById('term-price').textContent = '…';
 
@@ -9866,6 +9887,14 @@ function _renderChart(d) {
     _maSeries.ma99.setData(_maVisible.ma99 ? _calcEMA(candles, 99) : []);
 
     _termChart.timeScale().fitContent();
+
+    // Seed live-bar trackers from the last historical candle so the first
+    // incoming tick extends it correctly instead of resetting open/high/low
+    const last = candles[candles.length - 1];
+    _liveBarTs   = last.time;
+    _liveBarOpen = last.open;
+    _liveBarHigh = last.high;
+    _liveBarLow  = last.low;
   } catch(err) {
     console.error('[Terminal] setData error:', err.message, '| candles:', candles.length,
                   '| first:', candles[0]?.time, 'last:', candles[candles.length-1]?.time);
@@ -9945,6 +9974,11 @@ async function _refreshLastCandle() {
           // update() extends the last bar or adds a new one if the timestamp is newer
           if (_chartType === 'candle' || _chartType === 'bar') {
             _candleSeries.update({ time: last.time, open: last.open, high: last.high, low: last.low, close: last.close });
+            // Sync live-bar trackers so subsequent ticks extend this authoritative candle
+            _liveBarTs   = last.time;
+            _liveBarOpen = last.open;
+            _liveBarHigh = last.high;
+            _liveBarLow  = last.low;
           } else {
             _candleSeries.update({ time: last.time, value: last.close });
           }
@@ -10012,6 +10046,8 @@ function _renderOB(d) {
 // ── Timeframe / chart type / MA toggles ──────────────────────────────────
 window.termSetTF = function(tf, range, btn) {
   _currTF = tf; _currRange = range;
+  // Reset live-bar state so the first tick on the new TF starts a fresh candle
+  _liveBarTs = 0; _liveBarOpen = 0; _liveBarHigh = 0; _liveBarLow = Infinity;
   document.querySelectorAll('.term-tf-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   _loadChart();
