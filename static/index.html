@@ -1798,14 +1798,10 @@
       <!-- Group: Trading -->
       <div class="sidebar-group">
         <span class="sidebar-group-label">Trading</span>
-        <button class="tab-btn" data-label="Paper Trade" onclick="showTab('terminal',this);initTerminal();setTimeout(()=>termSwitchPanel('trade'),300)"> <span
-            class="tab-icon">🎯</span><span class="tab-label">Paper Trade</span></button>
         <button class="tab-btn" data-label="Portfolio" onclick="showTab('portfolio',this)"> <span
             class="tab-icon">💼</span><span class="tab-label">Portfolio</span></button>
-        <button class="tab-btn" data-label="Alerts" onclick="showTab('terminal',this);initTerminal();setTimeout(()=>termSwitchPanel('alerts'),300)"> <span
-            class="tab-icon">🔔</span><span class="tab-label">Alerts</span></button>
         <button class="tab-btn" data-label="Terminal" onclick="showTab('terminal',this);initTerminal()"> <span
-            class="tab-icon">📟</span><span class="tab-label">Terminal</span><span style="margin-left:5px;background:#00ff88;color:#000;font-size:8px;padding:1px 5px;border-radius:8px;font-weight:700">NEW</span></button>
+            class="tab-icon">📟</span><span class="tab-label">Terminal</span></button>
       </div>
 
       <!-- Group: Tools -->
@@ -5358,13 +5354,13 @@
             </div>
         
             <!-- Chart + Bottom Trade Panel -->
-            <div class="term-chart-wrap" style="flex: 1; display: flex; flex-direction: column;">
-              
-              <!-- TradingView Widget Container -->
-              <div id="term-chart" style="flex: 1; min-height: 480px; width: 100%; border-bottom: 1px solid var(--border);"></div>
+            <div class="term-chart-wrap" style="flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden;">
+
+              <!-- TradingView Widget Container — flex:1 but no min-height so bottom panel stays visible -->
+              <div id="term-chart" style="flex: 1; min-height: 0; width: 100%; border-bottom: 1px solid var(--border);"></div>
               
               <!-- ── Compact Market Session Bar ── -->
-              <div id="term-session-bar" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:8px 12px;background:rgba(0,0,0,.25);border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
+              <div id="term-session-bar" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:6px 12px;background:rgba(0,0,0,.25);border-bottom:1px solid var(--border);flex-shrink:0;">
                 <div class="sahi-seg" id="term-seg-NSE_EQUITY" style="padding:6px 10px;text-align:center;background:var(--bg2);border:1px solid var(--border);border-radius:8px">
                   <div style="font-size:9px;color:var(--muted);letter-spacing:.06em">NSE EQUITY</div>
                   <div style="font-size:10px;color:var(--text);font-weight:700" id="term-seg-state-NSE_EQUITY">LOADING</div>
@@ -5388,7 +5384,7 @@
               </div>
 
               <!-- ── Merged Bottom Panel ── -->
-              <div class="term-bottom-panel" style="height:300px;background:rgba(0,22,30,.97);display:flex;flex-direction:column;overflow:hidden;border-left:1px solid var(--border);">
+              <div class="term-bottom-panel" style="height:260px;flex-shrink:0;background:rgba(0,22,30,.97);display:flex;flex-direction:column;overflow:hidden;border-left:1px solid var(--border);border-top:1px solid var(--border);">
 
                 <!-- Tab bar + portfolio mini-stats -->
                 <div style="display:flex;align-items:center;padding:0 16px;border-bottom:1px solid var(--border);background:rgba(0,196,204,.03);flex-shrink:0;overflow-x:auto;">
@@ -9428,8 +9424,9 @@ setTimeout(injectWorkflowPanels, 1500);
 /* ── Terminal Tab — full-bleed, zero section padding ────────────────── */
 #tab-terminal {
   display: none;
-  padding: 0 !important;       /* override .section { padding:24px 0 48px } */
-  height: calc(100vh - 154px); /* 64px header + 38px ticker + 52px footer = 154px */
+  padding: 0 !important;
+  height: calc(100vh - 108px); /* header(64) + ticker(44) */
+  max-height: calc(100vh - 108px);
   overflow: hidden;
 }
 #tab-terminal.active {
@@ -9563,7 +9560,7 @@ setTimeout(injectWorkflowPanels, 1500);
 
 /* Chart area */
 .term-chart-wrap {
-  flex:1; display:flex; flex-direction:column; min-width:0; background:#0b0e14;
+  flex:1; display:flex; flex-direction:column; min-width:0; min-height:0; background:#0b0e14; overflow:hidden;
 }
 .term-chart-toolbar {
   display:flex; align-items:center; gap:8px; padding:5px 12px;
