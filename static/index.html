@@ -5360,31 +5360,31 @@
               <div id="term-chart" style="flex: 1; min-height: 0; width: 100%; border-bottom: 1px solid var(--border);"></div>
               
               <!-- ── Compact Market Session Bar ── -->
-              <div id="term-session-bar" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:6px 12px;background:rgba(0,0,0,.25);border-bottom:1px solid var(--border);flex-shrink:0;">
-                <div class="sahi-seg" id="term-seg-NSE_EQUITY" style="padding:6px 10px;text-align:center;background:var(--bg2);border:1px solid var(--border);border-radius:8px">
-                  <div style="font-size:9px;color:var(--muted);letter-spacing:.06em">NSE EQUITY</div>
-                  <div style="font-size:10px;color:var(--text);font-weight:700" id="term-seg-state-NSE_EQUITY">LOADING</div>
-                  <div style="font-size:9px;color:var(--muted)">9:15 – 15:30</div>
+              <div id="term-session-bar" style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:4px 10px;background:rgba(0,0,0,.25);border-bottom:1px solid var(--border);flex-shrink:0;">
+                <div class="sahi-seg" id="term-seg-NSE_EQUITY" style="padding:4px 8px;text-align:center;background:var(--bg2);border:1px solid var(--border);border-radius:6px">
+                  <div style="font-size:8px;color:var(--muted);letter-spacing:.06em">NSE EQ</div>
+                  <div style="font-size:9px;color:var(--text);font-weight:700" id="term-seg-state-NSE_EQUITY">—</div>
+                  <div style="font-size:8px;color:var(--muted)">9:15–15:30</div>
                 </div>
-                <div class="sahi-seg" id="term-seg-NSE_FNO" style="padding:6px 10px;text-align:center;background:var(--bg2);border:1px solid var(--border);border-radius:8px">
-                  <div style="font-size:9px;color:var(--muted);letter-spacing:.06em">NSE F&amp;O</div>
-                  <div style="font-size:10px;color:var(--text);font-weight:700" id="term-seg-state-NSE_FNO">LOADING</div>
-                  <div style="font-size:9px;color:var(--muted)">9:15 – 15:30</div>
+                <div class="sahi-seg" id="term-seg-NSE_FNO" style="padding:4px 8px;text-align:center;background:var(--bg2);border:1px solid var(--border);border-radius:6px">
+                  <div style="font-size:8px;color:var(--muted);letter-spacing:.06em">NSE F&amp;O</div>
+                  <div style="font-size:9px;color:var(--text);font-weight:700" id="term-seg-state-NSE_FNO">—</div>
+                  <div style="font-size:8px;color:var(--muted)">9:15–15:30</div>
                 </div>
-                <div class="sahi-seg" id="term-seg-MCX" style="padding:6px 10px;text-align:center;background:var(--bg2);border:1px solid var(--border);border-radius:8px">
-                  <div style="font-size:9px;color:var(--muted);letter-spacing:.06em">MCX COMMODITY</div>
-                  <div style="font-size:10px;color:var(--text);font-weight:700" id="term-seg-state-MCX">LOADING</div>
-                  <div style="font-size:9px;color:var(--muted)">9:00 – 23:30</div>
+                <div class="sahi-seg" id="term-seg-MCX" style="padding:4px 8px;text-align:center;background:var(--bg2);border:1px solid var(--border);border-radius:6px">
+                  <div style="font-size:8px;color:var(--muted);letter-spacing:.06em">MCX</div>
+                  <div style="font-size:9px;color:var(--text);font-weight:700" id="term-seg-state-MCX">—</div>
+                  <div style="font-size:8px;color:var(--muted)">9:00–23:30</div>
                 </div>
-                <div class="sahi-seg" id="term-seg-NSE_CURRENCY" style="padding:6px 10px;text-align:center;background:var(--bg2);border:1px solid var(--border);border-radius:8px">
-                  <div style="font-size:9px;color:var(--muted);letter-spacing:.06em">NSE CURRENCY</div>
-                  <div style="font-size:10px;color:var(--text);font-weight:700" id="term-seg-state-NSE_CURRENCY">LOADING</div>
-                  <div style="font-size:9px;color:var(--muted)">9:00 – 17:00</div>
+                <div class="sahi-seg" id="term-seg-NSE_CURRENCY" style="padding:4px 8px;text-align:center;background:var(--bg2);border:1px solid var(--border);border-radius:6px">
+                  <div style="font-size:8px;color:var(--muted);letter-spacing:.06em">NSE FX</div>
+                  <div style="font-size:9px;color:var(--text);font-weight:700" id="term-seg-state-NSE_CURRENCY">—</div>
+                  <div style="font-size:8px;color:var(--muted)">9:00–17:00</div>
                 </div>
               </div>
 
               <!-- ── Merged Bottom Panel ── -->
-              <div class="term-bottom-panel" style="height:260px;flex-shrink:0;background:rgba(0,22,30,.97);display:flex;flex-direction:column;overflow:hidden;border-left:1px solid var(--border);border-top:1px solid var(--border);">
+              <div class="term-bottom-panel" style="height:220px;flex-shrink:0;background:rgba(0,22,30,.97);display:flex;flex-direction:column;overflow:hidden;border-left:1px solid var(--border);border-top:1px solid var(--border);">
 
                 <!-- Tab bar + portfolio mini-stats -->
                 <div style="display:flex;align-items:center;padding:0 16px;border-bottom:1px solid var(--border);background:rgba(0,196,204,.03);flex-shrink:0;overflow-x:auto;">
@@ -9597,7 +9597,7 @@ setTimeout(injectWorkflowPanels, 1500);
   width: 100%;
 }
 #term-vol-chart {
-  height: 72px;
+  height: 56px;
   flex-shrink: 0;
   border-top: 1px solid #1a1f28;
   width: 100%;
@@ -9762,9 +9762,10 @@ window.initTerminal = function() {
   _loadFeedStatus();   
   setInterval(_loadFeedStatus, 60000);  
 
-  _buildCharts();
-  termSelectSegment('crypto', document.querySelector('.term-seg-btn.seg-crypto'));
-  setTimeout(() => termLoadSymbol('BTC-USD', 'BTC/USDT'), 400);
+  // termSelectSegment will fetch symbols, render pills, build chart and load first symbol
+  setTimeout(() => {
+    termSelectSegment('crypto', document.querySelector('.term-seg-btn.seg-crypto'));
+  }, 200);
 
   // Order book refresh every 3s
   _obInterval = setInterval(() => { if (document.getElementById('tab-terminal').classList.contains('active')) _refreshOB(); }, 3000);
@@ -9819,6 +9820,33 @@ window.termSearchFilter = function(val) {
   _renderSymPills(filtered);
 };
 
+// ── Segment selector ─────────────────────────────────────────────────────────
+window.termSelectSegment = async function(seg, btn) {
+  _currSegment = seg;
+  // Update button styles
+  document.querySelectorAll('.term-seg-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  // Show/hide FnO sub-bar
+  const fnoBar = document.getElementById('term-fno-subbar');
+  const cryptoBar = document.getElementById('term-crypto-subbar');
+  if (fnoBar) fnoBar.style.display = (seg === 'fno') ? 'flex' : 'none';
+  if (cryptoBar) cryptoBar.style.display = (seg === 'crypto') ? 'flex' : 'none';
+  // Fetch symbol list for segment
+  try {
+    const data = await fetch(`${API}/segments`).then(r => r.json());
+    const syms = data[seg] || [];
+    _allSymbols = syms;
+    _renderSymPills(syms);
+    // Auto-load first symbol
+    if (syms.length) {
+      const first = syms[0];
+      termLoadSymbol(first.sym, first.label, document.querySelector('.term-sym-pill'));
+    }
+  } catch(e) {
+    console.warn('[Terminal] Segment fetch failed:', e);
+  }
+};
+
 window.termLoadSymbol = async function(sym, label, pillEl) {
   _currSym = sym; _currLabel = label;
   document.getElementById('term-sym-label').textContent = label;
@@ -9839,7 +9867,8 @@ window.termLoadSymbol = async function(sym, label, pillEl) {
   _refreshOB();
 
   try {
-    const r = await fetch(`/api/ohlcv?sym=${encodeURIComponent(_currSym)}&interval=1d&range=1d&seg=${_currSegment}`);
+    // Use 15m interval with 1d range for intraday stats (valid Yahoo combo)
+    const r = await fetch(`/api/ohlcv?sym=${encodeURIComponent(_currSym)}&interval=15m&range=1d&seg=${_currSegment}`);
     const d = await r.json();
     _updateTopBar(d);
   } catch(e) {}
@@ -9859,7 +9888,9 @@ function _updateTopBar(d) {
   document.getElementById('term-stat-vol').textContent  = _fmt(d.volume, 0);
   document.getElementById('term-stat-prev').textContent = fmt(d.prev_close);
   document.getElementById('term-stat-curr').textContent = d.currency || '--';
-  if (d.candles && d.candles.length) document.getElementById('term-stat-open').textContent = fmt(d.candles[0].open);
+  // Open: prefer day_open from quote, fall back to first candle open
+  const openVal = d.day_open || (d.candles && d.candles.length ? d.candles[0].open : null);
+  if (openVal) document.getElementById('term-stat-open').textContent = fmt(openVal);
 }
 
 // ── Terminal bottom panel tab switcher ───────────────────────────────────────
@@ -9939,20 +9970,20 @@ async function tpSell() {
 
 // ── Order book & Paper Trades ────────────────────────────────────────────────
 async function _refreshOB() {
-  try {
-    const obReq    = fetch(`/api/orderbook?sym=${encodeURIComponent(_currSym)}&depth=12`).then(r=>r.json());
-    const ptReq    = fetch('/api/paper-portfolio').then(r=>r.json());
-    const algReq   = fetch(`${API}/alerts`).then(r=>r.json()).catch(()=>[]);
-    const [obData, ptData, alertData] = await Promise.all([obReq, ptReq, algReq]);
-    _renderOB(obData);
-    _renderPaperTrades(ptData);
-    // Keep alert badge count live
-    const badge = document.getElementById('tp-alert-count');
-    if (badge) badge.textContent = alertData.length || 0;
-    // Refresh alert panel if it's currently open
-    const ap = document.getElementById('tp-panel-alerts');
-    if (ap && ap.style.display !== 'none') _refreshTermAlerts();
-  } catch(e) {}
+  // Each fetch is independent — one failure won't block the others
+  const [obData, ptData, alertData] = await Promise.all([
+    fetch(`/api/orderbook?sym=${encodeURIComponent(_currSym)}&depth=12`).then(r=>r.json()).catch(()=>({bids:[],asks:[],price:0})),
+    fetch('/api/paper-portfolio').then(r=>r.json()).catch(()=>({})),
+    fetch(`${API}/alerts`).then(r=>r.json()).catch(()=>[]),
+  ]);
+  _renderOB(obData);
+  _renderPaperTrades(ptData || {});
+  // Keep alert badge count live
+  const badge = document.getElementById('tp-alert-count');
+  if (badge) badge.textContent = alertData.length || 0;
+  // Refresh alert panel if it's currently open
+  const ap = document.getElementById('tp-panel-alerts');
+  if (ap && ap.style.display !== 'none') _refreshTermAlerts();
 }
 
 function _renderPaperTrades(d) {
@@ -10036,12 +10067,18 @@ async function tpSquareOff(symbol) {
 
 
 function _renderOB(d) {
-  if (!d.bids || !d.asks) return;
+  const asksEl = document.getElementById('term-ob-asks');
+  const bidsEl = document.getElementById('term-ob-bids');
+  if (!d || !d.bids || !d.asks || (!d.bids.length && !d.asks.length)) {
+    if (asksEl) asksEl.innerHTML = '<div style="text-align:center;padding:20px;color:#445;font-size:11px">Fetching order book…</div>';
+    if (bidsEl) bidsEl.innerHTML = '';
+    return;
+  }
   const dec = _pDec(d.price || 1);
   const fmt = n => _fmt(n, dec);
   const maxQ = Math.max(...[...d.asks, ...d.bids].map(r => r.qty), 1);
 
-  document.getElementById('term-ob-asks').innerHTML = d.asks.slice().reverse().map(row => {
+  if (asksEl) asksEl.innerHTML = d.asks.slice().reverse().map(row => {
     const barW = (row.qty / maxQ * 100).toFixed(1);
     return `<div class="ob-row ask">
       <div class="ob-bar" style="width:${barW}%"></div>
@@ -10051,9 +10088,10 @@ function _renderOB(d) {
   }).join('');
 
   const spread = d.spread ? (d.spread).toFixed(dec) : '--';
-  document.getElementById('term-ob-spread').textContent = `SPREAD  ${spread}`;
+  const spreadEl = document.getElementById('term-ob-spread');
+  if (spreadEl) spreadEl.textContent = `SPREAD  ${spread}`;
 
-  document.getElementById('term-ob-bids').innerHTML = d.bids.map(row => {
+  if (bidsEl) bidsEl.innerHTML = d.bids.map(row => {
     const barW = (row.qty / maxQ * 100).toFixed(1);
     return `<div class="ob-row bid">
       <div class="ob-bar" style="width:${barW}%"></div>
@@ -10063,6 +10101,7 @@ function _renderOB(d) {
   }).join('');
 
   // Buy/sell ratio
+
   const totalBid = d.bids.reduce((s, r) => s + r.qty, 0);
   const totalAsk = d.asks.reduce((s, r) => s + r.qty, 0);
   const total    = totalBid + totalAsk || 1;

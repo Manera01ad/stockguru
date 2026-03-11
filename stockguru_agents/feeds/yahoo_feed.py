@@ -31,9 +31,11 @@ class YahooFeed(DataFeed):
             meta = r.json()["chart"]["result"][0]["meta"]
             curr = meta.get("regularMarketPrice", 0)
             prev = meta.get("chartPreviousClose", curr) or curr
+            day_open = meta.get("regularMarketOpen", curr)
             return {
                 "price":      round(float(curr), 4),
                 "prev_close": round(float(prev), 4),
+                "day_open":   round(float(day_open), 4) if day_open else None,
                 "change_pct": round(((curr - prev) / prev) * 100, 2) if prev else 0,
                 "day_high":   meta.get("regularMarketDayHigh", curr),
                 "day_low":    meta.get("regularMarketDayLow",  curr),
@@ -95,8 +97,9 @@ class YahooFeed(DataFeed):
                     "volume": int(v or 0),
                 })
 
-            curr = meta.get("regularMarketPrice", 0)
-            prev = meta.get("chartPreviousClose", curr) or curr
+            curr     = meta.get("regularMarketPrice", 0)
+            prev     = meta.get("chartPreviousClose", curr) or curr
+            day_open = meta.get("regularMarketOpen", curr)
             return {
                 "candles":    candles,
                 "symbol":     symbol,
@@ -104,6 +107,7 @@ class YahooFeed(DataFeed):
                 "currency":   meta.get("currency", "INR"),
                 "price":      round(float(curr), 4),
                 "prev_close": round(float(prev), 4),
+                "day_open":   round(float(day_open), 4) if day_open else None,
                 "change_pct": round(((curr - prev) / prev) * 100, 2) if prev else 0,
                 "day_high":   meta.get("regularMarketDayHigh", curr),
                 "day_low":    meta.get("regularMarketDayLow",  curr),

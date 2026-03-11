@@ -650,26 +650,101 @@ def send_telegram(message):
         log.error(f"Telegram error: {e}")
         return False
 
+# ── Alert deduplication state ─────────────────────────────────────────────────
+# Tracks last-alerted per stock so we don't spam the same signal every 15 min
+alerted_stocks: dict = {}          # { stock_name: { "signal": str, "ts": float, "date": str } }
+ALERT_COOLDOWN_HOURS = 6           # min hours before repeating same signal tier
+
+
+def _is_market_open() -> bool:
+    """Return True if at least one major Indian market segment is currently open (IST)."""
+    now = datetime.now()
+    weekday = now.weekday()          # 0=Mon … 4=Fri, 5=Sat, 6=Sun
+    if weekday >= 5:                 # weekend — all closed
+        return False
+    h, m = now.hour, now.minute
+    hm = h * 100 + m                 # e.g. 9:15 → 915
+    # NSE Equity/FnO: 09:15 – 15:30
+    if 915 <= hm <= 1530:
+        return True
+    # MCX Commodity: 09:00 – 23:30
+    if 900 <= hm <= 2330:
+        return True
+    # NSE Currency: 09:00 – 17:00
+    if 900 <= hm <= 1700:
+        return True
+    return False
+
+
 def check_alerts():
     log.info("🔔 Checking alerts...")
-    buy_signals = []
+
+    if not _is_market_open():
+        log.info("🕐 Market closed — skipping alert check.")
+        return
+
+    now_ts = time.time()
+    today  = datetime.now().strftime("%Y-%m-%d")
+
+    new_signals    = []   # first time we see this buy signal
+    repeat_signals = []   # cooldown expired, remind again
+
     for stock in WATCHLIST:
         score, signal, target, sl = calculate_score(stock)
         cached = price_cache.get(stock["name"])
-        if cached and signal in ("STRONG BUY", "BUY"):
-            buy_signals.append({"name": stock["name"], "score": score, "signal": signal,
-                                "price": cached["price"], "change_pct": cached["change_pct"],
-                                "target": target, "sl": sl, "sector": stock["sector"]})
-    if buy_signals:
+
+        if not cached or signal not in ("STRONG BUY", "BUY"):
+            # Signal gone — clear dedup entry so it can fire fresh next time
+            alerted_stocks.pop(stock["name"], None)
+            continue
+
+        entry = {
+            "name": stock["name"], "score": score, "signal": signal,
+            "price": cached["price"], "change_pct": cached["change_pct"],
+            "target": target, "sl": sl, "sector": stock["sector"],
+        }
+        prev = alerted_stocks.get(stock["name"])
+
+        if prev is None:
+            # First time this stock shows a buy signal
+            new_signals.append(entry)
+            alerted_stocks[stock["name"]] = {"signal": signal, "ts": now_ts, "date": today}
+        elif prev.get("signal") != signal:
+            # Signal tier changed (BUY → STRONG BUY or vice versa)
+            new_signals.append(entry)
+            alerted_stocks[stock["name"]] = {"signal": signal, "ts": now_ts, "date": today}
+        elif prev.get("date") != today:
+            # New trading day — treat as fresh signal
+            new_signals.append(entry)
+            alerted_stocks[stock["name"]] = {"signal": signal, "ts": now_ts, "date": today}
+        else:
+            hours_since = (now_ts - prev.get("ts", 0)) / 3600
+            if hours_since >= ALERT_COOLDOWN_HOURS:
+                repeat_signals.append(entry)
+                alerted_stocks[stock["name"]]["ts"] = now_ts  # reset cooldown
+
+    def _format_entry(s):
+        arrow = "🟢" if s["change_pct"] >= 0 else "🔴"
+        return (f"{arrow} *{s['name']}* ({s['sector']})\n"
+                f"   Score: {s['score']}/100 | Signal: {s['signal']}\n"
+                f"   CMP: ₹{s['price']} ({s['change_pct']:+.2f}%)\n"
+                f"   Target: ₹{s['target']} | SL: ₹{s['sl']}\n")
+
+    if new_signals:
         lines = ["🚨 *StockGuru Alert* — " + datetime.now().strftime("%d %b %H:%M") + " IST\n"]
-        for s in buy_signals:
-            arrow = "🟢" if s["change_pct"] >= 0 else "🔴"
-            lines.append(f"{arrow} *{s['name']}* ({s['sector']})\n"
-                         f"   Score: {s['score']}/100 | Signal: {s['signal']}\n"
-                         f"   CMP: ₹{s['price']} ({s['change_pct']:+.2f}%)\n"
-                         f"   Target: ₹{s['target']} | SL: ₹{s['sl']}\n")
+        for s in new_signals:
+            lines.append(_format_entry(s))
         lines.append("_⚠️ Paper simulation only. Not SEBI advice._")
         send_telegram("\n".join(lines))
+        log.info("📲 Sent %d new signals", len(new_signals))
+
+    if repeat_signals:
+        lines = ["🔁 *StockGuru Reminder* — " + datetime.now().strftime("%d %b %H:%M") + " IST\n"]
+        for s in repeat_signals:
+            lines.append(_format_entry(s))
+        lines.append("_⚠️ Paper simulation only. Not SEBI advice._")
+        send_telegram("\n".join(lines))
+        log.info("📲 Sent %d reminder signals", len(repeat_signals))
 
 def send_morning_brief():
     nifty  = price_cache.get("NIFTY 50",  {})
@@ -3047,6 +3122,12 @@ _TERMINAL_SYMBOLS = {
     ],
 }
 
+@app.route("/api/segments")
+def api_segments():
+    """Return symbol catalogue grouped by market segment for Terminal."""
+    return jsonify(_TERMINAL_SYMBOLS)
+
+
 @app.route("/api/feed-status")
 def api_feed_status():
     """Return active data feed and status of all configured connectors."""
@@ -3194,9 +3275,11 @@ def api_orderbook():
         else:
             from stockguru_agents.feeds.yahoo_feed import YahooFeed
             result = YahooFeed().get_orderbook(sym, depth)
-        result["feed"]   = _feed_mgr.active_name if (_FEED_OK and _feed_mgr) else "yahoo"
+        result["feed"]   = (_feed_mgr.active_name if _feed_mgr else "yahoo") if (_FEED_OK and _feed_mgr) else "yahoo"
         result["symbol"] = sym
         return jsonify(result)
     except Exception as e:
         log.error("Orderbook error %s: %s", sym, e)
-        return jsonify({"bids": [], "asks": [], "error": str(e)}), 500
+        # Return simulated empty book as 200 so frontend doesn't hang
+        return jsonify({"bids": [], "asks": [], "spread": 0, "price": 0,
+                        "feed": "yahoo", "symbol": sym, "error": str(e)})
