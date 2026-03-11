@@ -1798,11 +1798,11 @@
       <!-- Group: Trading -->
       <div class="sidebar-group">
         <span class="sidebar-group-label">Trading</span>
-        <button class="tab-btn" data-label="Paper Trade" onclick="showTab('terminal',this);initTerminal();setTimeout(()=>termSwitchBottomTab('paper'),400)"> <span
+        <button class="tab-btn" data-label="Paper Trade" onclick="showTab('paper',this)"> <span
             class="tab-icon">🎯</span><span class="tab-label">Paper Trade</span></button>
         <button class="tab-btn" data-label="Portfolio" onclick="showTab('portfolio',this)"> <span
             class="tab-icon">💼</span><span class="tab-label">Portfolio</span></button>
-        <button class="tab-btn" data-label="Alerts" onclick="showTab('terminal',this);initTerminal();setTimeout(()=>termSwitchBottomTab('alerts'),400)"> <span
+        <button class="tab-btn" data-label="Alerts" onclick="showTab('alerts',this)"> <span
             class="tab-icon">🔔</span><span class="tab-label">Alerts</span></button>
         <button class="tab-btn" data-label="Terminal" onclick="showTab('terminal',this);initTerminal()"> <span
             class="tab-icon">📟</span><span class="tab-label">Terminal</span><span style="margin-left:5px;background:#00ff88;color:#000;font-size:8px;padding:1px 5px;border-radius:8px;font-weight:700">NEW</span></button>
@@ -5363,111 +5363,36 @@
               <!-- TradingView Widget Container -->
               <div id="term-chart" style="flex: 1; min-height: 480px; width: 100%; border-bottom: 1px solid var(--border);"></div>
               
-              <!-- Bottom Panel: Merged Paper Trade + Alerts -->
-              <div class="term-bottom-panel" style="height: 280px; background: rgba(0, 22, 30, 0.97); display: flex; flex-direction: column; overflow: hidden; border-left: 1px solid var(--border);">
-
-                <!-- Bottom Tab Bar -->
-                <div style="display: flex; align-items: center; gap: 0; padding: 0 20px; border-bottom: 1px solid var(--border); background: rgba(0, 196, 204, 0.03); flex-shrink: 0;">
-                  <button id="tbt-positions" class="tb-tab tb-tab-active" onclick="termSwitchBottomTab('positions')" style="background:none;border:none;border-bottom:2px solid var(--accent);font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:700;letter-spacing:.5px;color:var(--accent);cursor:pointer;padding:10px 16px;">📊 OPEN POSITIONS</button>
-                  <button id="tbt-history"   class="tb-tab" onclick="termSwitchBottomTab('history')"   style="background:none;border:none;border-bottom:2px solid transparent;font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:700;letter-spacing:.5px;color:var(--muted);cursor:pointer;padding:10px 16px;">📋 ORDER HISTORY</button>
-                  <button id="tbt-paper"     class="tb-tab" onclick="termSwitchBottomTab('paper')"     style="background:none;border:none;border-bottom:2px solid transparent;font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:700;letter-spacing:.5px;color:var(--muted);cursor:pointer;padding:10px 16px;">🎯 QUICK TRADE</button>
-                  <button id="tbt-alerts"    class="tb-tab" onclick="termSwitchBottomTab('alerts')"    style="background:none;border:none;border-bottom:2px solid transparent;font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:700;letter-spacing:.5px;color:var(--muted);cursor:pointer;padding:10px 16px;">🔔 ALERTS LOG <span id="tbt-alert-badge" style="background:rgba(255,82,82,.2);color:#ff5252;font-size:9px;padding:1px 6px;border-radius:8px;margin-left:4px">0</span></button>
-                  <!-- Portfolio summary tiles -->
-                  <div style="margin-left:auto;display:flex;gap:16px;align-items:center;font-family:'Space Mono',monospace;font-size:11px;">
-                    <span style="color:var(--muted)">CAPITAL <span id="tbt-capital" style="color:var(--text)">₹5L</span></span>
-                    <span style="color:var(--muted)">CASH <span id="tbt-cash" style="color:#00e676">--</span></span>
-                    <span style="color:var(--muted)">P&amp;L <span id="tbt-pnl" style="color:var(--text)">--</span></span>
-                    <span style="color:var(--muted)">WIN% <span id="tbt-winrate" style="color:var(--gold)">--%</span></span>
-                  </div>
+              <!-- Bottom Panel: Paper Trade History -->
+              <div class="term-bottom-panel" style="height: 250px; background: rgba(0, 22, 30, 0.97); display: flex; flex-direction: column; overflow: hidden; border-left: 1px solid var(--border);">
+                <div style="display: flex; gap: 24px; padding: 10px 20px; border-bottom: 1px solid var(--border); background: rgba(0, 196, 204, 0.03)">
+                  <button class="tb-tab active" style="background: none; border: none; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; color: var(--accent); cursor: pointer;">OPEN POSITIONS</button>
+                  <button class="tb-tab" style="background: none; border: none; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; color: var(--muted); cursor: pointer;">ORDER HISTORY (PAPER)</button>
                 </div>
-
-                <!-- Panel: Open Positions -->
-                <div id="tbp-positions" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;">
-                  <table style="width:100%;border-collapse:collapse;text-align:left;font-family:'JetBrains Mono','Space Mono',monospace;font-size:12px;">
+                <div style="flex: 1; overflow-y: auto;">
+                  <table style="width: 100%; border-collapse: collapse; text-align: left; font-family: 'JetBrains Mono', 'Space Mono', monospace; font-size: 12px;">
                     <thead>
-                      <tr style="border-bottom:1px solid rgba(0,196,204,.15);background:rgba(0,0,0,.15);position:sticky;top:0;z-index:1">
-                        <th style="padding:10px 20px;font-weight:600;color:var(--muted);">TIME</th>
-                        <th style="padding:10px 20px;font-weight:600;color:var(--muted);">SYMBOL</th>
-                        <th style="padding:10px 20px;font-weight:600;color:var(--muted);">QTY</th>
-                        <th style="padding:10px 20px;font-weight:600;color:var(--muted);">ENTRY ₹</th>
-                        <th style="padding:10px 20px;font-weight:600;color:var(--muted);">LTP ₹</th>
-                        <th style="padding:10px 20px;font-weight:600;color:var(--muted);">SL ₹</th>
-                        <th style="padding:10px 20px;font-weight:600;color:var(--muted);">TARGET ₹</th>
-                        <th style="padding:10px 20px;font-weight:600;color:var(--muted);">U-P&amp;L</th>
-                        <th style="padding:10px 20px;font-weight:600;color:var(--muted);">ACTION</th>
+                      <tr style="border-bottom: 1px solid rgba(0, 196, 204, 0.15); background: rgba(0,0,0,0.15);">
+                        <th style="padding: 12px 20px; font-weight: 600; color: var(--muted);">TIME</th>
+                        <th style="padding: 12px 20px; font-weight: 600; color: var(--muted);">SYMBOL</th>
+                        <th style="padding: 12px 20px; font-weight: 600; color: var(--muted);">QTY</th>
+                        <th style="padding: 12px 20px; font-weight: 600; color: var(--muted);">ENTRY</th>
+                        <th style="padding: 12px 20px; font-weight: 600; color: var(--muted);">LTP</th>
+                        <th style="padding: 12px 20px; font-weight: 600; color: var(--muted);">U-P&amp;L</th>
+                        <th style="padding: 12px 20px; font-weight: 600; color: var(--muted);">ACTION</th>
                       </tr>
                     </thead>
                     <tbody id="term-positions-tbody">
-                      <tr><td colspan="9" style="padding:30px;text-align:center;color:var(--muted);font-family:'Plus Jakarta Sans',sans-serif;"><div style="font-size:22px;margin-bottom:6px">💼</div>No active paper trades found for this session.</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <!-- Panel: Order History -->
-                <div id="tbp-history" style="flex:1;overflow-y:auto;display:none;">
-                  <table style="width:100%;border-collapse:collapse;text-align:left;font-family:'JetBrains Mono','Space Mono',monospace;font-size:12px;">
-                    <thead>
-                      <tr style="border-bottom:1px solid rgba(0,196,204,.15);background:rgba(0,0,0,.15);position:sticky;top:0;z-index:1">
-                        <th style="padding:10px 20px;font-weight:600;color:var(--muted);">DATE</th>
-                        <th style="padding:10px 20px;font-weight:600;color:var(--muted);">SYMBOL</th>
-                        <th style="padding:10px 20px;font-weight:600;color:var(--muted);">SIDE</th>
-                        <th style="padding:10px 20px;font-weight:600;color:var(--muted);">QTY</th>
-                        <th style="padding:10px 20px;font-weight:600;color:var(--muted);">ENTRY ₹</th>
-                        <th style="padding:10px 20px;font-weight:600;color:var(--muted);">EXIT ₹</th>
-                        <th style="padding:10px 20px;font-weight:600;color:var(--muted);">P&amp;L ₹</th>
-                        <th style="padding:10px 20px;font-weight:600;color:var(--muted);">RESULT</th>
+                      <tr>
+                        <td colspan="7" style="padding: 30px; text-align: center; color: var(--muted); font-family: 'Plus Jakarta Sans', sans-serif;">
+                          <div style="font-size: 24px; margin-bottom: 8px;">💼</div>
+                          No active paper trades found for this session.
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody id="term-history-tbody">
-                      <tr><td colspan="8" style="padding:30px;text-align:center;color:var(--muted);font-family:'Plus Jakarta Sans',sans-serif;"><div style="font-size:22px;margin-bottom:6px">📋</div>No closed trades yet this session.</td></tr>
                     </tbody>
                   </table>
                 </div>
-
-                <!-- Panel: Quick Trade Entry -->
-                <div id="tbp-paper" style="flex:1;overflow-y:auto;display:none;padding:14px 20px;">
-                  <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr auto auto;gap:10px;align-items:end;">
-                    <div>
-                      <div style="font-family:'Space Mono';font-size:9px;color:var(--muted);margin-bottom:4px">SYMBOL (e.g. RELIANCE.NS)</div>
-                      <input id="tbt-qt-symbol" type="text" placeholder="RELIANCE.NS" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-family:'Space Mono';font-size:12px;outline:none">
-                    </div>
-                    <div>
-                      <div style="font-family:'Space Mono';font-size:9px;color:var(--muted);margin-bottom:4px">SL %</div>
-                      <input id="tbt-qt-sl" type="number" value="2" min="0.5" max="10" step="0.5" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-family:'Space Mono';font-size:12px;outline:none">
-                    </div>
-                    <div>
-                      <div style="font-family:'Space Mono';font-size:9px;color:var(--muted);margin-bottom:4px">TARGET %</div>
-                      <input id="tbt-qt-target" type="number" value="4" min="1" max="30" step="0.5" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-family:'Space Mono';font-size:12px;outline:none">
-                    </div>
-                    <div>
-                      <div style="font-family:'Space Mono';font-size:9px;color:var(--muted);margin-bottom:4px">ALLOC %</div>
-                      <input id="tbt-qt-alloc" type="number" value="5" min="1" max="20" step="1" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-family:'Space Mono';font-size:12px;outline:none">
-                    </div>
-                    <div>
-                      <div style="font-family:'Space Mono';font-size:9px;color:var(--muted);margin-bottom:4px">TSL AUTO</div>
-                      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:8px">
-                        <input type="checkbox" id="tbt-qt-tsl" checked style="accent-color:var(--accent);width:16px;height:16px">
-                        <span style="font-size:11px;color:var(--text)">ON</span>
-                      </label>
-                    </div>
-                    <div>
-                      <button onclick="tbtBuy()" style="width:100%;background:linear-gradient(135deg,#00E676,#00C853);color:#000;font-family:'Space Mono';font-size:11px;font-weight:700;letter-spacing:1px;border:none;border-radius:8px;padding:10px 14px;cursor:pointer">▲ BUY</button>
-                    </div>
-                    <div>
-                      <button onclick="tbtSell()" style="width:100%;background:linear-gradient(135deg,#ff3d71,#c0003c);color:#fff;font-family:'Space Mono';font-size:11px;font-weight:700;letter-spacing:1px;border:none;border-radius:8px;padding:10px 12px;cursor:pointer">▼ SELL</button>
-                    </div>
-                  </div>
-                  <div id="tbt-qt-status" style="margin-top:10px;font-family:'Space Mono';font-size:11px;color:var(--muted);min-height:16px"></div>
-                </div>
-
-                <!-- Panel: Alerts Log -->
-                <div id="tbp-alerts" style="flex:1;overflow-y:auto;display:none;">
-                  <div id="tbt-alert-log" style="padding:10px 0;">
-                    <div style="padding:30px;text-align:center;color:var(--muted);font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;"><div style="font-size:22px;margin-bottom:6px">🔔</div>No alerts sent yet this session. Alerts fire when scores cross 82+ threshold.</div>
-                  </div>
-                </div>
-
-              </div><!-- end term-bottom-panel -->
+              </div>
 
             </div>
         
@@ -9784,16 +9709,13 @@ window.termLoadSymbol = async function(sym, label, pillEl) {
     pillEl.classList.add('active');
   }
 
-  // Destroy and rebuild the widget with the new symbol.
-  // TradingView's embedded widget does not support reliable hot symbol switching
-  // via onChartReady after first load — rebuilding is the correct approach.
-  const chartEl = document.getElementById('term-chart');
-  if (chartEl) {
-    // Remove the old iframe the widget created so we start with a clean container
-    while (chartEl.firstChild) chartEl.removeChild(chartEl.firstChild);
+  if (_tvWidget && _tvWidget.iframe) {
+    _tvWidget.onChartReady(() => {
+       _tvWidget.chart().setSymbol(getTVSymbol(sym, label, _currSegment));
+    });
+  } else {
+    _buildCharts();
   }
-  _tvWidget = null;
-  _buildCharts();
 
   _refreshOB();
 
@@ -9824,170 +9746,35 @@ function _updateTopBar(d) {
 // ── Order book & Paper Trades────────────────────────────────────────────────────────────
 async function _refreshOB() {
   try {
-    const obReq    = fetch(`/api/orderbook?sym=${encodeURIComponent(_currSym)}&depth=12`).then(r => r.json());
-    const ptReq    = fetch('/api/paper-portfolio').then(r => r.json());
-    const alertReq = fetch(`${API}/alerts`).then(r => r.json()).catch(() => []);
-    const [obData, ptData, alertData] = await Promise.all([obReq, ptReq, alertReq]);
+    const obReq = fetch(`/api/orderbook?sym=${encodeURIComponent(_currSym)}&depth=12`).then(r => r.json());
+    const ptReq = fetch('/api/paper-portfolio').then(r => r.json());
+    const [obData, ptData] = await Promise.all([obReq, ptReq]);
     _renderOB(obData);
     _renderPaperTrades(ptData);
-    // Keep alert badge fresh
-    const badge = document.getElementById('tbt-alert-badge');
-    if (badge) badge.textContent = alertData.length || 0;
-    // If alerts panel is open, refresh it too
-    const alertPanel = document.getElementById('tbp-alerts');
-    if (alertPanel && alertPanel.style.display !== 'none') _refreshAlerts();
   } catch(e) {}
-}
-
-// ── Bottom Tab Switcher ────────────────────────────────────────────────────────
-window.termSwitchBottomTab = function(which) {
-  const panels = ['positions','history','paper','alerts'];
-  panels.forEach(p => {
-    const panel = document.getElementById('tbp-'+p);
-    const btn   = document.getElementById('tbt-'+p);
-    if (!panel || !btn) return;
-    const active = p === which;
-    panel.style.display = active ? (p === 'paper' ? 'block' : 'flex') : 'none';
-    if (p === 'paper' && active) panel.style.flexDirection = 'column';
-    btn.style.color       = active ? 'var(--accent)' : 'var(--muted)';
-    btn.style.borderBottom = active ? '2px solid var(--accent)' : '2px solid transparent';
-  });
-  if (which === 'alerts') _refreshAlerts();
-};
-
-// ── Refresh Alerts in terminal bottom panel ───────────────────────────────────
-async function _refreshAlerts() {
-  try {
-    const alerts = await fetch(`${API}/alerts`).then(r => r.json());
-    const badge = document.getElementById('tbt-alert-badge');
-    if (badge) badge.textContent = alerts.length;
-    const log = document.getElementById('tbt-alert-log');
-    if (!log) return;
-    if (!alerts.length) {
-      log.innerHTML = '<div style="padding:30px;text-align:center;color:var(--muted);font-family:\'Plus Jakarta Sans\',sans-serif;font-size:13px;"><div style="font-size:22px;margin-bottom:6px">🔔</div>No alerts sent yet. Alerts fire when stock scores cross 82+.</div>';
-      return;
-    }
-    log.innerHTML = alerts.slice().reverse().map(a => `
-      <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 18px;border-bottom:1px solid rgba(255,255,255,.04);font-family:'Space Mono',monospace;font-size:11px;">
-        <span style="width:8px;height:8px;border-radius:50%;background:#00e676;margin-top:4px;flex-shrink:0;display:inline-block"></span>
-        <div style="flex:1;line-height:1.7;white-space:pre-wrap;color:var(--text)">${a.msg}</div>
-        <span style="color:var(--muted);white-space:nowrap;font-size:10px">${a.time}</span>
-      </div>`).join('');
-  } catch(e) {}
-}
-
-// ── Quick Trade from Terminal bottom panel ────────────────────────────────────
-async function tbtBuy() {
-  const sym   = document.getElementById('tbt-qt-symbol').value.trim();
-  const sl    = parseFloat(document.getElementById('tbt-qt-sl').value)   || 2;
-  const tgt   = parseFloat(document.getElementById('tbt-qt-target').value) || 4;
-  const alloc = parseFloat(document.getElementById('tbt-qt-alloc').value) || 5;
-  const tsl   = document.getElementById('tbt-qt-tsl').checked;
-  const status= document.getElementById('tbt-qt-status');
-  if (!sym) { if (status) status.textContent = '⚠️ Enter a symbol first'; return; }
-  if (status) status.textContent = '⏳ Submitting BUY...';
-  try {
-    const d = await fetch(`${API}/paper-trade`, { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({symbol:sym, side:'BUY', sl_pct:sl, target_pct:tgt, alloc_pct:alloc, tsl_enabled:tsl})
-    }).then(r=>r.json());
-    if (status) status.textContent = d.status === 'ok' ? `✅ BUY filled @ ₹${d.entry_price||'--'}` : `❌ ${d.error||'Failed'}`;
-    _refreshOB();
-  } catch(e) { if (status) status.textContent = '❌ Server error'; }
-}
-
-async function tbtSell() {
-  const sym   = document.getElementById('tbt-qt-symbol').value.trim();
-  const sl    = parseFloat(document.getElementById('tbt-qt-sl').value)   || 2;
-  const tgt   = parseFloat(document.getElementById('tbt-qt-target').value) || 4;
-  const alloc = parseFloat(document.getElementById('tbt-qt-alloc').value) || 5;
-  const tsl   = document.getElementById('tbt-qt-tsl').checked;
-  const status= document.getElementById('tbt-qt-status');
-  if (!sym) { if (status) status.textContent = '⚠️ Enter a symbol first'; return; }
-  if (status) status.textContent = '⏳ Submitting SELL...';
-  try {
-    const d = await fetch(`${API}/paper-trade`, { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({symbol:sym, side:'SELL', sl_pct:sl, target_pct:tgt, alloc_pct:alloc, tsl_enabled:tsl})
-    }).then(r=>r.json());
-    if (status) status.textContent = d.status === 'ok' ? `✅ SELL filled @ ₹${d.entry_price||'--'}` : `❌ ${d.error||'Failed'}`;
-    _refreshOB();
-  } catch(e) { if (status) status.textContent = '❌ Server error'; }
 }
 
 function _renderPaperTrades(d) {
-    // Update mini-stats bar
-    const stats = d.stats || {};
-    const setEl = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
-    const cash  = d.available_cash != null ? '₹'+Number(d.available_cash).toLocaleString('en-IN',{maximumFractionDigits:0}) : '--';
-    const pnl   = stats.total_pnl != null  ? (stats.total_pnl >= 0 ? '+₹' : '-₹') + Math.abs(stats.total_pnl).toLocaleString('en-IN',{maximumFractionDigits:0}) : '--';
-    const wr    = stats.win_rate != null   ? (stats.win_rate*100).toFixed(0)+'%' : '--%';
-    setEl('tbt-cash', cash);
-    setEl('tbt-pnl', pnl);
-    setEl('tbt-winrate', wr);
-
-    // Update history
-    const htbody = document.getElementById('term-history-tbody');
-    if (htbody) {
-      const closed = d.closed_positions || [];
-      if (closed.length === 0) {
-        htbody.innerHTML = `<tr><td colspan="8" style="padding:30px;text-align:center;color:var(--muted);font-family:'Plus Jakarta Sans',sans-serif;"><div style="font-size:22px;margin-bottom:6px">📋</div>No closed trades yet this session.</td></tr>`;
-      } else {
-        htbody.innerHTML = closed.slice().reverse().map(p => {
-          const pnl = p.pnl || 0;
-          const pnlColor = pnl >= 0 ? 'var(--green)' : 'var(--red)';
-          const result = pnl >= 0 ? '🟢 WIN' : '🔴 LOSS';
-          return `<tr style="border-bottom:1px solid rgba(255,255,255,.04);">
-            <td style="padding:10px 20px;color:var(--muted)">${p.exit_ts ? new Date(p.exit_ts*1000).toLocaleDateString('en-IN') : '--'}</td>
-            <td style="padding:10px 20px;font-weight:700;color:#fff">${p.symbol}</td>
-            <td style="padding:10px 20px;color:${p.side==='BUY'?'var(--green)':'var(--red)'};">${p.side||'BUY'}</td>
-            <td style="padding:10px 20px">${p.quantity}</td>
-            <td style="padding:10px 20px">₹${(p.entry_price||0).toFixed(2)}</td>
-            <td style="padding:10px 20px">₹${(p.exit_price||0).toFixed(2)}</td>
-            <td style="padding:10px 20px;color:${pnlColor};font-weight:700">${pnl>=0?'+':''}₹${pnl.toFixed(2)}</td>
-            <td style="padding:10px 20px;font-size:11px">${result}</td>
-          </tr>`;
-        }).join('');
-      }
-    }
-
     const tbody = document.getElementById('term-positions-tbody');
     if (!tbody) return;
     if (!d.open_positions || d.open_positions.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="9" style="padding: 30px; text-align: center; color: var(--muted); font-family: 'Plus Jakarta Sans', sans-serif;"><div style="font-size: 24px; margin-bottom: 8px;">💼</div>No active paper trades found for this session.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="padding: 30px; text-align: center; color: var(--muted); font-family: 'Plus Jakarta Sans', sans-serif;"><div style="font-size: 24px; margin-bottom: 8px;">💼</div>No active paper trades found for this session.</td></tr>`;
       return;
     }
-
+    
     tbody.innerHTML = d.open_positions.map(p => {
-      const pnl      = p.unrealized_pnl || 0;
+      const pnl = p.unrealized_pnl || 0;
       const pnlColor = pnl >= 0 ? 'var(--green)' : 'var(--red)';
-      const sl       = p.stop_loss  ? '₹'+p.stop_loss.toFixed(2)  : '--';
-      const tgt      = p.target_price? '₹'+p.target_price.toFixed(2): '--';
-      return `<tr style="border-bottom:1px solid rgba(255,255,255,.03);transition:background .2s" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='transparent'">
-        <td style="padding:10px 20px;color:var(--muted)">${new Date(p.entry_ts*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})}</td>
-        <td style="padding:10px 20px;font-weight:700;color:#fff">${p.symbol}</td>
-        <td style="padding:10px 20px">${p.quantity}</td>
-        <td style="padding:10px 20px">₹${(p.entry_price||0).toFixed(2)}</td>
-        <td style="padding:10px 20px;color:var(--gold)">₹${(p.current_price||0).toFixed(2)}</td>
-        <td style="padding:10px 20px;color:#ff5252;font-size:11px">${sl}</td>
-        <td style="padding:10px 20px;color:#00e676;font-size:11px">${tgt}</td>
-        <td style="padding:10px 20px;color:${pnlColor};font-weight:700">${pnl>=0?'+':''}₹${pnl.toFixed(2)}</td>
-        <td style="padding:10px 20px"><button onclick="termSquareOff('${p.symbol}')" style="background:rgba(255,82,82,.1);border:1px solid var(--red);color:var(--red);padding:4px 10px;border-radius:4px;font-size:11px;font-weight:700;cursor:pointer">SQ OFF</button></td>
+      return `<tr style="border-bottom: 1px solid rgba(255,255,255,0.03); cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">
+        <td style="padding: 12px 20px; color: var(--muted)">${new Date(p.entry_ts*1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'})}</td>
+        <td style="padding: 12px 20px; font-weight: 700; color: #fff;">${p.symbol}</td>
+        <td style="padding: 12px 20px;">${p.quantity}</td>
+        <td style="padding: 12px 20px;">₹${(p.entry_price).toFixed(2)}</td>
+        <td style="padding: 12px 20px; color: var(--gold);">₹${(p.current_price).toFixed(2)}</td>
+        <td style="padding: 12px 20px; color: ${pnlColor}; font-weight: bold;">₹${pnl.toFixed(2)}</td>
+        <td style="padding: 12px 20px;"><button style="background: rgba(255,82,82,0.1); border: 1px solid var(--red); color: var(--red); padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: not-allowed; opacity: 0.7;">SQUARE OFF</button></td>
       </tr>`;
     }).join('');
-}
-
-async function termSquareOff(symbol) {
-  try {
-    const d = await fetch(`${API}/exit-paper-trade`, {method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({symbol})
-    }).then(r=>r.json());
-    if (d.pnl !== undefined) {
-      const sign = d.pnl >= 0 ? '+' : '';
-      alert(`✅ Exited ${symbol} | P&L: ${sign}₹${d.pnl.toFixed(2)} (${(d.pnl_pct||0).toFixed(2)}%)`);
-    } else {
-      alert('❌ ' + (d.error || 'Exit failed'));
-    }
-    _refreshOB();
-  } catch(e) { alert('❌ Server error — check app is running'); }
 }
 
 

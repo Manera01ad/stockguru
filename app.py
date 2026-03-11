@@ -308,12 +308,6 @@ WATCHLIST = [
 
 price_cache  = {name: {"price": 0.0, "change": 0.0, "change_pct": 0.0, "symbol": sym, "updated": "Initializing..."} for name, sym in YAHOO_SYMBOLS.items()}
 alert_log    = []
-# ── Alert deduplication ───────────────────────────────────────────────────────
-# Tracks: { stock_name: {"signal": "STRONG BUY", "date": "2024-03-11", "ts": <epoch>} }
-# A stock is only re-alerted if: (a) its signal tier CHANGES, OR (b) 6 hours have passed
-alerted_stocks = {}
-ALERT_COOLDOWN_HOURS = 6   # minimum gap between same-signal alerts for the same stock
-
 last_update  = "Initializing..."
 shared_state = {
     # Original state
@@ -658,85 +652,24 @@ def send_telegram(message):
 
 def check_alerts():
     log.info("🔔 Checking alerts...")
-    now_ts   = time.time()
-    today    = datetime.now().strftime("%Y-%m-%d")
-    new_signals   = []   # genuinely new or changed signals
-    repeat_signals = []  # same signal but cooldown expired — included with lower priority
-
+    buy_signals = []
     for stock in WATCHLIST:
         score, signal, target, sl = calculate_score(stock)
         cached = price_cache.get(stock["name"])
-        if not cached or signal not in ("STRONG BUY", "BUY"):
-            # If a stock that was previously alerted is no longer a buy, clear its entry
-            # so it can alert fresh when it re-enters BUY territory
-            if stock["name"] in alerted_stocks:
-                prev = alerted_stocks[stock["name"]]
-                if prev.get("signal") in ("STRONG BUY", "BUY"):
-                    log.info(f"🔕 {stock['name']} dropped from {prev['signal']} — clearing alert cache")
-                    del alerted_stocks[stock["name"]]
-            continue
-
-        entry = {
-            "name": stock["name"], "score": score, "signal": signal,
-            "price": cached["price"], "change_pct": cached["change_pct"],
-            "target": target, "sl": sl, "sector": stock["sector"]
-        }
-
-        prev = alerted_stocks.get(stock["name"])
-        if prev is None:
-            # Never alerted before — always send
-            new_signals.append(entry)
-            log.info(f"🆕 New signal: {stock['name']} → {signal} (score {score})")
-        elif prev.get("signal") != signal:
-            # Signal tier changed (e.g. BUY → STRONG BUY) — always send
-            new_signals.append(entry)
-            log.info(f"📈 Signal change: {stock['name']} {prev['signal']} → {signal}")
-        elif prev.get("date") != today:
-            # New calendar day — send once per day even if same signal
-            new_signals.append(entry)
-            log.info(f"📅 Daily refresh alert: {stock['name']} → {signal}")
-        else:
-            # Same signal, same day — only resend if cooldown has expired
-            hours_since = (now_ts - prev.get("ts", 0)) / 3600
-            if hours_since >= ALERT_COOLDOWN_HOURS:
-                repeat_signals.append(entry)
-                log.info(f"⏰ Cooldown expired ({hours_since:.1f}h): {stock['name']} → {signal}")
-            else:
-                log.info(f"⏸️  Suppressed (sent {hours_since:.1f}h ago): {stock['name']} → {signal}")
-
-    # Send new/changed signals immediately — always
-    if new_signals:
+        if cached and signal in ("STRONG BUY", "BUY"):
+            buy_signals.append({"name": stock["name"], "score": score, "signal": signal,
+                                "price": cached["price"], "change_pct": cached["change_pct"],
+                                "target": target, "sl": sl, "sector": stock["sector"]})
+    if buy_signals:
         lines = ["🚨 *StockGuru Alert* — " + datetime.now().strftime("%d %b %H:%M") + " IST\n"]
-        for s in new_signals:
+        for s in buy_signals:
             arrow = "🟢" if s["change_pct"] >= 0 else "🔴"
             lines.append(f"{arrow} *{s['name']}* ({s['sector']})\n"
                          f"   Score: {s['score']}/100 | Signal: {s['signal']}\n"
                          f"   CMP: ₹{s['price']} ({s['change_pct']:+.2f}%)\n"
                          f"   Target: ₹{s['target']} | SL: ₹{s['sl']}\n")
         lines.append("_⚠️ Paper simulation only. Not SEBI advice._")
-        sent = send_telegram("\n".join(lines))
-        if sent:
-            for s in new_signals:
-                alerted_stocks[s["name"]] = {"signal": s["signal"], "date": today, "ts": now_ts}
-
-    # Batch repeat signals (cooldown expired) into one message
-    if repeat_signals:
-        lines = ["🔁 *StockGuru Reminder* — " + datetime.now().strftime("%d %b %H:%M") + " IST\n"]
-        lines.append("_Still holding BUY signals (cooldown refresh):_\n")
-        for s in repeat_signals:
-            arrow = "🟢" if s["change_pct"] >= 0 else "🔴"
-            lines.append(f"{arrow} *{s['name']}* ({s['sector']})\n"
-                         f"   Score: {s['score']}/100 | Signal: {s['signal']}\n"
-                         f"   CMP: ₹{s['price']} ({s['change_pct']:+.2f}%)\n"
-                         f"   Target: ₹{s['target']} | SL: ₹{s['sl']}\n")
-        lines.append("_⚠️ Paper simulation only. Not SEBI advice._")
-        sent = send_telegram("\n".join(lines))
-        if sent:
-            for s in repeat_signals:
-                alerted_stocks[s["name"]] = {"signal": s["signal"], "date": today, "ts": now_ts}
-
-    if not new_signals and not repeat_signals:
-        log.info("✅ No new alerts to send — all suppressed by dedup logic")
+        send_telegram("\n".join(lines))
 
 def send_morning_brief():
     nifty  = price_cache.get("NIFTY 50",  {})
