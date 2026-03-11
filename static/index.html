@@ -1798,11 +1798,11 @@
       <!-- Group: Trading -->
       <div class="sidebar-group">
         <span class="sidebar-group-label">Trading</span>
-        <button class="tab-btn" data-label="Paper Trade" onclick="showTab('paper',this)"> <span
+        <button class="tab-btn" data-label="Paper Trade" onclick="showTab('terminal',this);initTerminal();setTimeout(()=>termSwitchPanel('trade'),300)"> <span
             class="tab-icon">🎯</span><span class="tab-label">Paper Trade</span></button>
         <button class="tab-btn" data-label="Portfolio" onclick="showTab('portfolio',this)"> <span
             class="tab-icon">💼</span><span class="tab-label">Portfolio</span></button>
-        <button class="tab-btn" data-label="Alerts" onclick="showTab('alerts',this)"> <span
+        <button class="tab-btn" data-label="Alerts" onclick="showTab('terminal',this);initTerminal();setTimeout(()=>termSwitchPanel('alerts'),300)"> <span
             class="tab-icon">🔔</span><span class="tab-label">Alerts</span></button>
         <button class="tab-btn" data-label="Terminal" onclick="showTab('terminal',this);initTerminal()"> <span
             class="tab-icon">📟</span><span class="tab-label">Terminal</span><span style="margin-left:5px;background:#00ff88;color:#000;font-size:8px;padding:1px 5px;border-radius:8px;font-weight:700">NEW</span></button>
@@ -5363,36 +5363,159 @@
               <!-- TradingView Widget Container -->
               <div id="term-chart" style="flex: 1; min-height: 480px; width: 100%; border-bottom: 1px solid var(--border);"></div>
               
-              <!-- Bottom Panel: Paper Trade History -->
-              <div class="term-bottom-panel" style="height: 250px; background: rgba(0, 22, 30, 0.97); display: flex; flex-direction: column; overflow: hidden; border-left: 1px solid var(--border);">
-                <div style="display: flex; gap: 24px; padding: 10px 20px; border-bottom: 1px solid var(--border); background: rgba(0, 196, 204, 0.03)">
-                  <button class="tb-tab active" style="background: none; border: none; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; color: var(--accent); cursor: pointer;">OPEN POSITIONS</button>
-                  <button class="tb-tab" style="background: none; border: none; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; color: var(--muted); cursor: pointer;">ORDER HISTORY (PAPER)</button>
+              <!-- ── Compact Market Session Bar ── -->
+              <div id="term-session-bar" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:8px 12px;background:rgba(0,0,0,.25);border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
+                <div class="sahi-seg" id="term-seg-NSE_EQUITY" style="padding:6px 10px;text-align:center;background:var(--bg2);border:1px solid var(--border);border-radius:8px">
+                  <div style="font-size:9px;color:var(--muted);letter-spacing:.06em">NSE EQUITY</div>
+                  <div style="font-size:10px;color:var(--text);font-weight:700" id="term-seg-state-NSE_EQUITY">LOADING</div>
+                  <div style="font-size:9px;color:var(--muted)">9:15 – 15:30</div>
                 </div>
-                <div style="flex: 1; overflow-y: auto;">
-                  <table style="width: 100%; border-collapse: collapse; text-align: left; font-family: 'JetBrains Mono', 'Space Mono', monospace; font-size: 12px;">
+                <div class="sahi-seg" id="term-seg-NSE_FNO" style="padding:6px 10px;text-align:center;background:var(--bg2);border:1px solid var(--border);border-radius:8px">
+                  <div style="font-size:9px;color:var(--muted);letter-spacing:.06em">NSE F&amp;O</div>
+                  <div style="font-size:10px;color:var(--text);font-weight:700" id="term-seg-state-NSE_FNO">LOADING</div>
+                  <div style="font-size:9px;color:var(--muted)">9:15 – 15:30</div>
+                </div>
+                <div class="sahi-seg" id="term-seg-MCX" style="padding:6px 10px;text-align:center;background:var(--bg2);border:1px solid var(--border);border-radius:8px">
+                  <div style="font-size:9px;color:var(--muted);letter-spacing:.06em">MCX COMMODITY</div>
+                  <div style="font-size:10px;color:var(--text);font-weight:700" id="term-seg-state-MCX">LOADING</div>
+                  <div style="font-size:9px;color:var(--muted)">9:00 – 23:30</div>
+                </div>
+                <div class="sahi-seg" id="term-seg-NSE_CURRENCY" style="padding:6px 10px;text-align:center;background:var(--bg2);border:1px solid var(--border);border-radius:8px">
+                  <div style="font-size:9px;color:var(--muted);letter-spacing:.06em">NSE CURRENCY</div>
+                  <div style="font-size:10px;color:var(--text);font-weight:700" id="term-seg-state-NSE_CURRENCY">LOADING</div>
+                  <div style="font-size:9px;color:var(--muted)">9:00 – 17:00</div>
+                </div>
+              </div>
+
+              <!-- ── Merged Bottom Panel ── -->
+              <div class="term-bottom-panel" style="height:300px;background:rgba(0,22,30,.97);display:flex;flex-direction:column;overflow:hidden;border-left:1px solid var(--border);">
+
+                <!-- Tab bar + portfolio mini-stats -->
+                <div style="display:flex;align-items:center;padding:0 16px;border-bottom:1px solid var(--border);background:rgba(0,196,204,.03);flex-shrink:0;overflow-x:auto;">
+                  <button id="tp-btn-positions" onclick="termSwitchPanel('positions')" style="background:none;border:none;border-bottom:2px solid var(--accent);font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--accent);cursor:pointer;padding:9px 14px;white-space:nowrap">📊 POSITIONS</button>
+                  <button id="tp-btn-history"   onclick="termSwitchPanel('history')"   style="background:none;border:none;border-bottom:2px solid transparent;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--muted);cursor:pointer;padding:9px 14px;white-space:nowrap">📋 HISTORY</button>
+                  <button id="tp-btn-trade"     onclick="termSwitchPanel('trade')"     style="background:none;border:none;border-bottom:2px solid transparent;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--muted);cursor:pointer;padding:9px 14px;white-space:nowrap">🎯 QUICK TRADE</button>
+                  <button id="tp-btn-alerts"    onclick="termSwitchPanel('alerts')"    style="background:none;border:none;border-bottom:2px solid transparent;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--muted);cursor:pointer;padding:9px 14px;white-space:nowrap">🔔 ALERTS <span id="tp-alert-count" style="background:rgba(255,82,82,.2);color:#ff5252;font-size:9px;padding:1px 5px;border-radius:8px">0</span></button>
+                  <button id="tp-btn-rules"     onclick="termSwitchPanel('rules')"     style="background:none;border:none;border-bottom:2px solid transparent;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--muted);cursor:pointer;padding:9px 14px;white-space:nowrap">📚 RULES</button>
+                  <!-- Portfolio mini-stats -->
+                  <div style="margin-left:auto;display:flex;gap:14px;align-items:center;font-family:'Space Mono',monospace;font-size:10px;flex-shrink:0;padding-left:10px;">
+                    <span style="color:var(--muted)">CAPITAL&nbsp;<span id="tp-capital" style="color:var(--text)">₹5L</span></span>
+                    <span style="color:var(--muted)">CASH&nbsp;<span id="tp-cash" style="color:#00e676">--</span></span>
+                    <span style="color:var(--muted)">P&amp;L&nbsp;<span id="tp-pnl" style="color:var(--text)">--</span></span>
+                    <span style="color:var(--muted)">WIN%&nbsp;<span id="tp-winrate" style="color:var(--gold)">--%</span></span>
+                  </div>
+                </div>
+
+                <!-- Panel 1: Open Positions -->
+                <div id="tp-panel-positions" style="flex:1;overflow-y:auto;">
+                  <table style="width:100%;border-collapse:collapse;text-align:left;font-family:'JetBrains Mono','Space Mono',monospace;font-size:12px;">
                     <thead>
-                      <tr style="border-bottom: 1px solid rgba(0, 196, 204, 0.15); background: rgba(0,0,0,0.15);">
-                        <th style="padding: 12px 20px; font-weight: 600; color: var(--muted);">TIME</th>
-                        <th style="padding: 12px 20px; font-weight: 600; color: var(--muted);">SYMBOL</th>
-                        <th style="padding: 12px 20px; font-weight: 600; color: var(--muted);">QTY</th>
-                        <th style="padding: 12px 20px; font-weight: 600; color: var(--muted);">ENTRY</th>
-                        <th style="padding: 12px 20px; font-weight: 600; color: var(--muted);">LTP</th>
-                        <th style="padding: 12px 20px; font-weight: 600; color: var(--muted);">U-P&amp;L</th>
-                        <th style="padding: 12px 20px; font-weight: 600; color: var(--muted);">ACTION</th>
+                      <tr style="border-bottom:1px solid rgba(0,196,204,.15);background:rgba(0,0,0,.15);position:sticky;top:0;z-index:1">
+                        <th style="padding:9px 16px;font-weight:600;color:var(--muted)">TIME</th>
+                        <th style="padding:9px 16px;font-weight:600;color:var(--muted)">SYMBOL</th>
+                        <th style="padding:9px 16px;font-weight:600;color:var(--muted)">QTY</th>
+                        <th style="padding:9px 16px;font-weight:600;color:var(--muted)">ENTRY ₹</th>
+                        <th style="padding:9px 16px;font-weight:600;color:var(--muted)">CMP ₹</th>
+                        <th style="padding:9px 16px;font-weight:600;color:var(--muted)">SL ₹</th>
+                        <th style="padding:9px 16px;font-weight:600;color:var(--muted)">TSL ₹</th>
+                        <th style="padding:9px 16px;font-weight:600;color:var(--muted)">T1 ₹</th>
+                        <th style="padding:9px 16px;font-weight:600;color:var(--muted)">UNREALISED</th>
+                        <th style="padding:9px 16px;font-weight:600;color:var(--muted)">P&amp;L %</th>
+                        <th style="padding:9px 16px;font-weight:600;color:var(--muted)">EXIT</th>
                       </tr>
                     </thead>
                     <tbody id="term-positions-tbody">
-                      <tr>
-                        <td colspan="7" style="padding: 30px; text-align: center; color: var(--muted); font-family: 'Plus Jakarta Sans', sans-serif;">
-                          <div style="font-size: 24px; margin-bottom: 8px;">💼</div>
-                          No active paper trades found for this session.
-                        </td>
-                      </tr>
+                      <tr><td colspan="11" style="padding:30px;text-align:center;color:var(--muted);font-family:'Plus Jakarta Sans',sans-serif"><div style="font-size:22px;margin-bottom:6px">💼</div>No active paper trades. Use Quick Trade tab to enter.</td></tr>
                     </tbody>
                   </table>
                 </div>
-              </div>
+
+                <!-- Panel 2: Order History -->
+                <div id="tp-panel-history" style="flex:1;overflow-y:auto;display:none;">
+                  <table style="width:100%;border-collapse:collapse;text-align:left;font-family:'JetBrains Mono','Space Mono',monospace;font-size:12px;">
+                    <thead>
+                      <tr style="border-bottom:1px solid rgba(0,196,204,.15);background:rgba(0,0,0,.15);position:sticky;top:0;z-index:1">
+                        <th style="padding:9px 16px;font-weight:600;color:var(--muted)">DATE</th>
+                        <th style="padding:9px 16px;font-weight:600;color:var(--muted)">SYMBOL</th>
+                        <th style="padding:9px 16px;font-weight:600;color:var(--muted)">SIDE</th>
+                        <th style="padding:9px 16px;font-weight:600;color:var(--muted)">QTY</th>
+                        <th style="padding:9px 16px;font-weight:600;color:var(--muted)">ENTRY ₹</th>
+                        <th style="padding:9px 16px;font-weight:600;color:var(--muted)">EXIT ₹</th>
+                        <th style="padding:9px 16px;font-weight:600;color:var(--muted)">P&amp;L ₹</th>
+                        <th style="padding:9px 16px;font-weight:600;color:var(--muted)">RESULT</th>
+                      </tr>
+                    </thead>
+                    <tbody id="term-history-tbody">
+                      <tr><td colspan="8" style="padding:30px;text-align:center;color:var(--muted);font-family:'Plus Jakarta Sans',sans-serif"><div style="font-size:22px;margin-bottom:6px">📋</div>No closed trades yet this session.</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- Panel 3: Quick Trade -->
+                <div id="tp-panel-trade" style="flex:1;overflow-y:auto;display:none;padding:14px 16px;">
+                  <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr auto auto;gap:10px;align-items:end;">
+                    <div>
+                      <div style="font-family:'Space Mono';font-size:9px;color:var(--muted);margin-bottom:4px">SYMBOL (e.g. RELIANCE.NS)</div>
+                      <input id="tp-sym" type="text" placeholder="RELIANCE.NS" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-family:'Space Mono';font-size:12px;outline:none">
+                    </div>
+                    <div>
+                      <div style="font-family:'Space Mono';font-size:9px;color:var(--muted);margin-bottom:4px">SL %</div>
+                      <input id="tp-sl" type="number" value="2" min="0.5" max="10" step="0.5" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-family:'Space Mono';font-size:12px;outline:none">
+                    </div>
+                    <div>
+                      <div style="font-family:'Space Mono';font-size:9px;color:var(--muted);margin-bottom:4px">TARGET %</div>
+                      <input id="tp-tgt" type="number" value="4" min="1" max="30" step="0.5" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-family:'Space Mono';font-size:12px;outline:none">
+                    </div>
+                    <div>
+                      <div style="font-family:'Space Mono';font-size:9px;color:var(--muted);margin-bottom:4px">ALLOC %</div>
+                      <input id="tp-alloc" type="number" value="5" min="1" max="20" step="1" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 10px;font-family:'Space Mono';font-size:12px;outline:none">
+                    </div>
+                    <div>
+                      <div style="font-family:'Space Mono';font-size:9px;color:var(--muted);margin-bottom:4px">TSL AUTO</div>
+                      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:8px">
+                        <input type="checkbox" id="tp-tsl" checked style="accent-color:var(--accent);width:16px;height:16px">
+                        <span style="font-size:11px;color:var(--text)">ON</span>
+                      </label>
+                    </div>
+                    <div><button onclick="tpBuy()" style="width:100%;background:linear-gradient(135deg,#00E676,#00C853);color:#000;font-family:'Space Mono';font-size:11px;font-weight:700;letter-spacing:1px;border:none;border-radius:8px;padding:10px 14px;cursor:pointer">▲ BUY</button></div>
+                    <div><button onclick="tpSell()" style="width:100%;background:linear-gradient(135deg,#ff3d71,#c0003c);color:#fff;font-family:'Space Mono';font-size:11px;font-weight:700;letter-spacing:1px;border:none;border-radius:8px;padding:10px 12px;cursor:pointer">▼ SELL</button></div>
+                  </div>
+                  <div id="tp-status" style="margin-top:10px;font-family:'Space Mono';font-size:11px;color:var(--muted);min-height:16px"></div>
+                </div>
+
+                <!-- Panel 4: Alerts Log -->
+                <div id="tp-panel-alerts" style="flex:1;overflow-y:auto;display:none;">
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;height:100%;">
+                    <!-- Left: alert log -->
+                    <div style="overflow-y:auto;border-right:1px solid var(--border);">
+                      <div id="tp-alert-log">
+                        <div style="padding:24px;text-align:center;color:var(--muted);font-size:13px"><div style="font-size:22px;margin-bottom:6px">🔔</div>No alerts sent yet this session.<br><span style="font-size:11px">Alerts fire when Score ≥ 82+</span></div>
+                      </div>
+                    </div>
+                    <!-- Right: alert settings -->
+                    <div style="overflow-y:auto;padding:16px;">
+                      <div style="background:rgba(0,229,160,.05);border:1px solid rgba(0,229,160,.15);border-radius:10px;padding:12px;margin-bottom:10px;">
+                        <div style="font-family:'Space Mono';font-size:9px;color:var(--accent);margin-bottom:8px;letter-spacing:.06em">WHEN ALERTS FIRE</div>
+                        <div style="font-size:12px;line-height:2">🟢 Score ≥ 88 → STRONG BUY alert<br>🟢 Score ≥ 82 → BUY alert<br>🌅 8:00 AM → Morning brief<br>🌙 4:00 PM → Evening debrief<br>⏰ Every 15 min → Score check</div>
+                      </div>
+                      <div style="background:rgba(77,166,255,.05);border:1px solid rgba(77,166,255,.15);border-radius:10px;padding:12px;">
+                        <div style="font-family:'Space Mono';font-size:9px;color:var(--accent3);margin-bottom:8px;letter-spacing:.06em">TEST YOUR SETUP</div>
+                        <button class="btn" onclick="testTelegram()" style="margin-bottom:8px;width:100%">📲 Send Test Telegram</button>
+                        <button class="btn btn-blue" onclick="refreshPrices()" style="width:100%">↻ Refresh Prices Now</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Panel 5: Trade Rules -->
+                <div id="tp-panel-rules" style="flex:1;overflow-y:auto;display:none;padding:16px 20px;">
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                    <div style="font-size:13px;color:var(--text);line-height:2">✅ Set stop-loss before every entry<br>✅ Max 10% per stock allocation<br>✅ TSL auto-activated on entry<br>✅ Review every Friday evening<br>✅ Track win rate weekly (target &gt;60%)</div>
+                    <div style="font-size:13px;color:var(--text);line-height:2">❌ Never average down without fresh analysis<br>❌ Never hold past −8% without review<br>❌ Don't chase stocks already up 5%+ today<br>❌ Don't overtrade — max 2–3 positions/week<br>❌ Never invest in a stock you can't explain in 2 lines</div>
+                  </div>
+                </div>
+
+              </div><!-- end merged bottom panel -->
 
             </div>
         
@@ -9709,13 +9832,12 @@ window.termLoadSymbol = async function(sym, label, pillEl) {
     pillEl.classList.add('active');
   }
 
-  if (_tvWidget && _tvWidget.iframe) {
-    _tvWidget.onChartReady(() => {
-       _tvWidget.chart().setSymbol(getTVSymbol(sym, label, _currSegment));
-    });
-  } else {
-    _buildCharts();
-  }
+  // TradingView embedded widget doesn't support live symbol switching after init.
+  // We destroy the old iframe and rebuild the widget fresh with the new symbol.
+  const chartEl = document.getElementById('term-chart');
+  if (chartEl) { while (chartEl.firstChild) chartEl.removeChild(chartEl.firstChild); }
+  _tvWidget = null;
+  _buildCharts();
 
   _refreshOB();
 
@@ -9743,38 +9865,176 @@ function _updateTopBar(d) {
   if (d.candles && d.candles.length) document.getElementById('term-stat-open').textContent = fmt(d.candles[0].open);
 }
 
-// ── Order book & Paper Trades────────────────────────────────────────────────────────────
+// ── Terminal bottom panel tab switcher ───────────────────────────────────────
+window.termSwitchPanel = function(which) {
+  const panels = ['positions','history','trade','alerts','rules'];
+  panels.forEach(p => {
+    const panel = document.getElementById('tp-panel-'+p);
+    const btn   = document.getElementById('tp-btn-'+p);
+    if (!panel) return;
+    const active = (p === which);
+    panel.style.display = active ? 'flex' : 'none';
+    if (active && p === 'trade') panel.style.flexDirection = 'column';
+    if (btn) {
+      btn.style.color        = active ? 'var(--accent)' : 'var(--muted)';
+      btn.style.borderBottom = active ? '2px solid var(--accent)' : '2px solid transparent';
+    }
+  });
+  if (which === 'alerts') _refreshTermAlerts();
+};
+
+// ── Refresh alert log inside Terminal ────────────────────────────────────────
+async function _refreshTermAlerts() {
+  try {
+    const alerts = await fetch(`${API}/alerts`).then(r => r.json());
+    const badge = document.getElementById('tp-alert-count');
+    if (badge) badge.textContent = alerts.length || 0;
+    const log = document.getElementById('tp-alert-log');
+    if (!log) return;
+    if (!alerts.length) {
+      log.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px"><div style="font-size:22px;margin-bottom:6px">🔔</div>No alerts sent yet this session.</div>';
+      return;
+    }
+    log.innerHTML = alerts.slice().reverse().map(a => `
+      <div style="display:flex;align-items:flex-start;gap:8px;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.04);">
+        <span style="width:7px;height:7px;border-radius:50%;background:#00e676;margin-top:4px;flex-shrink:0;display:inline-block"></span>
+        <div style="flex:1;font-family:'Space Mono',monospace;font-size:10px;line-height:1.7;white-space:pre-wrap;color:var(--text)">${a.msg}</div>
+        <span style="color:var(--muted);white-space:nowrap;font-family:'Space Mono',monospace;font-size:9px">${a.time}</span>
+      </div>`).join('');
+  } catch(e) {}
+}
+
+// ── Quick Trade (BUY / SELL) from Terminal bottom panel ───────────────────────
+async function tpBuy() {
+  const sym = (document.getElementById('tp-sym').value||'').trim();
+  const sl  = parseFloat(document.getElementById('tp-sl').value)   || 2;
+  const tgt = parseFloat(document.getElementById('tp-tgt').value)  || 4;
+  const alc = parseFloat(document.getElementById('tp-alloc').value)|| 5;
+  const tsl = document.getElementById('tp-tsl').checked;
+  const sta = document.getElementById('tp-status');
+  if (!sym) { if(sta) sta.textContent='⚠️ Enter a symbol'; return; }
+  if(sta) sta.textContent='⏳ Submitting BUY…';
+  try {
+    const d = await fetch(`${API}/paper-trade`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({symbol:sym,side:'BUY',sl_pct:sl,target_pct:tgt,alloc_pct:alc,tsl_enabled:tsl})
+    }).then(r=>r.json());
+    if(sta) sta.textContent = d.status==='ok' ? `✅ BUY filled @ ₹${d.entry_price||'--'}` : `❌ ${d.error||'Failed'}`;
+    _refreshOB();
+  } catch(e){ if(sta) sta.textContent='❌ Server error'; }
+}
+async function tpSell() {
+  const sym = (document.getElementById('tp-sym').value||'').trim();
+  const sl  = parseFloat(document.getElementById('tp-sl').value)   || 2;
+  const tgt = parseFloat(document.getElementById('tp-tgt').value)  || 4;
+  const alc = parseFloat(document.getElementById('tp-alloc').value)|| 5;
+  const tsl = document.getElementById('tp-tsl').checked;
+  const sta = document.getElementById('tp-status');
+  if (!sym) { if(sta) sta.textContent='⚠️ Enter a symbol'; return; }
+  if(sta) sta.textContent='⏳ Submitting SELL…';
+  try {
+    const d = await fetch(`${API}/paper-trade`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({symbol:sym,side:'SELL',sl_pct:sl,target_pct:tgt,alloc_pct:alc,tsl_enabled:tsl})
+    }).then(r=>r.json());
+    if(sta) sta.textContent = d.status==='ok' ? `✅ SELL filled @ ₹${d.entry_price||'--'}` : `❌ ${d.error||'Failed'}`;
+    _refreshOB();
+  } catch(e){ if(sta) sta.textContent='❌ Server error'; }
+}
+
+// ── Order book & Paper Trades ────────────────────────────────────────────────
 async function _refreshOB() {
   try {
-    const obReq = fetch(`/api/orderbook?sym=${encodeURIComponent(_currSym)}&depth=12`).then(r => r.json());
-    const ptReq = fetch('/api/paper-portfolio').then(r => r.json());
-    const [obData, ptData] = await Promise.all([obReq, ptReq]);
+    const obReq    = fetch(`/api/orderbook?sym=${encodeURIComponent(_currSym)}&depth=12`).then(r=>r.json());
+    const ptReq    = fetch('/api/paper-portfolio').then(r=>r.json());
+    const algReq   = fetch(`${API}/alerts`).then(r=>r.json()).catch(()=>[]);
+    const [obData, ptData, alertData] = await Promise.all([obReq, ptReq, algReq]);
     _renderOB(obData);
     _renderPaperTrades(ptData);
+    // Keep alert badge count live
+    const badge = document.getElementById('tp-alert-count');
+    if (badge) badge.textContent = alertData.length || 0;
+    // Refresh alert panel if it's currently open
+    const ap = document.getElementById('tp-panel-alerts');
+    if (ap && ap.style.display !== 'none') _refreshTermAlerts();
   } catch(e) {}
 }
 
 function _renderPaperTrades(d) {
+    // Update mini portfolio stats bar
+    const stats = d.stats || {};
+    const setEl = (id, v) => { const e = document.getElementById(id); if(e) e.textContent = v; };
+    const cash  = d.available_cash != null ? '₹'+Number(d.available_cash).toLocaleString('en-IN',{maximumFractionDigits:0}) : '--';
+    const pnlV  = stats.total_pnl;
+    const pnlStr= pnlV != null ? (pnlV>=0?'+₹':'-₹')+Math.abs(pnlV).toLocaleString('en-IN',{maximumFractionDigits:0}) : '--';
+    const wr    = stats.win_rate != null ? (stats.win_rate*100).toFixed(0)+'%' : '--%';
+    setEl('tp-cash', cash); setEl('tp-pnl', pnlStr); setEl('tp-winrate', wr);
+
+    // Update market session status pills in Terminal
+    const segMap = {'NSE_EQUITY':'term-seg-state-NSE_EQUITY','NSE_FNO':'term-seg-state-NSE_FNO','MCX':'term-seg-state-MCX','NSE_CURRENCY':'term-seg-state-NSE_CURRENCY'};
+    if (d.market_sessions) {
+      Object.entries(d.market_sessions).forEach(([seg, info]) => {
+        const el = document.getElementById(segMap[seg]);
+        if (el) { el.textContent = info.state || '--'; el.style.color = info.state==='OPEN' ? '#00e676' : '#ff5252'; }
+      });
+    }
+
+    // Update order history
+    const htbody = document.getElementById('term-history-tbody');
+    if (htbody) {
+      const closed = d.closed_positions || [];
+      htbody.innerHTML = closed.length ? closed.slice().reverse().map(p => {
+        const pnl = p.pnl || 0;
+        return `<tr style="border-bottom:1px solid rgba(255,255,255,.04)" onmouseover="this.style.background='rgba(255,255,255,.03)'" onmouseout="this.style.background='transparent'">
+          <td style="padding:9px 16px;color:var(--muted)">${p.exit_ts?new Date(p.exit_ts*1000).toLocaleDateString('en-IN'):'--'}</td>
+          <td style="padding:9px 16px;font-weight:700;color:#fff">${p.symbol}</td>
+          <td style="padding:9px 16px;color:${p.side==='BUY'?'var(--green)':'var(--red)'}">${p.side||'BUY'}</td>
+          <td style="padding:9px 16px">${p.quantity}</td>
+          <td style="padding:9px 16px">₹${(p.entry_price||0).toFixed(2)}</td>
+          <td style="padding:9px 16px">₹${(p.exit_price||0).toFixed(2)}</td>
+          <td style="padding:9px 16px;color:${pnl>=0?'var(--green)':'var(--red)'};font-weight:700">${pnl>=0?'+':''}₹${pnl.toFixed(2)}</td>
+          <td style="padding:9px 16px;font-size:11px">${pnl>=0?'🟢 WIN':'🔴 LOSS'}</td>
+        </tr>`;
+      }).join('') : '<tr><td colspan="8" style="padding:24px;text-align:center;color:var(--muted);font-family:\'Plus Jakarta Sans\',sans-serif"><div style="font-size:20px;margin-bottom:6px">📋</div>No closed trades yet.</td></tr>';
+    }
+
+    // Update open positions
     const tbody = document.getElementById('term-positions-tbody');
     if (!tbody) return;
     if (!d.open_positions || d.open_positions.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" style="padding: 30px; text-align: center; color: var(--muted); font-family: 'Plus Jakarta Sans', sans-serif;"><div style="font-size: 24px; margin-bottom: 8px;">💼</div>No active paper trades found for this session.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="11" style="padding:30px;text-align:center;color:var(--muted);font-family:'Plus Jakarta Sans',sans-serif"><div style="font-size:22px;margin-bottom:6px">💼</div>No active paper trades. Use Quick Trade tab to enter.</td></tr>`;
       return;
     }
-    
     tbody.innerHTML = d.open_positions.map(p => {
-      const pnl = p.unrealized_pnl || 0;
+      const pnl      = p.unrealized_pnl || 0;
       const pnlColor = pnl >= 0 ? 'var(--green)' : 'var(--red)';
-      return `<tr style="border-bottom: 1px solid rgba(255,255,255,0.03); cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'">
-        <td style="padding: 12px 20px; color: var(--muted)">${new Date(p.entry_ts*1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'})}</td>
-        <td style="padding: 12px 20px; font-weight: 700; color: #fff;">${p.symbol}</td>
-        <td style="padding: 12px 20px;">${p.quantity}</td>
-        <td style="padding: 12px 20px;">₹${(p.entry_price).toFixed(2)}</td>
-        <td style="padding: 12px 20px; color: var(--gold);">₹${(p.current_price).toFixed(2)}</td>
-        <td style="padding: 12px 20px; color: ${pnlColor}; font-weight: bold;">₹${pnl.toFixed(2)}</td>
-        <td style="padding: 12px 20px;"><button style="background: rgba(255,82,82,0.1); border: 1px solid var(--red); color: var(--red); padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: not-allowed; opacity: 0.7;">SQUARE OFF</button></td>
+      const pnlPct   = p.pnl_pct != null ? (p.pnl_pct>=0?'+':'')+p.pnl_pct.toFixed(2)+'%' : '--';
+      const sl       = p.stop_loss   ? '₹'+p.stop_loss.toFixed(2)   : '--';
+      const tsl      = p.tsl_price   ? '₹'+p.tsl_price.toFixed(2)   : '--';
+      const t1       = p.target_price? '₹'+p.target_price.toFixed(2) : '--';
+      return `<tr style="border-bottom:1px solid rgba(255,255,255,.03);transition:background .2s" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background='transparent'">
+        <td style="padding:9px 16px;color:var(--muted)">${p.entry_ts?new Date(p.entry_ts*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}):'--'}</td>
+        <td style="padding:9px 16px;font-weight:700;color:#fff">${p.symbol}</td>
+        <td style="padding:9px 16px">${p.quantity}</td>
+        <td style="padding:9px 16px">₹${(p.entry_price||0).toFixed(2)}</td>
+        <td style="padding:9px 16px;color:var(--gold)">₹${(p.current_price||0).toFixed(2)}</td>
+        <td style="padding:9px 16px;color:#ff5252;font-size:11px">${sl}</td>
+        <td style="padding:9px 16px;color:#ff8c00;font-size:11px">${tsl}</td>
+        <td style="padding:9px 16px;color:#00e676;font-size:11px">${t1}</td>
+        <td style="padding:9px 16px;color:${pnlColor};font-weight:700">${pnl>=0?'+':''}₹${pnl.toFixed(2)}</td>
+        <td style="padding:9px 16px;color:${pnlColor}">${pnlPct}</td>
+        <td style="padding:9px 16px"><button onclick="tpSquareOff('${p.symbol}')" style="background:rgba(255,82,82,.1);border:1px solid var(--red);color:var(--red);padding:4px 10px;border-radius:4px;font-size:11px;font-weight:700;cursor:pointer">SQ OFF</button></td>
       </tr>`;
     }).join('');
+}
+
+async function tpSquareOff(symbol) {
+  try {
+    const d = await fetch(`${API}/exit-paper-trade`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({symbol})}).then(r=>r.json());
+    if (d.pnl !== undefined) {
+      alert(`✅ Exited ${symbol} | P&L: ${d.pnl>=0?'+':''}₹${d.pnl.toFixed(2)} (${(d.pnl_pct||0).toFixed(2)}%)`);
+    } else { alert('❌ '+(d.error||'Exit failed')); }
+    _refreshOB();
+  } catch(e) { alert('❌ Server error'); }
 }
 
 
