@@ -5358,7 +5358,15 @@
 
               <!-- TradingView Widget Container — flex:1 but no min-height so bottom panel stays visible -->
               <div id="term-chart" style="flex: 1; min-height: 0; width: 100%; border-bottom: 1px solid var(--border);"></div>
-              
+
+              <!-- ── Chart Expand Toggle — always visible, outside bottom panel ── -->
+              <div style="display:flex;justify-content:flex-end;align-items:center;padding:2px 10px;background:rgba(0,0,0,.3);border-bottom:1px solid var(--border);flex-shrink:0;">
+                <button id="tp-btn-collapse" onclick="termToggleBottomPanel()" title="Expand / collapse chart"
+                  style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:6px;
+                         color:#a5b4fc;cursor:pointer;padding:2px 12px;font-size:11px;font-weight:700;
+                         font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:.3px;">▼ Hide Panel</button>
+              </div>
+
               <!-- ── Compact Market Session Bar ── -->
               <div id="term-session-bar" style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:4px 10px;background:rgba(0,0,0,.25);border-bottom:1px solid var(--border);flex-shrink:0;">
                 <div class="sahi-seg" id="term-seg-NSE_EQUITY" style="padding:4px 8px;text-align:center;background:var(--bg2);border:1px solid var(--border);border-radius:6px">
@@ -5391,7 +5399,6 @@
                   <button id="tp-btn-positions" onclick="termSwitchPanel('positions')" style="background:none;border:none;border-bottom:2px solid var(--accent);font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--accent);cursor:pointer;padding:9px 14px;white-space:nowrap">📊 POSITIONS</button>
                   <button id="tp-btn-history"   onclick="termSwitchPanel('history')"   style="background:none;border:none;border-bottom:2px solid transparent;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--muted);cursor:pointer;padding:9px 14px;white-space:nowrap">📋 HISTORY</button>
                   <button id="tp-btn-trade"     onclick="termSwitchPanel('trade')"     style="background:none;border:none;border-bottom:2px solid transparent;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--muted);cursor:pointer;padding:9px 14px;white-space:nowrap">🎯 QUICK TRADE</button>
-                  <button id="tp-btn-collapse" onclick="termToggleBottomPanel()" title="Expand/Collapse Panel" style="margin-left:auto;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:6px;color:#a5b4fc;cursor:pointer;padding:4px 10px;font-size:13px;flex-shrink:0;">▼ Hide</button>
                   <button id="tp-btn-alerts"    onclick="termSwitchPanel('alerts')"    style="background:none;border:none;border-bottom:2px solid transparent;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--muted);cursor:pointer;padding:9px 14px;white-space:nowrap">🔔 ALERTS <span id="tp-alert-count" style="background:rgba(255,82,82,.2);color:#ff5252;font-size:9px;padding:1px 5px;border-radius:8px">0</span></button>
                   <button id="tp-btn-rules"     onclick="termSwitchPanel('rules')"     style="background:none;border:none;border-bottom:2px solid transparent;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--muted);cursor:pointer;padding:9px 14px;white-space:nowrap">📚 RULES</button>
                   <!-- Portfolio mini-stats -->
