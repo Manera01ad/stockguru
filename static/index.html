@@ -1874,61 +1874,118 @@
               <!-- Tools to predict direction -->
               <div>
                 <h3 style="color: var(--muted); font-size: 11px; text-transform: uppercase; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 10px; font-weight:600;">Tools to predict direction</h3>
-                <ul style="list-style: none; padding: 0; margin: 0; display:flex; flex-direction:column; gap:8px;">
-                  <li style="background: rgba(0,196,204,0.1); border: 1px solid rgba(0,196,204,0.3); padding: 12px 16px; border-radius: 6px; cursor: pointer; color:#00C4CC; font-weight: 600; font-size: 13px; display:flex; justify-content:space-between; align-items:center;">
-                    <span>⛓️ Option Chain</span> <span style="font-size:16px;">→</span>
-                  </li>
-                  <li style="padding: 12px 16px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; color:var(--text); font-size: 13px; display:flex; align-items:center; gap:10px; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
-                    <span style="color:#3b82f6; width:16px; text-align:center;">📊</span> Open Interest <span style="background:#fbbf24; color:#000; font-size:9px; font-weight:700; padding:2px 6px; border-radius:4px; margin-left:auto;">New and Improved</span>
-                  </li>
-                  <li style="padding: 12px 16px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; color:var(--text); font-size: 13px; display:flex; align-items:center; gap:10px; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
-                    <span style="color:var(--muted); width:16px; text-align:center;">⤨</span> Multi Strike OI
-                  </li>
-                  <li style="padding: 12px 16px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; color:var(--text); font-size: 13px; display:flex; align-items:center; gap:10px; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
-                    <span style="color:var(--muted); width:16px; text-align:center;">🏛️</span> FII DII Data
-                  </li>
-                  <li style="padding: 12px 16px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; color:var(--text); font-size: 13px; display:flex; align-items:center; gap:10px; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
-                    <span style="color:var(--muted); width:16px; text-align:center;">📈</span> Live Options Charts
-                  </li>
-                  <li style="padding: 12px 16px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; color:var(--text); font-size: 13px; display:flex; align-items:center; gap:10px; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
-                    <span style="color:var(--muted); width:16px; text-align:center;">⏱️</span> Multi Straddle-Strangle
-                  </li>
-                </ul>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                  
+                  <div style="background: rgba(0,196,204,0.1); border: 1px solid rgba(0,196,204,0.3); padding: 12px 14px; border-radius: 6px; cursor: pointer;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                      <span style="color:#00C4CC; font-weight:600; font-size:13px;">⛓️ Option Chain</span> <span style="font-size:16px; color:#00C4CC;">→</span>
+                    </div>
+                    <div style="font-size:10px; color:var(--muted); line-height:1.4;">Full options data per strike</div>
+                  </div>
+
+                  <div style="padding: 10px 14px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                      <span style="color:#3b82f6; width:16px; text-align:center;">📊</span> <span style="color:var(--text); font-size:13px;">Open Interest</span>
+                      <span style="background:#fbbf24; color:#000; font-size:8px; font-weight:700; padding:2px 4px; border-radius:4px; margin-left:auto;">Improved</span>
+                    </div>
+                    <div style="font-size:10px; color:var(--muted); line-height:1.4; padding-left:24px;">Call vs Put OI bar charts</div>
+                  </div>
+
+                  <div style="padding: 10px 14px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                      <span style="color:var(--muted); width:16px; text-align:center;">⤨</span> <span style="color:var(--text); font-size:13px;">Multi Strike OI</span>
+                    </div>
+                    <div style="font-size:10px; color:var(--muted); line-height:1.4; padding-left:24px;">Multi-strike OI over time</div>
+                  </div>
+
+                  <div style="padding: 10px 14px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                      <span style="color:var(--muted); width:16px; text-align:center;">🏛️</span> <span style="color:var(--text); font-size:13px;">FII DII Data</span>
+                    </div>
+                    <div style="font-size:10px; color:var(--muted); line-height:1.4; padding-left:24px;">Institutional activity & sentiment</div>
+                  </div>
+
+                  <div style="padding: 10px 14px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                      <span style="color:var(--muted); width:16px; text-align:center;">📈</span> <span style="color:var(--text); font-size:13px;">Live Options Charts</span>
+                    </div>
+                    <div style="font-size:10px; color:var(--muted); line-height:1.4; padding-left:24px;">Live straddle price charts</div>
+                  </div>
+
+                  <div style="padding: 10px 14px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                      <span style="color:var(--muted); width:16px; text-align:center;">⏱️</span> <span style="color:var(--text); font-size:13px;">Multi Straddle-Strangle</span>
+                    </div>
+                    <div style="font-size:10px; color:var(--muted); line-height:1.4; padding-left:24px;">Compare multiple strategies</div>
+                  </div>
+
+                </div>
               </div>
 
               <!-- Find great trades -->
               <div>
                 <h3 style="color: var(--muted); font-size: 11px; text-transform: uppercase; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 10px; font-weight:600;">Find great trades</h3>
-                <ul style="list-style: none; padding: 0; margin: 0; display:flex; flex-direction:column; gap:8px;">
-                  <li style="padding: 12px 16px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; color:var(--text); font-size: 13px; display:flex; align-items:center; gap:10px; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
-                    <span style="color:var(--muted); width:16px; text-align:center;">🔍</span> Stock Data
-                  </li>
-                  <li style="padding: 12px 16px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; color:var(--text); font-size: 13px; display:flex; align-items:center; gap:10px; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
-                    <span style="color:var(--muted); width:16px; text-align:center;">📋</span> Screener
-                  </li>
-                  <li style="padding: 12px 16px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; color:var(--text); font-size: 13px; display:flex; align-items:center; gap:10px; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
-                    <span style="color:var(--muted); width:16px; text-align:center;">📡</span> Technical Signals
-                  </li>
-                  <li style="padding: 12px 16px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; color:var(--text); font-size: 13px; display:flex; align-items:center; gap:10px; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
-                    <span style="color:var(--muted); width:16px; text-align:center;">🗺️</span> Market Analysis
-                  </li>
-                </ul>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                  
+                  <div style="padding: 10px 14px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                      <span style="color:var(--muted); width:16px; text-align:center;">🔍</span> <span style="color:var(--text); font-size:13px;">Stock Data</span>
+                    </div>
+                    <div style="font-size:10px; color:var(--muted); line-height:1.4; padding-left:24px;">All stock data in one view</div>
+                  </div>
+
+                  <div style="padding: 10px 14px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                      <span style="color:var(--muted); width:16px; text-align:center;">📋</span> <span style="color:var(--text); font-size:13px;">Screener</span>
+                    </div>
+                    <div style="font-size:10px; color:var(--muted); line-height:1.4; padding-left:24px;">Filter stocks by OI/IV/PCR</div>
+                  </div>
+
+                  <div style="padding: 10px 14px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                      <span style="color:var(--muted); width:16px; text-align:center;">📡</span> <span style="color:var(--text); font-size:13px;">Technical Signals</span>
+                    </div>
+                    <div style="font-size:10px; color:var(--muted); line-height:1.4; padding-left:24px;">Candle & MA signals</div>
+                  </div>
+
+                  <div style="padding: 10px 14px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                      <span style="color:var(--muted); width:16px; text-align:center;">🗺️</span> <span style="color:var(--text); font-size:13px;">Market Analysis</span>
+                    </div>
+                    <div style="font-size:10px; color:var(--muted); line-height:1.4; padding-left:24px;">Daily NIFTY/BANKNIFTY analysis</div>
+                  </div>
+
+                </div>
               </div>
 
               <!-- Others -->
               <div>
                 <h3 style="color: var(--muted); font-size: 11px; text-transform: uppercase; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 10px; font-weight:600;">Others</h3>
-                <ul style="list-style: none; padding: 0; margin: 0; display:flex; flex-direction:column; gap:8px;">
-                  <li style="padding: 12px 16px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; color:var(--text); font-size: 13px; display:flex; align-items:center; gap:10px; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
-                    <span style="color:var(--muted); width:16px; text-align:center;">📉</span> IV Chart
-                  </li>
-                  <li style="padding: 12px 16px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; color:var(--text); font-size: 13px; display:flex; align-items:center; gap:10px; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
-                    <span style="color:var(--muted); width:16px; text-align:center;">📅</span> Stock Market Calendar
-                  </li>
-                  <li style="padding: 12px 16px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; color:var(--text); font-size: 13px; display:flex; align-items:center; gap:10px; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
-                    <span style="color:var(--muted); width:16px; text-align:center;">🟩</span> Heatmap
-                  </li>
-                </ul>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                  
+                  <div style="padding: 10px 14px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                      <span style="color:var(--muted); width:16px; text-align:center;">📉</span> <span style="color:var(--text); font-size:13px;">IV Chart</span>
+                      <span style="background:rgba(255,255,255,0.05); color:var(--muted); font-size:8px; padding:2px 4px; border-radius:4px; margin-left:auto; border:1px solid var(--border);">PRO 🔒</span>
+                    </div>
+                    <div style="font-size:10px; color:var(--muted); line-height:1.4; padding-left:24px;">IV history charts</div>
+                  </div>
+
+                  <div style="padding: 10px 14px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                      <span style="color:var(--muted); width:16px; text-align:center;">📅</span> <span style="color:var(--text); font-size:13px;">Stock Market Calendar</span>
+                    </div>
+                    <div style="font-size:10px; color:var(--muted); line-height:1.4; padding-left:24px;">Economic, results & holiday events</div>
+                  </div>
+
+                  <div style="padding: 10px 14px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                      <span style="color:var(--muted); width:16px; text-align:center;">🟩</span> <span style="color:var(--text); font-size:13px;">Heatmap</span>
+                    </div>
+                    <div style="font-size:10px; color:var(--muted); line-height:1.4; padding-left:24px;">Visual market overview</div>
+                  </div>
+
+                </div>
               </div>
             </div>
             
