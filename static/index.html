@@ -1932,29 +1932,99 @@
               </div>
             </div>
             
-            <!-- Stubbed Option Chain Data table placeholder -->
+            <!-- Sensibull-style Option Chain -->
             <div style="margin-top:40px; border-top: 1px solid var(--border); padding-top:20px;">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
-                <h3 style="color:#c8cdd8; font-size:15px; font-family:'Plus Jakarta Sans',sans-serif; margin:0;">Live Option Chain (NIFTY)</h3>
-                <button style="background:none; border:1px solid #00c4cc; border-radius:4px; padding:4px 10px; color:#00c4cc; font-size:10px; cursor:pointer;">Refresh Data</button>
+              <style>
+                .oc-table { width:100%; border-collapse:collapse; text-align:right; font-size:11px; font-family:'JetBrains Mono',monospace; color:var(--text); }
+                .oc-table th { padding:8px 10px; border-bottom:1px solid #2a3040; text-transform:uppercase; font-size:10px; font-family:'Plus Jakarta Sans',sans-serif; color:var(--muted); font-weight:600; }
+                .oc-table td { padding:8px 10px; border-bottom:1px solid #1a1f2b; }
+                .oc-table .strk { border-right:1px solid #1a1f2b; border-left:1px solid #1a1f2b; text-align:center; font-weight:700; background:rgba(255,255,255,0.015); }
+                .oc-table .itm-call { background:rgba(255,235,59,0.03); }
+                .oc-table .itm-put { background:rgba(255,235,59,0.03); }
+                .oc-table .atm { background:rgba(255,255,255,0.08); font-weight:700; }
+                .oc-table .atm .strk { background:rgba(251,191,36,0.1); color:#fbbf24; }
+                .bar-bg { display:inline-block; height:4px; max-width:40px; border-radius:2px; }
+                .bar-c { background:rgba(255,82,82,0.6); }
+                .bar-p { background:rgba(0,230,118,0.6); }
+                .grn { color: #00e676; }
+                .red { color: #ff5252; }
+                .oc-header-calls { text-align:center; padding:6px; background:rgba(255,82,82,0.05); color:#ff5252; font-weight:700; font-family:'Plus Jakarta Sans',sans-serif; font-size:11px; border-bottom:none; border-right:1px solid #2a3040; }
+                .oc-header-puts { text-align:center; padding:6px; background:rgba(0,230,118,0.05); color:#00e676; font-weight:700; font-family:'Plus Jakarta Sans',sans-serif; font-size:11px; border-bottom:none; border-left:1px solid #2a3040; }
+              </style>
+
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;background:#1a1f2b;padding:10px 15px;border-radius:6px;border:1px solid #2a3040;">
+                <div style="display:flex;align-items:center;gap:15px;">
+                  <span style="background:rgba(255,255,255,0.05);border:1px solid #2a3040;padding:4px 8px;border-radius:4px;font-size:12px;font-weight:700;font-family:'Plus Jakarta Sans',sans-serif;">🔍 NIFTY 23002.15 <span style="color:#ff5252;font-weight:600;font-size:11px;margin-left:4px;">-3.26%</span></span>
+                  <div style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;">
+                    Expiry: <select style="background:var(--bg);color:var(--text);border:1px solid #2a3040;padding:2px 6px;border-radius:4px;outline:none;"><option>24 Mar</option><option>31 Mar</option></select>
+                  </div>
+                  <span style="font-size:11px;color:var(--muted);">Synth Fut Price <span style="color:var(--text)">23095.36</span></span>
+                  <span style="font-size:11px;color:var(--muted);">IVP <span style="color:var(--text)">98</span></span>
+                </div>
+                <button style="background:none; border:1px solid #00c4cc; border-radius:4px; padding:4px 10px; color:#00c4cc; font-size:10px; cursor:pointer;">Live Charts</button>
               </div>
+
               <div style="background:var(--bg2); border:1px solid var(--border); border-radius:8px; overflow:hidden;">
-                <table style="width:100%; border-collapse:collapse; text-align:right; font-size:11px; font-family:'JetBrains Mono',monospace;">
+                <table class="oc-table">
                   <thead>
-                    <tr style="background:rgba(0,0,0,0.3); color:var(--muted); text-transform:uppercase;">
-                      <th style="padding:10px; border-bottom:1px solid var(--border);">Call OI</th>
-                      <th style="padding:10px; border-bottom:1px solid var(--border);">Call LTP</th>
-                      <th style="padding:10px; border-bottom:1px solid var(--border); border-right:1px solid var(--border); border-left:1px solid var(--border); text-align:center; background:rgba(255,255,255,0.02); font-weight:700; color:var(--text);">Strike</th>
-                      <th style="padding:10px; border-bottom:1px solid var(--border);">Put LTP</th>
-                      <th style="padding:10px; border-bottom:1px solid var(--border);">Put OI</th>
+                    <tr>
+                      <th colspan="4" class="oc-header-calls">CALLS</th>
+                      <th style="border-bottom:none; background:rgba(255,255,255,0.015);"></th>
+                      <th colspan="5" class="oc-header-puts">PUTS</th>
+                    </tr>
+                    <tr>
+                      <th>OI Chg%</th>
+                      <th>OI-lakh</th>
+                      <th style="text-align:right">Call OI <div style="display:inline-block;width:12px;height:4px;background:#ff5252;border-radius:2px;margin-left:4px;vertical-align:middle;"></div></th>
+                      <th>LTP</th>
+                      <th class="strk" style="border-bottom:1px solid #2a3040;">Strike ↓</th>
+                      <th>IV</th>
+                      <th>LTP</th>
+                      <th style="text-align:left"><div style="display:inline-block;width:12px;height:4px;background:#00e676;border-radius:2px;margin-right:4px;vertical-align:middle;"></div> Put OI</th>
+                      <th>OI-lakh</th>
+                      <th>OI Chg%</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr><td style="padding:10px; color:var(--muted)">45.2L</td><td style="padding:10px; color:var(--red)">112.50</td><td style="padding:10px; border-right:1px solid var(--border); border-left:1px solid var(--border); text-align:center; background:rgba(255,255,255,0.02); font-weight:700;">22800</td><td style="padding:10px; color:var(--green)">14.20</td><td style="padding:10px; color:var(--muted)">12.1L</td></tr>
-                    <tr><td style="padding:10px; color:var(--muted)">60.1L</td><td style="padding:10px; color:var(--red)">75.30</td><td style="padding:10px; border-right:1px solid var(--border); border-left:1px solid var(--border); text-align:center; background:rgba(255,255,255,0.02); font-weight:700;">22900</td><td style="padding:10px; color:var(--green)">45.80</td><td style="padding:10px; color:var(--muted)">28.5L</td></tr>
-                    <tr style="background:rgba(251,191,36,0.05);"><td style="padding:10px; color:var(--muted)">85.4L</td><td style="padding:10px; color:var(--red); font-weight:700;">45.00</td><td style="padding:10px; border-right:1px solid var(--border); border-left:1px solid var(--border); text-align:center; background:rgba(251,191,36,0.1); font-weight:700; color:#fbbf24;">23000 (ATM)</td><td style="padding:10px; color:var(--green); font-weight:700;">230.00 <span style="font-size:8px; background:rgba(0,230,118,0.2); border-radius:4px; padding:1px 4px;">SPIKE</span></td><td style="padding:10px; color:var(--muted)">115.2L <span style="color:#00e676;font-size:9px;">+40%</span></td></tr>
-                    <tr><td style="padding:10px; color:var(--muted)">30.2L</td><td style="padding:10px; color:var(--green)">18.10</td><td style="padding:10px; border-right:1px solid var(--border); border-left:1px solid var(--border); text-align:center; background:rgba(255,255,255,0.02); font-weight:700;">23100</td><td style="padding:10px; color:var(--red)">350.50</td><td style="padding:10px; color:var(--muted)">8.4L</td></tr>
-                    <tr><td style="padding:10px; color:var(--muted)">12.5L</td><td style="padding:10px; color:var(--green)">6.20</td><td style="padding:10px; border-right:1px solid var(--border); border-left:1px solid var(--border); text-align:center; background:rgba(255,255,255,0.02); font-weight:700;">23200</td><td style="padding:10px; color:var(--red)">440.10</td><td style="padding:10px; color:var(--muted)">4.2L</td></tr>
+                    <tr class="itm-call">
+                      <td class="grn">883%</td><td>0.3</td><td><div class="bar-bg bar-c" style="width:5px;"></div></td><td>766.75</td><td class="strk">22400</td><td>29.4</td><td>80.40</td><td style="text-align:left"><div class="bar-bg bar-p" style="width:12px;"></div></td><td>15.5</td><td class="red">-28%</td>
+                    </tr>
+                    <tr class="itm-call">
+                      <td class="grn">1450%</td><td>0.1</td><td><div class="bar-bg bar-c" style="width:2px;"></div></td><td>755.60</td><td class="strk">22450</td><td>29.1</td><td>87.95</td><td style="text-align:left"><div class="bar-bg bar-p" style="width:4px;"></div></td><td>4.3</td><td class="red">-4%</td>
+                    </tr>
+                    <tr class="itm-call">
+                      <td class="grn">48%</td><td>3.5</td><td><div class="bar-bg bar-c" style="width:15px;"></div></td><td>689.70</td><td class="strk">22500</td><td>28.6</td><td>95.35</td><td style="text-align:left"><div class="bar-bg bar-p" style="width:28px;"></div></td><td>41.4</td><td class="grn">18%</td>
+                    </tr>
+                    <tr class="itm-call">
+                      <td class="grn">668%</td><td>0.2</td><td><div class="bar-bg bar-c" style="width:2px;"></div></td><td>640.00</td><td class="strk">22550</td><td>28.6</td><td>106.70</td><td style="text-align:left"><div class="bar-bg bar-p" style="width:4px;"></div></td><td>4.5</td><td class="grn">47%</td>
+                    </tr>
+                    <tr class="itm-call">
+                      <td class="grn">5489%</td><td>0.3</td><td><div class="bar-bg bar-c" style="width:3px;"></div></td><td>563.95</td><td class="strk">22650</td><td>27.7</td><td>125.20</td><td style="text-align:left"><div class="bar-bg bar-p" style="width:4px;"></div></td><td>5.0</td><td class="grn">115%</td>
+                    </tr>
+                    <tr class="itm-call">
+                      <td class="grn">1112%</td><td>1.5</td><td><div class="bar-bg bar-c" style="width:8px;"></div></td><td>528.10</td><td class="strk">22700</td><td>27.5</td><td>137.45</td><td style="text-align:left"><div class="bar-bg bar-p" style="width:16px;"></div></td><td>15.6</td><td class="grn">38%</td>
+                    </tr>
+                    <tr class="itm-call">
+                      <td class="grn">392%</td><td>2.5</td><td><div class="bar-bg bar-c" style="width:12px;"></div></td><td>455.60</td><td class="strk">22800</td><td>26.8</td><td>163.15</td><td style="text-align:left"><div class="bar-bg bar-p" style="width:22px;"></div></td><td>23.1</td><td class="grn">18%</td>
+                    </tr>
+                    <tr class="itm-call">
+                      <td class="grn">772%</td><td>3.6</td><td><div class="bar-bg bar-c" style="width:18px;"></div></td><td>385.55</td><td class="strk">22900</td><td>26.3</td><td>195.35</td><td style="text-align:left"><div class="bar-bg bar-p" style="width:20px;"></div></td><td>18.6</td><td class="grn">30%</td>
+                    </tr>
+                    <tr class="atm">
+                      <td class="grn">361%</td><td>32.9</td><td><div class="bar-bg bar-c" style="width:38px;"></div></td><td>325.20</td><td class="strk">23000</td><td>25.6</td><td class="grn" style="font-weight:700;font-size:12px;">230.00</td><td style="text-align:left"><div class="bar-bg bar-p" style="width:38px;"></div></td><td>65.3</td><td class="grn">19%</td>
+                    </tr>
+                    <tr class="itm-put">
+                      <td class="grn">1562%</td><td>7.2</td><td><div class="bar-bg bar-c" style="width:9px;"></div></td><td>294.50</td><td class="strk">23050</td><td>25.4</td><td>251.20</td><td style="text-align:left"><div class="bar-bg bar-p" style="width:10px;"></div></td><td>9.6</td><td class="grn">28%</td>
+                    </tr>
+                    <tr class="itm-put">
+                      <td class="grn">386%</td><td>16.0</td><td><div class="bar-bg bar-c" style="width:18px;"></div></td><td>267.25</td><td class="strk">23100</td><td>25.0</td><td>272.65</td><td style="text-align:left"><div class="bar-bg bar-p" style="width:18px;"></div></td><td>17.7</td><td class="grn">0.4%</td>
+                    </tr>
+                    <tr class="itm-put">
+                      <td class="grn">727%</td><td>6.7</td><td><div class="bar-bg bar-c" style="width:8px;"></div></td><td>240.05</td><td class="strk">23150</td><td>24.7</td><td>295.50</td><td style="text-align:left"><div class="bar-bg bar-p" style="width:8px;"></div></td><td>7.0</td><td class="grn">20%</td>
+                    </tr>
+                    <tr class="itm-put">
+                      <td class="grn">592%</td><td>14.2</td><td><div class="bar-bg bar-c" style="width:16px;"></div></td><td>214.30</td><td class="strk">23200</td><td>24.4</td><td>322.80</td><td style="text-align:left"><div class="bar-bg bar-p" style="width:14px;"></div></td><td>12.5</td><td class="grn">15%</td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
