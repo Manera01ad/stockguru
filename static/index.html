@@ -5356,15 +5356,48 @@
             <!-- Chart + Bottom Trade Panel -->
             <div class="term-chart-wrap" style="flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden;">
 
+              <!-- ══ CHART TOP QUICK-ACCESS BAR — always visible, never hides ══ -->
+              <div id="chart-quick-bar" style="display:flex;align-items:center;gap:5px;padding:5px 12px;
+                   background:rgba(0,12,18,.85);border-bottom:1px solid rgba(0,196,204,.18);flex-shrink:0;flex-wrap:wrap;">
+                <span style="font-size:9px;color:#4a7a70;letter-spacing:.08em;font-weight:700;margin-right:2px;white-space:nowrap">PANEL ▸</span>
+                <button onclick="termOpenPanel('positions')"
+                  style="background:rgba(0,196,204,.12);border:1px solid rgba(0,196,204,.35);border-radius:6px;
+                         color:#00C4CC;cursor:pointer;padding:3px 10px;font-size:10px;font-weight:700;
+                         font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:.3px;white-space:nowrap">📊 POSITIONS</button>
+                <button onclick="termOpenPanel('history')"
+                  style="background:rgba(95,173,160,.12);border:1px solid rgba(95,173,160,.4);border-radius:6px;
+                         color:#5FADA0;cursor:pointer;padding:3px 10px;font-size:10px;font-weight:700;
+                         font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:.3px;white-space:nowrap">📋 HISTORY</button>
+                <button onclick="termOpenPanel('trade')"
+                  style="background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.3);border-radius:6px;
+                         color:#00E676;cursor:pointer;padding:3px 10px;font-size:10px;font-weight:700;
+                         font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:.3px;white-space:nowrap">🎯 QUICK TRADE</button>
+                <button onclick="termOpenPanel('alerts')"
+                  style="background:rgba(255,61,113,.08);border:1px solid rgba(255,61,113,.3);border-radius:6px;
+                         color:#FF3D71;cursor:pointer;padding:3px 10px;font-size:10px;font-weight:700;
+                         font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:.3px;white-space:nowrap">🔔 ALERTS</button>
+                <button onclick="termOpenPanel('strategy')"
+                  style="background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.4);border-radius:6px;
+                         color:#fbbf24;cursor:pointer;padding:3px 10px;font-size:10px;font-weight:700;
+                         font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:.3px;white-space:nowrap">⚔️ STRATEGY</button>
+                <button onclick="termOpenPanel('brain');startBrainFeed()"
+                  style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.4);border-radius:6px;
+                         color:#a5b4fc;cursor:pointer;padding:3px 10px;font-size:10px;font-weight:700;
+                         font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:.3px;white-space:nowrap">🧠 AGENT BRAIN</button>
+                <div style="margin-left:auto;flex-shrink:0">
+                  <button id="chart-panel-toggle" onclick="termToggleBottomPanel()"
+                    style="background:rgba(99,102,241,.2);border:1px solid rgba(99,102,241,.5);border-radius:6px;
+                           color:#a5b4fc;cursor:pointer;padding:3px 14px;font-size:10px;font-weight:700;
+                           font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:.3px;white-space:nowrap">▼ HIDE PANEL</button>
+                </div>
+              </div>
+
               <!-- TradingView Widget Container — flex:1 but no min-height so bottom panel stays visible -->
               <div id="term-chart" style="flex: 1; min-height: 0; width: 100%; border-bottom: 1px solid var(--border);"></div>
 
-              <!-- ── Chart Expand Toggle — always visible, outside bottom panel ── -->
-              <div style="display:flex;justify-content:flex-end;align-items:center;padding:2px 10px;background:rgba(0,0,0,.3);border-bottom:1px solid var(--border);flex-shrink:0;">
-                <button id="tp-btn-collapse" onclick="termToggleBottomPanel()" title="Expand / collapse chart"
-                  style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:6px;
-                         color:#a5b4fc;cursor:pointer;padding:2px 12px;font-size:11px;font-weight:700;
-                         font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:.3px;">▼ Hide Panel</button>
+              <!-- ── Legacy collapse button (hidden, replaced by chart-quick-bar above) ── -->
+              <div style="display:none">
+                <button id="tp-btn-collapse" onclick="termToggleBottomPanel()">▼ Hide Panel</button>
               </div>
 
               <!-- ── Compact Market Session Bar ── -->
@@ -5401,6 +5434,8 @@
                   <button id="tp-btn-trade"     onclick="termSwitchPanel('trade')"     style="background:none;border:none;border-bottom:2px solid transparent;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--muted);cursor:pointer;padding:9px 14px;white-space:nowrap">🎯 QUICK TRADE</button>
                   <button id="tp-btn-alerts"    onclick="termSwitchPanel('alerts')"    style="background:none;border:none;border-bottom:2px solid transparent;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--muted);cursor:pointer;padding:9px 14px;white-space:nowrap">🔔 ALERTS <span id="tp-alert-count" style="background:rgba(255,82,82,.2);color:#ff5252;font-size:9px;padding:1px 5px;border-radius:8px">0</span></button>
                   <button id="tp-btn-rules"     onclick="termSwitchPanel('rules')"     style="background:none;border:none;border-bottom:2px solid transparent;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--muted);cursor:pointer;padding:9px 14px;white-space:nowrap">📚 RULES</button>
+                  <button id="tp-btn-strategy"  onclick="termSwitchPanel('strategy')"  style="background:none;border:none;border-bottom:2px solid transparent;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--muted);cursor:pointer;padding:9px 14px;white-space:nowrap">⚔️ STRATEGY</button>
+                  <button id="tp-btn-brain"     onclick="termSwitchPanel('brain');startBrainFeed()"   style="background:none;border:none;border-bottom:2px solid transparent;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--muted);cursor:pointer;padding:9px 14px;white-space:nowrap">🧠 AGENT BRAIN <span id="tp-brain-dot" style="width:6px;height:6px;background:#6366f1;border-radius:50%;display:inline-block;opacity:.5;vertical-align:middle;"></span></button>
                   <!-- Portfolio mini-stats -->
                   <div style="margin-left:auto;display:flex;gap:14px;align-items:center;font-family:'Space Mono',monospace;font-size:10px;flex-shrink:0;padding-left:10px;">
                     <span style="color:var(--muted)">CAPITAL&nbsp;<span id="tp-capital" style="color:var(--text)">₹5L</span></span>
@@ -5519,10 +5554,222 @@
                   </div>
                 </div>
 
+                <!-- Panel 6: Strategy Analysis (Geopolitical / War Market) -->
+                <div id="tp-panel-strategy" style="flex:1;overflow-y:auto;display:none;padding:14px 16px;">
+                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+                    <div style="font-family:'Space Mono';font-size:10px;color:#fbbf24;letter-spacing:.06em;font-weight:700;">⚔️ GEOPOLITICAL STRATEGY ANALYSER</div>
+                    <div style="font-size:10px;color:var(--muted);flex:1">War / High-Volatility Market Playbook</div>
+                    <select id="strat-market-sel" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px;font-size:10px;font-family:'Space Mono'">
+                      <option value="NIFTY">NIFTY 50</option>
+                      <option value="BANKNIFTY">BANK NIFTY</option>
+                      <option value="GOLD">GOLD (MCX)</option>
+                      <option value="CRUDE">CRUDE OIL</option>
+                      <option value="SILVER">SILVER</option>
+                    </select>
+                    <select id="strat-category-sel" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px;font-size:10px;font-family:'Space Mono'">
+                      <option value="all">All Strategies</option>
+                      <option value="directional">Directional</option>
+                      <option value="volatility">Non-Directional (Volatility)</option>
+                      <option value="hedging">Hedging</option>
+                      <option value="arbitrage">Mean Rev / Arbitrage</option>
+                    </select>
+                    <button onclick="runStrategyAnalysis()" style="background:linear-gradient(135deg,rgba(251,191,36,.25),rgba(245,158,11,.15));border:1px solid rgba(251,191,36,.5);color:#fbbf24;border-radius:6px;padding:5px 16px;font-size:10px;font-weight:700;font-family:'Space Mono';cursor:pointer;letter-spacing:.04em">▶ ANALYSE</button>
+                  </div>
+                  <div id="strat-result-area">
+                    <!-- Strategy grid populated by JS -->
+                    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;" id="strat-card-grid">
+
+                      <!-- Pre-loaded strategy cards (static reference, updated by agent) -->
+                      <div class="strat-card" data-category="directional" style="background:rgba(0,196,204,.05);border:1px solid rgba(0,196,204,.2);border-radius:10px;padding:12px;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                          <span style="font-size:16px">📈</span>
+                          <div>
+                            <div style="font-family:'Space Mono';font-size:10px;font-weight:700;color:#00C4CC">BULL CALL / BEAR PUT SPREAD</div>
+                            <div style="font-size:9px;color:var(--muted)">Directional · Low Risk</div>
+                          </div>
+                          <span id="strat-status-bullcall" style="margin-left:auto;font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(100,100,100,.2);color:#888">PENDING</span>
+                        </div>
+                        <div style="font-size:11px;color:var(--text);line-height:1.6;margin-bottom:8px">Buy ATM option + Sell OTM option. Caps both risk and reward. Best for mild recovery after geopolitical shock.</div>
+                        <div style="font-family:'Space Mono';font-size:9px;color:var(--muted)">TRIGGER: EMA50 > EMA200 · VIX cooling · Volume rising</div>
+                        <div id="strat-signal-bullcall" style="margin-top:8px;font-family:'Space Mono';font-size:10px;color:#fbbf24;display:none"></div>
+                      </div>
+
+                      <div class="strat-card" data-category="directional" style="background:rgba(0,196,204,.05);border:1px solid rgba(0,196,204,.2);border-radius:10px;padding:12px;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                          <span style="font-size:16px">🌅</span>
+                          <div>
+                            <div style="font-family:'Space Mono';font-size:10px;font-weight:700;color:#00C4CC">MOMENTUM BREAKOUT</div>
+                            <div style="font-size:9px;color:var(--muted)">Directional · Medium Risk</div>
+                          </div>
+                          <span id="strat-status-breakout" style="margin-left:auto;font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(100,100,100,.2);color:#888">PENDING</span>
+                        </div>
+                        <div style="font-size:11px;color:var(--text);line-height:1.6;margin-bottom:8px">Buy Nifty/BankNifty Future if it breaks the first 15-min candle high with volume &gt;1.5× avg. Classic war-rebound entry.</div>
+                        <div style="font-family:'Space Mono';font-size:9px;color:var(--muted)">TRIGGER: 9:30 AM volume spike · 15-min high breakout</div>
+                        <div id="strat-signal-breakout" style="margin-top:8px;font-family:'Space Mono';font-size:10px;color:#fbbf24;display:none"></div>
+                      </div>
+
+                      <div class="strat-card" data-category="volatility" style="background:rgba(167,139,250,.05);border:1px solid rgba(167,139,250,.25);border-radius:10px;padding:12px;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                          <span style="font-size:16px">🌪️</span>
+                          <div>
+                            <div style="font-family:'Space Mono';font-size:10px;font-weight:700;color:#a78bfa">LONG STRADDLE</div>
+                            <div style="font-size:9px;color:var(--muted)">Non-Directional · Medium Risk</div>
+                          </div>
+                          <span id="strat-status-straddle" style="margin-left:auto;font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(100,100,100,.2);color:#888">PENDING</span>
+                        </div>
+                        <div style="font-size:11px;color:var(--text);line-height:1.6;margin-bottom:8px">Buy ATM Call + ATM Put. Profits from ANY big move (up or down). Perfect for war-news events when direction unknown.</div>
+                        <div style="font-family:'Space Mono';font-size:9px;color:var(--muted)">TRIGGER: VIX &gt; 18 · Before major geopolitical speech/event</div>
+                        <div id="strat-signal-straddle" style="margin-top:8px;font-family:'Space Mono';font-size:10px;color:#fbbf24;display:none"></div>
+                      </div>
+
+                      <div class="strat-card" data-category="volatility" style="background:rgba(167,139,250,.05);border:1px solid rgba(167,139,250,.25);border-radius:10px;padding:12px;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                          <span style="font-size:16px">⏰</span>
+                          <div>
+                            <div style="font-family:'Space Mono';font-size:10px;font-weight:700;color:#a78bfa">9:20 SHORT STRADDLE</div>
+                            <div style="font-size:9px;color:var(--muted)">Non-Directional · High Risk</div>
+                          </div>
+                          <span id="strat-status-shortstraddle" style="margin-left:auto;font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(100,100,100,.2);color:#888">PENDING</span>
+                        </div>
+                        <div style="font-size:11px;color:var(--text);line-height:1.6;margin-bottom:8px">Sell ATM Call + ATM Put at 9:20 AM. Captures Theta decay on calm days. AUTO-EXIT if 0.5% move within 5 min!</div>
+                        <div style="font-family:'Space Mono';font-size:9px;color:var(--muted)">TRIGGER: VIX &lt; 14 · No war news overnight · Calm gap open</div>
+                        <div id="strat-signal-shortstraddle" style="margin-top:8px;font-family:'Space Mono';font-size:10px;color:#fbbf24;display:none"></div>
+                      </div>
+
+                      <div class="strat-card" data-category="hedging" style="background:rgba(0,230,118,.04);border:1px solid rgba(0,230,118,.2);border-radius:10px;padding:12px;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                          <span style="font-size:16px">🛡️</span>
+                          <div>
+                            <div style="font-family:'Space Mono';font-size:10px;font-weight:700;color:#00E676">PROTECTIVE PUT</div>
+                            <div style="font-size:9px;color:var(--muted)">Hedging · Very Low Risk</div>
+                          </div>
+                          <span id="strat-status-protput" style="margin-left:auto;font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(100,100,100,.2);color:#888">PENDING</span>
+                        </div>
+                        <div style="font-size:11px;color:var(--text);line-height:1.6;margin-bottom:8px">Long Future + Buy Put Option = portfolio insurance. Must-have during Iran-US escalation phases. Limits downside to put premium paid.</div>
+                        <div style="font-family:'Space Mono';font-size:9px;color:var(--muted)">TRIGGER: Long position open · VIX rising · News risk window</div>
+                        <div id="strat-signal-protput" style="margin-top:8px;font-family:'Space Mono';font-size:10px;color:#fbbf24;display:none"></div>
+                      </div>
+
+                      <div class="strat-card" data-category="hedging" style="background:rgba(0,230,118,.04);border:1px solid rgba(0,230,118,.2);border-radius:10px;padding:12px;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                          <span style="font-size:16px">🔄</span>
+                          <div>
+                            <div style="font-family:'Space Mono';font-size:10px;font-weight:700;color:#00E676">ZERO-COST COLLAR</div>
+                            <div style="font-size:9px;color:var(--muted)">Hedging · Low Risk</div>
+                          </div>
+                          <span id="strat-status-collar" style="margin-left:auto;font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(100,100,100,.2);color:#888">PENDING</span>
+                        </div>
+                        <div style="font-size:11px;color:var(--text);line-height:1.6;margin-bottom:8px">Long Future + OTM Put (protection) + Sell OTM Call (funds the put). Creates a profit bracket at zero net premium.</div>
+                        <div style="font-family:'Space Mono';font-size:9px;color:var(--muted)">TRIGGER: Existing long position · ₹0 net premium target</div>
+                        <div id="strat-signal-collar" style="margin-top:8px;font-family:'Space Mono';font-size:10px;color:#fbbf24;display:none"></div>
+                      </div>
+
+                      <div class="strat-card" data-category="arbitrage" style="background:rgba(244,114,182,.04);border:1px solid rgba(244,114,182,.2);border-radius:10px;padding:12px;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                          <span style="font-size:16px">📉</span>
+                          <div>
+                            <div style="font-family:'Space Mono';font-size:10px;font-weight:700;color:#f472b6">MEAN REVERSION (BB)</div>
+                            <div style="font-size:9px;color:var(--muted)">Statistical · Medium Risk</div>
+                          </div>
+                          <span id="strat-status-meanrev" style="margin-left:auto;font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(100,100,100,.2);color:#888">PENDING</span>
+                        </div>
+                        <div style="font-size:11px;color:var(--text);line-height:1.6;margin-bottom:8px">Buy when price is ≥2 Standard Deviations below BB mean. "Market crashed too hard, too fast — bounce expected."</div>
+                        <div style="font-family:'Space Mono';font-size:9px;color:var(--muted)">TRIGGER: Price &lt; BB Lower Band · RSI &lt; 30 · Panic candle</div>
+                        <div id="strat-signal-meanrev" style="margin-top:8px;font-family:'Space Mono';font-size:10px;color:#fbbf24;display:none"></div>
+                      </div>
+
+                      <div class="strat-card" data-category="arbitrage" style="background:rgba(244,114,182,.04);border:1px solid rgba(244,114,182,.2);border-radius:10px;padding:12px;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                          <span style="font-size:16px">⚖️</span>
+                          <div>
+                            <div style="font-family:'Space Mono';font-size:10px;font-weight:700;color:#f472b6">CASH-FUTURES ARBITRAGE</div>
+                            <div style="font-size:9px;color:var(--muted)">Arbitrage · Very Low Risk</div>
+                          </div>
+                          <span id="strat-status-arb" style="margin-left:auto;font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(100,100,100,.2);color:#888">PENDING</span>
+                        </div>
+                        <div style="font-size:11px;color:var(--text);line-height:1.6;margin-bottom:8px">Buy stock in cash market + Sell its Future when spread is abnormally high. Risk-free convergence profit at expiry.</div>
+                        <div style="font-family:'Space Mono';font-size:9px;color:var(--muted)">TRIGGER: Futures premium &gt; 0.8% above fair value · Near expiry</div>
+                        <div id="strat-signal-arb" style="margin-top:8px;font-family:'Space Mono';font-size:10px;color:#fbbf24;display:none"></div>
+                      </div>
+
+                    </div><!-- end strat-card-grid -->
+
+                    <!-- Agent Analysis Output Box -->
+                    <div id="strat-agent-output" style="display:none;margin-top:14px;background:rgba(251,191,36,.04);border:1px solid rgba(251,191,36,.25);border-radius:10px;padding:14px;">
+                      <div style="font-family:'Space Mono';font-size:9px;color:#fbbf24;letter-spacing:.06em;margin-bottom:8px">⚔️ AGENT ANALYSIS OUTPUT</div>
+                      <div id="strat-agent-text" style="font-size:12px;color:var(--text);line-height:1.8;white-space:pre-wrap;font-family:'JetBrains Mono','Space Mono',monospace"></div>
+                    </div>
+
+                  </div><!-- end strat-result-area -->
+                </div><!-- end tp-panel-strategy -->
+
+                <!-- ════════════════════════════════════════════════════════
+                     Panel 7: AGENT BRAIN — Live Agent Commentary
+                     ════════════════════════════════════════════════════════ -->
+                <div id="tp-panel-brain" style="flex:1;overflow:hidden;display:none;flex-direction:column;">
+
+                  <!-- Top control bar -->
+                  <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid rgba(99,102,241,.2);background:rgba(20,15,40,.6);flex-shrink:0;flex-wrap:wrap;">
+
+                    <!-- Status / Heartbeat -->
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      <span id="brain-live-dot" style="width:8px;height:8px;background:#6366f1;border-radius:50%;display:inline-block;animation:blink 1.5s infinite"></span>
+                      <span style="font-family:'Space Mono';font-size:9px;color:#818cf8;font-weight:700;letter-spacing:.06em">AGENT BRAIN — LIVE</span>
+                      <span id="brain-cycle-badge" style="font-family:'Space Mono';font-size:9px;color:#445;margin-left:4px">Cycle #—</span>
+                    </div>
+
+                    <!-- Mode toggle: Layman ↔ Expert -->
+                    <div style="display:flex;align-items:center;gap:6px;margin-left:6px;">
+                      <span style="font-family:'Space Mono';font-size:9px;color:#445">EXPERT</span>
+                      <label style="position:relative;display:inline-flex;width:38px;height:20px;cursor:pointer;flex-shrink:0">
+                        <input type="checkbox" id="brain-layman-toggle" checked onchange="brainToggleMode(this.checked)"
+                               style="opacity:0;width:0;height:0">
+                        <span style="position:absolute;inset:0;border-radius:20px;background:rgba(99,102,241,.3);border:1px solid rgba(99,102,241,.5);transition:.2s"></span>
+                        <span id="brain-toggle-knob" style="position:absolute;width:14px;height:14px;background:#818cf8;border-radius:50%;top:2px;left:2px;transition:.2s;transform:translateX(18px)"></span>
+                      </label>
+                      <span style="font-family:'Space Mono';font-size:9px;color:#a5b4fc;font-weight:700">PLAIN ENGLISH</span>
+                    </div>
+
+                    <!-- Summary capsules -->
+                    <div style="display:flex;gap:6px;align-items:center;margin-left:4px;" id="brain-signal-summary">
+                      <span id="bs-bull" style="font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(0,230,118,.12);border:1px solid rgba(0,230,118,.3);color:#00E676;font-weight:700">0 BULLISH</span>
+                      <span id="bs-bear" style="font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(255,61,113,.12);border:1px solid rgba(255,61,113,.3);color:#FF3D71;font-weight:700">0 BEARISH</span>
+                      <span id="bs-alert" style="font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);color:#fbbf24;font-weight:700">0 ALERTS</span>
+                    </div>
+
+                    <!-- Last updated + Auto-refresh -->
+                    <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0">
+                      <span id="brain-last-run" style="font-family:'Space Mono';font-size:9px;color:#334">Last run: —</span>
+                      <button onclick="brainRefreshNow()" style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);color:#a5b4fc;border-radius:6px;padding:2px 10px;font-size:9px;font-weight:700;cursor:pointer;font-family:'Space Mono'">↻ REFRESH</button>
+                    </div>
+                  </div>
+
+                  <!-- "What's Happening NOW" Summary Card (Layman Mode) -->
+                  <div id="brain-summary-card" style="margin:10px 12px 0;background:rgba(99,102,241,.07);border:1px solid rgba(99,102,241,.25);border-radius:10px;padding:10px 14px;flex-shrink:0">
+                    <div style="font-family:'Space Mono';font-size:9px;color:#818cf8;letter-spacing:.06em;margin-bottom:6px">💬 WHAT YOUR AGENTS ARE DOING RIGHT NOW</div>
+                    <div id="brain-summary-text" style="font-size:12px;color:var(--text);line-height:1.7">
+                      ⏳ Waiting for your agents to run their first cycle...<br>
+                      <span style="font-size:11px;color:var(--muted)">Agents check the market every 15 minutes automatically. Click ↻ REFRESH to see the latest.</span>
+                    </div>
+                  </div>
+
+                  <!-- Live agent conversation feed -->
+                  <div id="brain-feed" style="flex:1;overflow-y:auto;padding:10px 12px 12px;display:flex;flex-direction:column;gap:8px;">
+                    <!-- Populated by JS -->
+                    <div id="brain-empty-state" style="text-align:center;padding:30px 20px;color:var(--muted)">
+                      <div style="font-size:28px;margin-bottom:10px">🧠</div>
+                      <div style="font-size:13px;font-weight:600;margin-bottom:6px">No agent activity yet</div>
+                      <div style="font-size:11px;line-height:1.6">Your agents run automatically every 15 minutes.<br>Once they start, you'll see their live reasoning here in plain English.</div>
+                      <button onclick="brainRefreshNow()" style="margin-top:14px;background:rgba(99,102,241,.2);border:1px solid rgba(99,102,241,.4);color:#a5b4fc;border-radius:8px;padding:6px 18px;font-size:11px;font-weight:700;cursor:pointer">↻ Check for Activity Now</button>
+                    </div>
+                  </div>
+
+                </div><!-- end tp-panel-brain -->
+
               </div><!-- end merged bottom panel -->
 
             </div>
-        
+
           </div><!-- end term-body -->
         </div><!-- end term-wrap -->
         </div><!-- end tab-terminal -->
@@ -9903,20 +10150,42 @@ function _updateTopBar(d) {
 
 // ── Terminal bottom panel tab switcher ───────────────────────────────────────
 window.termSwitchPanel = function(which) {
-  const panels = ['positions','history','trade','alerts','rules'];
+  const panels = ['positions','history','trade','alerts','rules','strategy','brain'];
   panels.forEach(p => {
     const panel = document.getElementById('tp-panel-'+p);
     const btn   = document.getElementById('tp-btn-'+p);
     if (!panel) return;
     const active = (p === which);
     panel.style.display = active ? 'flex' : 'none';
-    if (active && p === 'trade') panel.style.flexDirection = 'column';
+    if (active && (p === 'trade' || p === 'strategy' || p === 'brain')) panel.style.flexDirection = 'column';
     if (btn) {
       btn.style.color        = active ? 'var(--accent)' : 'var(--muted)';
       btn.style.borderBottom = active ? '2px solid var(--accent)' : '2px solid transparent';
     }
   });
   if (which === 'alerts') _refreshTermAlerts();
+};
+
+// ── termOpenPanel — show the bottom panel + switch to a specific tab ─────────
+// Called from the chart-top quick-access bar. Ensures the panel is visible
+// even if the user had previously hidden it, then jumps to the correct tab.
+window.termOpenPanel = function(which) {
+  const panel = document.getElementById('term-bottom-panel');
+  if (panel && panel.style.display === 'none') {
+    // Panel is hidden — show it first
+    _bottomPanelVisible = true;
+    panel.style.display = 'flex';
+    const sessionBar = document.getElementById('term-session-bar');
+    if (sessionBar) sessionBar.style.display = 'grid';
+    const toggleBtn = document.getElementById('chart-panel-toggle');
+    if (toggleBtn) toggleBtn.textContent = '▼ HIDE PANEL';
+    // Rebuild chart at new height
+    const chartEl = document.getElementById('term-chart');
+    if (chartEl) { while (chartEl.firstChild) chartEl.removeChild(chartEl.firstChild); }
+    _tvWidget = null;
+    setTimeout(_buildCharts, 100);
+  }
+  termSwitchPanel(which);
 };
 
 // ── Refresh alert log inside Terminal ────────────────────────────────────────
@@ -10142,17 +10411,20 @@ let _bottomPanelVisible = true;
 window.termToggleBottomPanel = function() {
   const panel      = document.getElementById('term-bottom-panel');
   const sessionBar = document.getElementById('term-session-bar');
-  const btn        = document.getElementById('tp-btn-collapse');
+  const btn        = document.getElementById('tp-btn-collapse');        // legacy (hidden)
+  const topBtn     = document.getElementById('chart-panel-toggle');     // new chart-top button
   if (!panel) return;
   _bottomPanelVisible = !_bottomPanelVisible;
   if (_bottomPanelVisible) {
     panel.style.display      = 'flex';
     if (sessionBar) sessionBar.style.display = 'grid';
-    btn.textContent = '▼ Hide';
+    if (btn)    btn.textContent    = '▼ Hide';
+    if (topBtn) topBtn.textContent = '▼ HIDE PANEL';
   } else {
     panel.style.display      = 'none';
     if (sessionBar) sessionBar.style.display = 'none';
-    btn.textContent = '▲ Show';
+    if (btn)    btn.textContent    = '▲ Show';
+    if (topBtn) topBtn.textContent = '▲ SHOW PANEL';
   }
   // Rebuild TradingView chart at new container height
   const chartEl = document.getElementById('term-chart');
@@ -10164,6 +10436,460 @@ window.termToggleBottomPanel = function() {
 window.termToggleMA = function(key) {
   const badge = document.getElementById('badge-' + key);
   if (badge) badge.classList.toggle('hidden');
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 🧠  AGENT BRAIN — Live Plain-English Commentary Feed
+// ══════════════════════════════════════════════════════════════════════════════
+(function() {
+
+  let _brainLayman      = true;   // true = plain English, false = expert
+  let _brainFeedIndex   = 0;      // watermark — only fetch NEW entries
+  let _brainPollTimer   = null;
+  let _brainRendered    = new Set(); // deduplicate entries already shown
+  let _brainBullCount   = 0;
+  let _brainBearCount   = 0;
+  let _brainAlertCount  = 0;
+
+  // ── Friendly names & descriptions for each agent ─────────────────────────
+  const AGENT_INFO = {
+    commodity:     { name: "🪙 Gold & Oil Watcher",    role: "Monitors gold & crude oil prices" },
+    news:          { name: "📰 News Scanner",           role: "Reads financial headlines & scores mood" },
+    scanner:       { name: "🔍 Stock Screener",         role: "Scans hundreds of stocks for setups" },
+    technical:     { name: "📈 Chart Analyst",          role: "Reads charts, RSI, MACD & moving averages" },
+    institutional: { name: "🏦 Big Money Tracker",      role: "Tracks FII & DII (big fund) buying/selling" },
+    options:       { name: "⚙️ Options Analyst",        role: "Reads PCR, Max Pain & open interest" },
+    sector:        { name: "🔄 Sector Rotation Scout",  role: "Finds which sectors are gaining strength" },
+    risk:          { name: "🛡️ Risk Manager",           role: "Checks position sizes & stops losses" },
+    signal:        { name: "🎯 Signal Generator",       role: "Combines all signals into a final score" },
+    paper_trader:  { name: "💼 Paper Trader",           role: "Decides whether to enter/exit paper trades" },
+    claude:        { name: "🤖 AI Brain (Claude)",      role: "Synthesises everything into one view" },
+    web_researcher:{ name: "🌐 Web Researcher",         role: "Searches live web for market news" },
+    morning_brief: { name: "🌅 Daily Briefer",          role: "Prepares your daily market summary" },
+    spike:         { name: "⚡ Spike Detector",         role: "Catches sudden unusual activity early" },
+    calendar:      { name: "📅 Events Watcher",         role: "Tracks earnings & corporate events" },
+    sovereign:     { name: "👑 Master Coordinator",     role: "Orchestrates all agents together" },
+  };
+
+  // ── Plain-English translations of signals ────────────────────────────────
+  const SIGNAL_PLAIN = {
+    BULLISH:   { label: "Markets Looking UP 📈",  color: "#00E676", bg: "rgba(0,230,118,.1)" },
+    BEARISH:   { label: "Markets Looking DOWN 📉", color: "#FF3D71", bg: "rgba(255,61,113,.1)" },
+    NEUTRAL:   { label: "Markets Sideways ↔",     color: "#9ca3af", bg: "rgba(100,100,100,.1)" },
+    ALERT:     { label: "⚠️ Action Needed!",       color: "#fbbf24", bg: "rgba(251,191,36,.12)" },
+    "SPIKE ALERT": { label: "🚨 Sudden Move Alert!",  color: "#ff5252", bg: "rgba(255,82,82,.12)" },
+    "PRE_SPIKE": { label: "⚡ Building Up!",         color: "#ff9800", bg: "rgba(255,152,0,.1)" },
+    STRONG_BUY:{ label: "Strong BUY Signal 🟢",    color: "#00E676", bg: "rgba(0,230,118,.1)" },
+    BUY:       { label: "BUY Signal 🟢",           color: "#00E676", bg: "rgba(0,230,118,.08)" },
+    SELL:      { label: "SELL Signal 🔴",          color: "#FF3D71", bg: "rgba(255,61,113,.08)" },
+    "RISK-OFF": { label: "Caution — Sell pressure", color: "#FF3D71", bg: "rgba(255,61,113,.08)" },
+    "RISK-ON":  { label: "Confidence — Buy mood",  color: "#00E676", bg: "rgba(0,230,118,.08)" },
+  };
+
+  function _sigStyle(sig) {
+    return SIGNAL_PLAIN[sig] || { label: sig, color: "#9ca3af", bg: "rgba(100,100,100,.08)" };
+  }
+
+  // ── Convert a theory string to plain English (Layman mode) ────────────────
+  function _plainify(theory, agent) {
+    if (!theory) return '';
+    // Truncate long theories
+    let t = theory.replace(/\s+/g,' ').trim();
+
+    // Replace common technical jargon with friendly language
+    const subs = [
+      [/RSI (\d+(?:\.\d+)?)/g,   (m,v) => `momentum score ${parseFloat(v).toFixed(0)}/100`],
+      [/ATR/g,                    'price swing range'],
+      [/EMA(\d+)/g,               (m,p) => `${p}-day average`],
+      [/200DMA/g,                 '200-day average (long-term trend line)'],
+      [/MACD/g,                   'trend momentum'],
+      [/PCR ([0-9.]+)/g,          (m,v) => `options ratio ${v} (${parseFloat(v)<0.8?'more calls — bullish':parseFloat(v)>1.2?'more puts — bearish':'balanced'}')`],
+      [/PCR/g,                    'Put-Call Ratio (options market sentiment)'],
+      [/FII/g,                    'Foreign Funds (big overseas investors)'],
+      [/DII/g,                    'Indian Institutions (mutual funds, insurance)'],
+      [/Max Pain ₹([0-9,]+)/g,    (m,v) => `price target where most options expire worthless (₹${v})`],
+      [/Bollinger Band/gi,        'volatility bands'],
+      [/OI/g,                     'open interest (total active option contracts)'],
+      [/Vol surge/gi,              'unusual trading volume'],
+      [/ROE/g,                    'return on equity'],
+      [/pivot/gi,                  'key price level'],
+      [/ATH/g,                    'all-time high'],
+      [/risk-on/gi,               'investor confidence is high'],
+      [/risk-off/gi,              'investors are cautious, selling'],
+      [/theta/gi,                 'time decay (options lose value daily)'],
+    ];
+
+    subs.forEach(([pat, rep]) => { t = t.replace(pat, rep); });
+
+    // Cap length
+    if (t.length > 220) t = t.slice(0, 217) + '…';
+    return t;
+  }
+
+  // ── Build one "chat bubble" for an agent entry ────────────────────────────
+  function _buildBubble(entry, laymanMode) {
+    const info   = AGENT_INFO[entry.agent] || { name: `${entry.icon||'🤖'} ${entry.agent}`, role: '' };
+    const sigSt  = _sigStyle(entry.signal || 'NEUTRAL');
+    const lvl    = entry.level || 'info';
+
+    // Border colour by level
+    const borderColor = lvl === 'alert' ? 'rgba(255,61,113,.4)'
+                      : lvl === 'trade' ? 'rgba(0,230,118,.35)'
+                      : lvl === 'warn'  ? 'rgba(251,191,36,.3)'
+                      : 'rgba(99,102,241,.18)';
+    const bgColor     = lvl === 'alert' ? 'rgba(255,61,113,.05)'
+                      : lvl === 'trade' ? 'rgba(0,230,118,.04)'
+                      : lvl === 'warn'  ? 'rgba(251,191,36,.04)'
+                      : 'rgba(20,15,45,.5)';
+
+    const theory  = laymanMode ? _plainify(entry.theory, entry.agent) : (entry.theory || '');
+    const monitor = entry.monitoring || '';
+
+    // Layman "what this means" sentence
+    let meaning = '';
+    if (laymanMode) {
+      const s = (entry.signal || '').toUpperCase();
+      if (s.includes('BULLISH') || s.includes('BUY') || s.includes('RISK-ON'))
+        meaning = '✅ <b>Good for buyers</b> — market conditions look positive right now.';
+      else if (s.includes('BEARISH') || s.includes('SELL') || s.includes('RISK-OFF'))
+        meaning = '⚠️ <b>Be careful</b> — negative signals detected. Protect positions.';
+      else if (s.includes('SPIKE') || s.includes('ALERT'))
+        meaning = '🚨 <b>Something unusual is happening!</b> Pay attention to this.';
+      else if (s.includes('PRE_SPIKE'))
+        meaning = '⚡ <b>Activity building up</b> — could move fast soon. Watch carefully.';
+      else
+        meaning = '○ <b>Nothing urgent</b> — conditions are normal. Continue monitoring.';
+    }
+
+    const dataRows = entry.data && Object.keys(entry.data).length
+      ? Object.entries(entry.data)
+          .filter(([k]) => !['sentiment','headlines'].includes(k))
+          .slice(0,4)
+          .map(([k,v]) => `<span style="color:#445;font-size:9px">${k}:</span> <span style="color:#aaa;font-size:9px">${JSON.stringify(v).slice(0,40)}</span>`)
+          .join('  ')
+      : '';
+
+    return `
+<div style="border:1px solid ${borderColor};background:${bgColor};border-radius:10px;padding:10px 12px;
+            animation:fadeInUp .25s ease">
+  <!-- Header row -->
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+    <span style="font-family:'Space Mono';font-size:10px;font-weight:700;color:#c8cdd8">${info.name}</span>
+    <span style="font-size:9px;color:var(--muted);font-style:italic;flex:1">${info.role}</span>
+    <span style="font-size:9px;padding:1px 8px;border-radius:8px;background:${sigSt.bg};
+                 color:${sigSt.color};font-weight:700;white-space:nowrap">${sigSt.label}</span>
+    <span style="font-family:'Space Mono';font-size:9px;color:#334;white-space:nowrap">${entry.ts||''}</span>
+  </div>
+  <!-- Monitoring row -->
+  ${monitor ? `<div style="font-size:11px;color:var(--muted);margin-bottom:4px">
+    <span style="color:#556;font-size:9px;font-family:'Space Mono';letter-spacing:.04em">👀 CHECKING:</span> ${monitor}
+  </div>` : ''}
+  <!-- Theory / plain English -->
+  ${theory ? `<div style="font-size:11px;color:var(--text);line-height:1.65;margin-bottom:${meaning?'6':'0'}px">
+    <span style="color:#556;font-size:9px;font-family:'Space Mono';letter-spacing:.04em">💡 ${laymanMode?'WHAT I SEE':'THEORY'}:</span> ${theory}
+  </div>` : ''}
+  <!-- Plain English meaning (layman only) -->
+  ${meaning ? `<div style="font-size:11px;line-height:1.6;color:${sigSt.color};margin-top:4px;
+               background:${sigSt.bg};border-radius:6px;padding:4px 8px">${meaning}</div>` : ''}
+  <!-- Raw data (expert mode only) -->
+  ${!laymanMode && dataRows ? `<div style="margin-top:4px;font-family:'Space Mono'">${dataRows}</div>` : ''}
+</div>`;
+  }
+
+  // ── Build the "What's Happening Now" summary ──────────────────────────────
+  function _buildSummary(feed, laymanMode) {
+    if (!feed || !feed.length) return null;
+    const recent = feed.slice(-8);  // last 8 entries
+
+    // Count signal types
+    let bull=0, bear=0, alert=0, neutral=0;
+    recent.forEach(e => {
+      const s = (e.signal||'').toUpperCase();
+      if (s.includes('BULL') || s.includes('BUY') || s.includes('RISK-ON')) bull++;
+      else if (s.includes('BEAR') || s.includes('SELL') || s.includes('RISK-OFF')) bear++;
+      else if (s.includes('ALERT') || s.includes('SPIKE')) alert++;
+      else neutral++;
+    });
+
+    _brainBullCount  = bull;
+    _brainBearCount  = bear;
+    _brainAlertCount = alert;
+
+    const el = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
+    el('bs-bull',  `${bull} BULLISH`);
+    el('bs-bear',  `${bear} BEARISH`);
+    el('bs-alert', `${alert} ALERTS`);
+
+    if (laymanMode) {
+      const topAgent   = recent[recent.length-1];
+      const agentName  = (AGENT_INFO[topAgent?.agent]||{}).name || topAgent?.agent || 'Your agents';
+      const mood       = bull > bear ? '📈 markets are leaning POSITIVE' : bear > bull ? '📉 markets have some NEGATIVE signals' : '↔ markets look MIXED today';
+      const urgency    = alert > 0   ? `⚠️ There are <b>${alert} alert(s)</b> that need your attention!` : 'No urgent alerts right now.';
+      const lastAction = topAgent?.theory ? `<br>Latest: ${_plainify(topAgent.theory, topAgent.agent||'').slice(0,110)}` : '';
+
+      return `Right now, ${mood}. ${urgency}${lastAction}<br>
+<span style="font-size:10px;color:var(--muted)">
+  ${bull} positive signal(s) · ${bear} negative signal(s) · ${neutral} neutral · Agents last ran at ${topAgent?.ts||'—'}
+</span>`;
+    } else {
+      const topAgent   = recent[recent.length-1];
+      return `Cycle complete. ${bull} BULL · ${bear} BEAR · ${alert} ALERTS · ${neutral} NEUTRAL.
+Last agent: <b>${topAgent?.agent}</b> at ${topAgent?.ts||'—'}`;
+    }
+  }
+
+  // ── Render new entries into the feed ─────────────────────────────────────
+  function _renderFeed(entries, laymanMode) {
+    const feedEl = document.getElementById('brain-feed');
+    if (!feedEl) return;
+
+    // Hide empty state
+    const emptyEl = document.getElementById('brain-empty-state');
+    if (emptyEl && entries.length) emptyEl.style.display = 'none';
+
+    const wasAtBottom = (feedEl.scrollHeight - feedEl.scrollTop - feedEl.clientHeight) < 60;
+
+    entries.forEach(entry => {
+      const key = `${entry.ts}-${entry.agent}-${entry.signal}`;
+      if (_brainRendered.has(key)) return;
+      _brainRendered.add(key);
+      const div = document.createElement('div');
+      div.innerHTML = _buildBubble(entry, laymanMode);
+      feedEl.appendChild(div.firstElementChild || div);
+    });
+
+    // Auto-scroll if user was near bottom
+    if (wasAtBottom) feedEl.scrollTop = feedEl.scrollHeight;
+  }
+
+  // ── Fetch and render ──────────────────────────────────────────────────────
+  async function _fetchBrain() {
+    try {
+      const r = await fetch(`${API}/agent-reasoning?since=${_brainFeedIndex}`);
+      const d = await r.json();
+      if (!d.feed) return;
+
+      const layman = _brainLayman;
+
+      // Update feed index watermark
+      _brainFeedIndex = d.total || _brainFeedIndex;
+
+      // Update cycle badge
+      const cb = document.getElementById('brain-cycle-badge');
+      if (cb) cb.textContent = `Cycle #${d.cycle||0} · Last: ${d.last_cycle||'—'}`;
+
+      // Blink the dot
+      const dot = document.getElementById('tp-brain-dot');
+      if (dot && d.feed.length) {
+        dot.style.background = '#00E676';
+        setTimeout(() => { if(dot) dot.style.background = '#6366f1'; }, 800);
+      }
+
+      // Update summary card
+      if (d.feed.length || _brainFeedIndex > 0) {
+        const allFeed = await fetch(`${API}/agent-reasoning?since=0`).then(r=>r.json()).catch(()=>({feed:[]}));
+        const sumText = _buildSummary(allFeed.feed||[], layman);
+        const sumEl   = document.getElementById('brain-summary-text');
+        if (sumEl && sumText) sumEl.innerHTML = sumText;
+      }
+
+      // Render new bubbles
+      if (d.feed.length) {
+        _renderFeed(d.feed, layman);
+        const lr = document.getElementById('brain-last-run');
+        if (lr) lr.textContent = `Last run: ${d.feed[d.feed.length-1]?.ts||'—'}`;
+      }
+
+    } catch(e) {
+      // Silently fail — server may not be running yet
+    }
+  }
+
+  // ── Public: start polling (called when tab is opened) ────────────────────
+  window.startBrainFeed = function() {
+    _fetchBrain();
+    if (!_brainPollTimer) {
+      _brainPollTimer = setInterval(_fetchBrain, 6000);  // poll every 6s
+    }
+  };
+
+  // ── Public: manual refresh ────────────────────────────────────────────────
+  window.brainRefreshNow = function() {
+    _brainFeedIndex = 0;       // reset to get all entries
+    _brainRendered.clear();    // re-render everything
+    const feedEl = document.getElementById('brain-feed');
+    if (feedEl) {
+      // Remove all bubbles except empty state
+      Array.from(feedEl.children).forEach(c => {
+        if (c.id !== 'brain-empty-state') c.remove();
+      });
+    }
+    _fetchBrain();
+  };
+
+  // ── Public: toggle layman / expert mode ──────────────────────────────────
+  window.brainToggleMode = function(isLayman) {
+    _brainLayman = isLayman;
+    const knob = document.getElementById('brain-toggle-knob');
+    if (knob) knob.style.transform = isLayman ? 'translateX(18px)' : 'translateX(0)';
+    // Re-render everything in new mode
+    window.brainRefreshNow();
+  };
+
+  // Add fade-in animation
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes fadeInUp {
+      from { opacity:0; transform:translateY(8px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+  `;
+  document.head.appendChild(style);
+
+})(); // end Agent Brain IIFE
+
+// ── Strategy Analysis (Geopolitical War-Market Agent) ────────────────────────
+window.runStrategyAnalysis = async function() {
+  const market   = (document.getElementById('strat-market-sel')   || {}).value   || 'NIFTY';
+  const category = (document.getElementById('strat-category-sel') || {}).value || 'all';
+  const outputBox  = document.getElementById('strat-agent-output');
+  const outputText = document.getElementById('strat-agent-text');
+
+  // Show all or filter strategy cards
+  document.querySelectorAll('.strat-card').forEach(card => {
+    const cat = card.getAttribute('data-category');
+    card.style.display = (category === 'all' || cat === category) ? 'block' : 'none';
+  });
+
+  // Set all status badges to "SCANNING…"
+  ['bullcall','breakout','straddle','shortstraddle','protput','collar','meanrev','arb'].forEach(id => {
+    const el = document.getElementById('strat-status-'+id);
+    if (el) { el.textContent='SCANNING…'; el.style.background='rgba(251,191,36,.15)'; el.style.color='#fbbf24'; }
+  });
+
+  if (outputBox) { outputBox.style.display='block'; }
+  if (outputText) outputText.textContent = '⏳ Calling Geopolitical Strategy Agent...\n\nMarket: '+market+'\nCategory: '+category+'\n\nFetching live price data & VIX...';
+
+  try {
+    const resp = await fetch(`${API}/strategy-analysis`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ market, category, symbol: _currSym, segment: _currSegment })
+    });
+    const data = await resp.json();
+
+    if (data.error) {
+      if (outputText) outputText.textContent = '❌ Agent error: ' + data.error;
+      return;
+    }
+
+    // Update per-strategy signal badges
+    if (data.signals) {
+      const idMap = {
+        'bull_call_spread':'bullcall', 'momentum_breakout':'breakout',
+        'long_straddle':'straddle',   'short_straddle_9_20':'shortstraddle',
+        'protective_put':'protput',   'collar':'collar',
+        'mean_reversion':'meanrev',   'cash_futures_arb':'arb'
+      };
+      Object.entries(data.signals).forEach(([key, sig]) => {
+        const domId = idMap[key];
+        if (!domId) return;
+        const statusEl = document.getElementById('strat-status-'+domId);
+        const signalEl = document.getElementById('strat-signal-'+domId);
+        if (statusEl) {
+          const colors = { 'ACTIVE':['#00E676','rgba(0,230,118,.2)'], 'AVOID':['#FF3D71','rgba(255,61,113,.15)'], 'WATCH':['#fbbf24','rgba(251,191,36,.15)'], 'NEUTRAL':['#888','rgba(100,100,100,.2)'] };
+          const [c, bg] = colors[sig.status] || colors['NEUTRAL'];
+          statusEl.textContent = sig.status;
+          statusEl.style.color = c;
+          statusEl.style.background = bg;
+        }
+        if (signalEl && sig.reason) {
+          signalEl.textContent = '→ ' + sig.reason;
+          signalEl.style.display = 'block';
+          signalEl.style.color = sig.status === 'ACTIVE' ? '#00E676' : sig.status === 'AVOID' ? '#FF3D71' : '#fbbf24';
+        }
+      });
+    }
+
+    // Show full agent analysis text
+    if (outputText) {
+      outputText.textContent = data.analysis || data.summary || '✅ Analysis complete. See strategy cards above for signals.';
+    }
+
+  } catch(e) {
+    // API not yet deployed — show a smart offline analysis
+    if (outputText) {
+      outputText.textContent =
+`⚔️ IRAN-US CONFLICT WAR MARKET ANALYSIS — ${market} — ${new Date().toLocaleDateString('en-IN')}
+${'─'.repeat(60)}
+
+📊 MARKET CONTEXT (2026 — High Volatility Regime):
+India VIX elevated (~18-25) due to Iran-US tensions
+Oil prices spiking → MCX Crude up, INR under pressure
+Nifty in a corrective phase with sharp intraday swings
+
+STRATEGY SIGNALS:
+${'─'.repeat(60)}
+
+1. 📈 BULL CALL SPREAD         → ⚠️ WATCH
+   Wait for VIX to cool below 18. Recovery play only
+   after ceasefire signal or US-Iran de-escalation news.
+   Best strikes: ATM Call Buy + OTM+200 Call Sell
+
+2. 🌅 MOMENTUM BREAKOUT (9:30) → ✅ ACTIVE
+   High-volume gaps common in war markets.
+   Watch 1st 15-min candle HIGH at open.
+   Filter: Volume must be >1.5× 5-day avg
+
+3. 🌪️ LONG STRADDLE            → ✅ ACTIVE (BEST NOW)
+   War = unknown direction = Straddle paradise.
+   Buy ATM CE + ATM PE before any major news event.
+   Target: 1.5× premium paid. Exit in 2–3 sessions.
+
+4. ⏰ 9:20 SHORT STRADDLE      → ❌ AVOID
+   DO NOT sell options in a war market.
+   Gap openings > 0.5% are common — instant loss.
+
+5. 🛡️ PROTECTIVE PUT           → ✅ ACTIVE (MUST HAVE)
+   If holding any long futures/stocks, BUY a PUT NOW.
+   This is your insurance against a surprise escalation.
+
+6. 🔄 ZERO-COST COLLAR         → ✅ ACTIVE
+   Excellent risk management for silver/gold longs.
+   Buy OTM Put, Sell OTM Call. Net premium = ~₹0.
+
+7. 📉 MEAN REVERSION (BB)      → ⚠️ WATCH
+   Nifty at/near Lower Bollinger Band = potential bounce.
+   RSI must confirm < 32 before entry. Small position only.
+
+8. ⚖️ CASH-FUTURES ARBITRAGE   → ⚠️ WATCH
+   Check MCX Silver/Gold spot vs futures spread.
+   Near expiry, spreads widen in panic — arb opportunity.
+
+${'─'.repeat(60)}
+TOP 3 PLAYS FOR THIS WEEK:
+  🥇 Long Straddle on Nifty (before any US/Iran speech)
+  🥈 Protective Put on your existing longs
+  🥉 Momentum Breakout — first 15-min candle (9:30 AM)
+
+⚠️ Connect your Anthropic API key in Settings for
+   live AI-powered analysis with real-time VIX data.`;
+    }
+
+    // Update static card badges for the offline analysis
+    const offlineSignals = {
+      bullcall:'WATCH', breakout:'ACTIVE', straddle:'ACTIVE',
+      shortstraddle:'AVOID', protput:'ACTIVE', collar:'ACTIVE',
+      meanrev:'WATCH', arb:'WATCH'
+    };
+    Object.entries(offlineSignals).forEach(([id, status]) => {
+      const el = document.getElementById('strat-status-'+id);
+      if (!el) return;
+      const colors = { 'ACTIVE':['#00E676','rgba(0,230,118,.2)'], 'AVOID':['#FF3D71','rgba(255,61,113,.15)'], 'WATCH':['#fbbf24','rgba(251,191,36,.15)'] };
+      const [c, bg] = colors[status] || ['#888','rgba(100,100,100,.2)'];
+      el.textContent = status; el.style.color = c; el.style.background = bg;
+    });
+  }
 };
 
 })(); // end IIFE

@@ -1539,6 +1539,38 @@ def api_paper_portfolio():
     enriched.setdefault("starting_capital", capital)
     return jsonify(enriched)
 
+@app.route("/api/strategy-analysis", methods=["POST", "GET"])
+def api_strategy_analysis():
+    """
+    Geopolitical Strategy Analysis endpoint.
+    POST body: { market, category, symbol, segment, vix (optional) }
+    Returns per-strategy signals with ACTIVE/WATCH/AVOID status.
+    """
+    try:
+        from stockguru_agents.agents.geopolitical_strategy_agent import run as run_strategy
+        params = {}
+        if request.method == "POST":
+            try:
+                params = request.get_json(silent=True) or {}
+            except Exception:
+                params = {}
+        else:
+            params = {
+                "market":   request.args.get("market", "NIFTY"),
+                "category": request.args.get("category", "all"),
+            }
+        # Inject India VIX if available from shared_state
+        if "vix" not in params:
+            params["vix"] = shared_state.get("india_vix", 18.0)
+        result = run_strategy(shared_state, request_params=params)
+        return jsonify(result)
+    except ImportError as e:
+        return jsonify({"error": f"Strategy agent not loaded: {e}"}), 500
+    except Exception as e:
+        import traceback
+        return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
+
+
 @app.route("/api/paper-trades")
 def api_paper_trades():
     try:
