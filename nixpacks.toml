@@ -2,7 +2,7 @@
 # Uses a virtualenv to avoid the Nix externally-managed-environment error
 
 [phases.setup]
-nixPkgs = ["python310", "python310Packages.pip"]
+nixPkgs = ["python310", "gcc", "libxml2", "libxslt", "openssl", "zlib", "pkg-config"]
 
 [phases.install]
 cmds = [
