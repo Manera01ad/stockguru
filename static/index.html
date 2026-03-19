@@ -5247,7 +5247,45 @@
           <!-- Top bar: price + stats -->
           <div class="term-topbar">
             <div>
-              <div style="font-size:10px;color:#556;letter-spacing:.08em;margin-bottom:2px" id="term-sym-label">BTC/USDT</div>
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap;">
+                <select id="term-seg-drop" onchange="termSelectSegment(this.value, null)" style="background:#1a1f2b;border:1px solid #2a3040;color:#c8cdd8;font-size:10px;padding:3px 6px;border-radius:4px;outline:none;cursor:pointer">
+                  <option value="cash">💵 CASH</option>
+                  <option value="fno">⚡ F&amp;O</option>
+                  <option value="commodity">🏅 COMMODITY</option>
+                  <option value="currency">💱 CURRENCY</option>
+                  <option value="crypto" selected>🔮 CRYPTO</option>
+                </select>
+                
+                <select id="term-fno-type" onchange="termSetSubtype(this.value, null)" style="display:none;background:#1a1f2b;border:1px solid #2a3040;color:#c8cdd8;font-size:10px;padding:3px 6px;border-radius:4px;outline:none;cursor:pointer">
+                  <option value="futures">FUTURES</option>
+                  <option value="ce">CE ▲ CALLS</option>
+                  <option value="pe">PE ▼ PUTS</option>
+                </select>
+                
+                <div id="term-strike-wrap" style="display:none;align-items:center;gap:4px;">
+                  <select id="term-expiry-sel" style="background:#1a1f2b;border:1px solid #2a3040;color:#c8cdd8;font-size:10px;padding:3px 6px;border-radius:4px;outline:none">
+                    <option>Weekly</option><option>Monthly</option><option>Next Month</option>
+                  </select>
+                  <select id="term-strike-sel" style="background:#1a1f2b;border:1px solid #2a3040;color:#c8cdd8;font-size:10px;padding:3px 6px;border-radius:4px;outline:none">
+                    <option>ATM</option><option>ATM-100</option><option>ATM-200</option><option>ATM-300</option><option>ATM+100</option><option>ATM+200</option><option>ATM+300</option>
+                  </select>
+                </div>
+
+                <select id="term-crypto-type" onchange="termSetCryptoType(this.value, null)" style="display:none;background:#1a1f2b;border:1px solid #2a3040;color:#c8cdd8;font-size:10px;padding:3px 6px;border-radius:4px;outline:none;cursor:pointer">
+                  <option value="spot">SPOT</option>
+                  <option value="futures">FUTURES</option>
+                  <option value="options">OPTIONS</option>
+                </select>
+                
+                <select id="term-sym-drop" onchange="termDropdownSelectScript(this)" style="background:#1a1f2b;border:1px solid #2a3040;color:#c8cdd8;font-size:10px;padding:3px 6px;border-radius:4px;outline:none;cursor:pointer;max-width:140px">
+                </select>
+
+                <input id="term-search" placeholder="🔍" oninput="termSearchFilter(this.value)" style="background:#1a1f2b;border:1px solid #2a3040;color:#c8cdd8;font-size:10px;padding:2px 6px;border-radius:4px;width:60px;outline:none" />
+              </div>
+
+              <!-- Hidden old label for JS compat -->
+              <div style="display:none;" id="term-sym-label">BTC/USDT</div>
+              
               <div style="display:flex;align-items:baseline;gap:8px">
                 <span class="term-price-main" id="term-price">--</span>
                 <span class="term-price-chg" id="term-price-chg">--</span>
@@ -5288,50 +5326,7 @@
             </div>
           </div>
         
-          <!-- Segment selector -->
-          <div class="term-seg-bar">
-            <span style="font-size:10px;color:#445;font-weight:700;letter-spacing:.08em;margin-right:4px">SEGMENT</span>
-            <button class="term-seg-btn seg-cash active"      onclick="termSelectSegment('cash',this)">💵 CASH</button>
-            <button class="term-seg-btn seg-fno"              onclick="termSelectSegment('fno',this)">⚡ F&amp;O</button>
-            <button class="term-seg-btn seg-commodity"        onclick="termSelectSegment('commodity',this)">🏅 COMMODITY</button>
-            <button class="term-seg-btn seg-currency"         onclick="termSelectSegment('currency',this)">💱 CURRENCY</button>
-            <button class="term-seg-btn seg-crypto"           onclick="termSelectSegment('crypto',this)">🔮 CRYPTO</button>
-            <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
-              <input class="term-sym-search" id="term-search" placeholder="🔍 Symbol..." oninput="termSearchFilter(this.value)" />
-            </div>
-          </div>
-        
-          <!-- F&O Sub-type bar -->
-          <div class="term-sub-bar" id="term-fno-subbar">
-            <span style="font-size:9px;color:#445;letter-spacing:.08em">TYPE:</span>
-            <button class="term-sub-btn active" onclick="termSetSubtype('futures',this)">FUTURES</button>
-            <button class="term-sub-btn ce"     onclick="termSetSubtype('ce',this)">CE ▲ CALLS</button>
-            <button class="term-sub-btn pe"     onclick="termSetSubtype('pe',this)">PE ▼ PUTS</button>
-            <div id="term-strike-wrap" style="display:none;align-items:center;gap:6px;margin-left:10px">
-              <span style="font-size:9px;color:#445">EXPIRY:</span>
-              <select id="term-expiry-sel" style="background:#1a1f2b;border:1px solid #2a3040;color:#c8cdd8;font-size:10px;padding:2px 6px;border-radius:6px;outline:none">
-                <option>Weekly</option><option>Monthly</option><option>Next Month</option>
-              </select>
-              <span style="font-size:9px;color:#445">STRIKE:</span>
-              <select id="term-strike-sel" style="background:#1a1f2b;border:1px solid #2a3040;color:#c8cdd8;font-size:10px;padding:2px 6px;border-radius:6px;outline:none">
-                <option>ATM</option>
-                <option>ATM-100</option><option>ATM-200</option><option>ATM-300</option>
-                <option>ATM+100</option><option>ATM+200</option><option>ATM+300</option>
-              </select>
-            </div>
-          </div>
-        
-          <!-- Crypto sub-type bar -->
-          <div class="term-sub-bar" id="term-crypto-subbar">
-            <span style="font-size:9px;color:#445;letter-spacing:.08em">TYPE:</span>
-            <button class="term-sub-btn active" onclick="termSetCryptoType('spot',this)">SPOT</button>
-            <button class="term-sub-btn"        onclick="termSetCryptoType('futures',this)">FUTURES</button>
-            <button class="term-sub-btn"        onclick="termSetCryptoType('options',this)">OPTIONS</button>
-          </div>
-        
-          <!-- Symbol pills -->
-          <div class="term-sym-bar" id="term-sym-bar"></div>
-        
+
           <!-- Body: order book + chart -->
           <div class="term-body">
         
@@ -10021,7 +10016,7 @@ window.initTerminal = function() {
 
   // termSelectSegment will fetch symbols, render pills, build chart and load first symbol
   setTimeout(() => {
-    termSelectSegment('crypto', document.querySelector('.term-seg-btn.seg-crypto'));
+    termSelectSegment('crypto', null);
   }, 200);
 
   // Order book refresh every 3s
@@ -10053,23 +10048,35 @@ function _buildCharts() {
 
 // Sub-bar handlers
 window.termSetSubtype = function(type, btn) {
-  document.querySelectorAll('#term-fno-subbar .term-sub-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+  _currSubType = type;
   const showStrike = type === 'ce' || type === 'pe';
-  document.getElementById('term-strike-wrap').style.display = showStrike ? 'flex' : 'none';
+  const wrap = document.getElementById('term-strike-wrap');
+  if (wrap) wrap.style.display = showStrike ? 'flex' : 'none';
 };
 
 window.termSetCryptoType = function(type, btn) {
-  document.querySelectorAll('#term-crypto-subbar .term-sub-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+  _currCryptoType = type;
 };
 
 function _renderSymPills(syms) {
-  const bar = document.getElementById('term-sym-bar');
-  bar.innerHTML = syms.map((s, i) =>
-    `<button class="term-sym-pill${i===0?' active':''}" onclick="termLoadSymbol('${s.sym}','${s.label}',this)" title="${s.name}">${s.label}</button>`
-  ).join('');
+  const sel = document.getElementById('term-sym-drop');
+  if (!sel) return;
+  sel.innerHTML = '';
+  syms.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.sym;
+    opt.setAttribute('data-label', s.label);
+    opt.textContent = s.label;
+    sel.appendChild(opt);
+  });
 }
+
+window.termDropdownSelectScript = function(sel) {
+  const opt = sel.options[sel.selectedIndex];
+  if (opt) {
+    termLoadSymbol(opt.value, opt.getAttribute('data-label'), null);
+  }
+};
 
 window.termSearchFilter = function(val) {
   const q = val.trim().toUpperCase();
@@ -10080,14 +10087,19 @@ window.termSearchFilter = function(val) {
 // ── Segment selector ─────────────────────────────────────────────────────────
 window.termSelectSegment = async function(seg, btn) {
   _currSegment = seg;
-  // Update button styles
-  document.querySelectorAll('.term-seg-btn').forEach(b => b.classList.remove('active'));
-  if (btn) btn.classList.add('active');
-  // Show/hide FnO sub-bar
-  const fnoBar = document.getElementById('term-fno-subbar');
-  const cryptoBar = document.getElementById('term-crypto-subbar');
-  if (fnoBar) fnoBar.style.display = (seg === 'fno') ? 'flex' : 'none';
-  if (cryptoBar) cryptoBar.style.display = (seg === 'crypto') ? 'flex' : 'none';
+  // Update dropdown value if changed
+  const segDrop = document.getElementById('term-seg-drop');
+  if (segDrop && segDrop.value !== seg) segDrop.value = seg;
+
+  // Show/hide sub-bars
+  const fnoDrop = document.getElementById('term-fno-type');
+  const cryptoDrop = document.getElementById('term-crypto-type');
+  const strikeWrap = document.getElementById('term-strike-wrap');
+  
+  if (fnoDrop) fnoDrop.style.display = (seg === 'fno') ? 'inline-block' : 'none';
+  if (cryptoDrop) cryptoDrop.style.display = (seg === 'crypto') ? 'inline-block' : 'none';
+  if (strikeWrap && seg !== 'fno') strikeWrap.style.display = 'none';
+
   // Fetch symbol list for segment
   try {
     const data = await fetch(`${API}/segments`).then(r => r.json());
@@ -10097,7 +10109,7 @@ window.termSelectSegment = async function(seg, btn) {
     // Auto-load first symbol
     if (syms.length) {
       const first = syms[0];
-      termLoadSymbol(first.sym, first.label, document.querySelector('.term-sym-pill'));
+      termLoadSymbol(first.sym, first.label, null);
     }
   } catch(e) {
     console.warn('[Terminal] Segment fetch failed:', e);
@@ -10109,9 +10121,9 @@ window.termLoadSymbol = async function(sym, label, pillEl) {
   document.getElementById('term-sym-label').textContent = label;
   document.getElementById('term-price').textContent = '…';
 
-  if (pillEl) {
-    document.querySelectorAll('.term-sym-pill').forEach(p => p.classList.remove('active'));
-    pillEl.classList.add('active');
+  const sel = document.getElementById('term-sym-drop');
+  if (sel && sel.value !== sym) {
+    sel.value = sym;
   }
 
   // TradingView embedded widget doesn't support live symbol switching after init.
