@@ -1954,14 +1954,14 @@
 
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;background:#1a1f2b;padding:10px 15px;border-radius:6px;border:1px solid #2a3040;">
                 <div style="display:flex;align-items:center;gap:15px;">
-                  <span style="background:rgba(255,255,255,0.05);border:1px solid #2a3040;padding:4px 8px;border-radius:4px;font-size:12px;font-weight:700;font-family:'Plus Jakarta Sans',sans-serif;">🔍 NIFTY 23002.15 <span style="color:#ff5252;font-weight:600;font-size:11px;margin-left:4px;">-3.26%</span></span>
+                  <span style="background:rgba(255,255,255,0.05);border:1px solid #2a3040;padding:4px 8px;border-radius:4px;font-size:12px;font-weight:700;font-family:'Plus Jakarta Sans',sans-serif;">🔍 NIFTY <span id="oc-spot-val">23000.00</span> <span id="oc-spot-chg" style="color:var(--muted);font-weight:600;font-size:11px;margin-left:4px;">0.0%</span></span>
                   <div style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;">
                     Expiry: <select style="background:var(--bg);color:var(--text);border:1px solid #2a3040;padding:2px 6px;border-radius:4px;outline:none;"><option>24 Mar</option><option>31 Mar</option></select>
                   </div>
                   <span style="font-size:11px;color:var(--muted);">Synth Fut Price <span style="color:var(--text)">23095.36</span></span>
                   <span style="font-size:11px;color:var(--muted);">IVP <span style="color:var(--text)">98</span></span>
                 </div>
-                <button style="background:none; border:1px solid #00c4cc; border-radius:4px; padding:4px 10px; color:#00c4cc; font-size:10px; cursor:pointer;">Live Charts</button>
+                <button onclick="fetchOptionChain()" style="background:none; border:1px solid #00c4cc; border-radius:4px; padding:4px 10px; color:#00c4cc; font-size:10px; cursor:pointer;">Refresh Data</button>
               </div>
 
               <div style="background:var(--bg2); border:1px solid var(--border); border-radius:8px; overflow:hidden;">
@@ -1985,7 +1985,7 @@
                       <th>OI Chg%</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody id="oc-body">
                     <tr class="itm-call">
                       <td class="grn">883%</td><td>0.3</td><td><div class="bar-bg bar-c" style="width:5px;"></div></td><td>766.75</td><td class="strk">22400</td><td>29.4</td><td>80.40</td><td style="text-align:left"><div class="bar-bg bar-p" style="width:12px;"></div></td><td>15.5</td><td class="red">-28%</td>
                     </tr>
@@ -7269,6 +7269,59 @@
     }
 
     // ── TECHNICAL ANALYSIS TABLE ───────────────────────────────
+    // ── OPTION CHAIN FETCHER ──────────────────────────────
+    window.fetchOptionChain = async function() {
+      try {
+        const d = await fetch(`${API}/option-chain?sym=NIFTY`).then(r => r.json());
+        if(!d.chain) return;
+        
+        const spotEl = document.getElementById('oc-spot-val');
+        const chgEl = document.getElementById('oc-spot-chg');
+        if(spotEl) spotEl.textContent = d.spot.toFixed(2);
+        if(chgEl) {
+          chgEl.textContent = (d.spot_chg > 0 ? "+" : "") + d.spot_chg.toFixed(2) + "%";
+          chgEl.style.color = d.spot_chg >= 0 ? "var(--green)" : "var(--red)";
+        }
+        
+        let html = '';
+        d.chain.forEach(r => {
+          // Calculate backgrounds
+          const isCaITM = r.strike < d.spot;
+          const isPeITM = r.strike > d.spot;
+          let rowClass = '';
+          if(isCaITM && !isPeITM) rowClass = 'itm-call';
+          else if(isPeITM && !isCaITM) rowClass = 'itm-put';
+          else rowClass = 'atm'; // Near ATM spot
+
+          // Calc horizontal bars 
+          // max OI for NIFTY visual scale is typically around ~150-200. We will map up to 100 for 100% width.
+          const max_oi = 200.0;
+          const pctCall = Math.min(100, (r.c_oi / max_oi) * 100);
+          const pctPut = Math.min(100, (r.p_oi / max_oi) * 100);
+
+          let spikeHtml = r.spike ? `<span style="font-size:8px; background:rgba(0,230,118,0.2); border-radius:4px; padding:1px 4px;margin-left:4px;color:var(--green)">SPIKE</span>` : '';
+
+          html += `<tr class="${rowClass}">
+            <td class="${r.c_chg.includes('-')?'red':'grn'}">${r.c_chg}</td>
+            <td>${r.c_oi.toFixed(1)}</td>
+            <td><div class="bar-bg bar-c" style="width:${pctCall}%"></div></td>
+            <td style="color:var(--text)">${r.c_ltp.toFixed(2)}</td>
+            <td class="strk" ${r.spike?"style='background:rgba(251,191,36,0.1);color:#fbbf24;'":""}>${r.strike}</td>
+            <td>${r.iv.toFixed(1)}</td>
+            <td style="color:var(--text);font-weight:${r.spike?700:400}">${r.p_ltp.toFixed(2)}${spikeHtml}</td>
+            <td style="text-align:left"><div class="bar-bg bar-p" style="width:${pctPut}%"></div></td>
+            <td>${r.p_oi.toFixed(1)}</td>
+            <td class="${r.p_chg.includes('-')?'red':'grn'}">${r.p_chg}</td>
+          </tr>`;
+        });
+        
+        const tbody = document.getElementById('oc-body');
+        if(tbody) tbody.innerHTML = html;
+      } catch (e) {
+        console.warn('fetchOptionChain failed', e);
+      }
+    };
+
     async function fetchTechnical() {
       try {
         const d = await fetch(`${API}/technical`).then(r => r.json());
@@ -8248,7 +8301,7 @@
         fetchClaudeAnalysis(), fetchMarketIntelligence(), fetchPaperPortfolio(), fetchLearningStats(),
         fetch('/api/get-keys').then(r=>r.json()).then(d=>{ if(d.env_path){const el=document.getElementById('env-path-display');if(el)el.textContent=d.env_path;} }).catch(()=>{}),
         fetchOptionsAndFii(), fetchTechnical(), fetchAgentLog(),
-        fetchChannels(), fetchBacktest(),
+        fetchOptionChain(), fetchChannels(), fetchBacktest(),
         fetchConnectors(), fetchRiskAnalytics(), fetchChartPatterns(),
         fetchAgentScores(),
         fetchSovereignStatus(), fetchHitlQueue(), fetchPostMortem(), fetchAgentMemory(),
@@ -8395,7 +8448,7 @@
           fetchScanner(), fetchSignals(), fetchAgentNews(), fetchAgentStatus(),
           fetchClaudeAnalysis(), fetchMarketIntelligence(), fetchPaperPortfolio(),
           fetchLearningStats(), fetchOptionsAndFii(), fetchTechnical(), fetchAgentLog(),
-          fetchSovereignStatus(), fetchBuilderProposals()
+          fetchOptionChain(), fetchSovereignStatus(), fetchBuilderProposals()
         ]).then(triggerHeartbeat).catch(() => { });
         // If Builder Agent produced a new proposal, flash a badge
         if (data && data.builder_output && data.builder_output.status === 'proposed') {
