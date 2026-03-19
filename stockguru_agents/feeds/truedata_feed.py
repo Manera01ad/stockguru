@@ -191,7 +191,7 @@ class TrueDataFeed(DataFeed):
                 try:
                     dt = datetime.fromisoformat(str(ts_str).replace("Z", ""))
                     ts = int(dt.timestamp())
-                except:
+                except Exception:
                     continue
                 candles.append({
                     "time":   ts,

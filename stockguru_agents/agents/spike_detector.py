@@ -222,6 +222,7 @@ def reset_history():
     """Clear all in-memory price/volume history (for testing)."""
     _price_history.clear()
     _volume_history.clear()
+    _cooldown_counter.clear()   # fix: was missing — caused tests to fail silently
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -460,4 +461,3 @@ def scan_pre_spikes(shared_state: dict, send_telegram_fn=None) -> list:
         shared_state.setdefault("pre_spike_alerts", [])
 
     return pre_spikes
-    _cooldown_counter.clear()

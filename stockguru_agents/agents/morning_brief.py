@@ -62,7 +62,7 @@ def format_price(val, prefix=""):
         if f > 1000:
             return f"{prefix}₹{f:,.0f}"
         return f"{prefix}₹{f:.2f}"
-    except:
+    except Exception:
         return str(val)
 
 def build_brief(shared_state):

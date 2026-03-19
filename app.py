@@ -1295,6 +1295,7 @@ def api_indices():
     return jsonify(shared_state.get("index_prices", {}))
 
 @app.route("/api/run-now", methods=["GET","POST"])
+@app.route("/api/run-cycle", methods=["GET","POST"])   # alias — keeps old docs/n8n specs working
 @limiter.limit("10 per minute")
 @require_api_key
 def api_run_now():
@@ -1737,6 +1738,40 @@ def api_get_keys():
         "gemini_configured": bool(GEMINI_API_KEY),
         "env_path": os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")),
     })
+
+@app.route("/api/dashboard-data")
+def api_dashboard_data():
+    """Unified dashboard snapshot — alias that combines status + market intelligence.
+    Added to fix 404s from n8n nodes and external callers expecting this endpoint."""
+    portfolio = shared_state.get("paper_portfolio", {})
+    claude    = shared_state.get("claude_analysis", {})
+    return jsonify({
+        # System status
+        "telegram_configured":  bool(TELEGRAM_TOKEN and TELEGRAM_CHAT_ID),
+        "anthropic_configured": bool(ANTHROPIC_API_KEY),
+        "gemini_configured":    bool(GEMINI_API_KEY),
+        "prices_loaded":        len(price_cache),
+        "last_update":          last_update,
+        "price_feed":           shared_state.get("_active_feed", "Yahoo Finance"),
+        "agents_available":     AGENTS_AVAILABLE,
+        "cycle_count":          shared_state.get("cycle_count", 0),
+        "last_full_cycle":      shared_state.get("last_full_cycle", "—"),
+        # Market intelligence
+        "market_mood":          shared_state.get("market_mood", {}),
+        "market_sentiment":     shared_state.get("market_sentiment_score", 0),
+        "top_signals":          shared_state.get("signal_results", [])[:5],
+        "scanner_count":        len(shared_state.get("scanner_results", [])),
+        "signal_count":         len(shared_state.get("actionable_signals", [])),
+        "morning_brief":        shared_state.get("morning_brief", ""),
+        "claude_summary":       claude.get("summary", ""),
+        # Portfolio snapshot
+        "paper_trades":         portfolio.get("stats", {}).get("total_trades", 0),
+        "paper_win_rate":       portfolio.get("stats", {}).get("win_rate", 0),
+        "paper_pnl":            portfolio.get("realized_pnl", 0),
+        "open_positions":       len([p for p in portfolio.get("positions", {}).values()
+                                     if p.get("status") == "OPEN"]),
+    })
+
 
 @app.route("/api/status")
 def api_status():

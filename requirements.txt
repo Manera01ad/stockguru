@@ -14,3 +14,6 @@ yfinance>=0.2.40
 gevent>=23.9.1
 gevent-websocket>=0.10.1
 # NOTE: do NOT add eventlet — conflicts with system OpenSSL on Linux (breaks yfinance)
+# Broker SDKs (M4 — Shoonya/Finvasia live feed)
+NorenRestApiPy>=1.0.0
+pyotp>=2.9.0
