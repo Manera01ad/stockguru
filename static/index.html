@@ -1876,14 +1876,14 @@
                 <h3 style="color: var(--muted); font-size: 11px; text-transform: uppercase; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 10px; font-weight:600;">Tools to predict direction</h3>
                 <div style="display:flex; flex-direction:column; gap:8px;">
                   
-                  <div style="background: rgba(0,196,204,0.1); border: 1px solid rgba(0,196,204,0.3); padding: 12px 14px; border-radius: 6px; cursor: pointer;">
+                  <div id="btn-oc-chain" class="oc-btn active" onclick="switchOcTool('chain')" style="background: rgba(0,196,204,0.1); border: 1px solid rgba(0,196,204,0.3); padding: 12px 14px; border-radius: 6px; cursor: pointer;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                      <span style="color:#00C4CC; font-weight:600; font-size:13px;">⛓️ Option Chain</span> <span style="font-size:16px; color:#00C4CC;">→</span>
+                      <span style="color:#00C4CC; font-weight:600; font-size:13px;">⛓️ Option Chain</span> <span class="oc-arrow" style="font-size:16px; color:#00C4CC;">→</span>
                     </div>
                     <div style="font-size:10px; color:var(--muted); line-height:1.4;">Full options data per strike</div>
                   </div>
 
-                  <div style="padding: 10px 14px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
+                  <div id="btn-oc-oi" class="oc-btn" onclick="switchOcTool('oi')" style="padding: 10px 14px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; transition:background 0.2s;" onmouseover="this.classList.contains('active')?'':this.style.background='var(--bg2)'" onmouseout="this.classList.contains('active')?'':this.style.background='transparent'">
                     <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
                       <span style="color:#3b82f6; width:16px; text-align:center;">📊</span> <span style="color:var(--text); font-size:13px;">Open Interest</span>
                       <span style="background:#fbbf24; color:#000; font-size:8px; font-weight:700; padding:2px 4px; border-radius:4px; margin-left:auto;">Improved</span>
@@ -1898,9 +1898,12 @@
                     <div style="font-size:10px; color:var(--muted); line-height:1.4; padding-left:24px;">Multi-strike OI over time</div>
                   </div>
 
-                  <div style="padding: 10px 14px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
-                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-                      <span style="color:var(--muted); width:16px; text-align:center;">🏛️</span> <span style="color:var(--text); font-size:13px;">FII DII Data</span>
+                  <div id="btn-oc-fii" class="oc-btn" onclick="switchOcTool('fii')" style="padding: 10px 14px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; transition:background 0.2s;" onmouseover="this.classList.contains('active')?'':this.style.background='var(--bg2)'" onmouseout="this.classList.contains('active')?'':this.style.background='transparent'">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                      <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="color:var(--muted); width:16px; text-align:center;">🏛️</span> <span class="btn-text" style="color:var(--text); font-size:13px;">FII DII Data</span>
+                      </div>
+                      <span class="oc-arrow" style="font-size:16px; color:#00C4CC; display:none;">→</span>
                     </div>
                     <div style="font-size:10px; color:var(--muted); line-height:1.4; padding-left:24px;">Institutional activity & sentiment</div>
                   </div>
@@ -1989,9 +1992,12 @@
               </div>
             </div>
             
-            <!-- Sensibull-style Option Chain -->
-            <div style="margin-top:40px; border-top: 1px solid var(--border); padding-top:20px;">
-              <style>
+            <!-- TOOL VIEWS -->
+            
+            <!-- 1: Sensibull-style Option Chain -->
+            <div id="view-oc-chain" style="display:block;">
+              <div style="margin-top:40px; border-top: 1px solid var(--border); padding-top:20px;">
+                <style>
                 .oc-table { width:100%; border-collapse:collapse; text-align:right; font-size:11px; font-family:'JetBrains Mono',monospace; color:var(--text); }
                 .oc-table th { padding:8px 10px; border-bottom:1px solid #2a3040; text-transform:uppercase; font-size:10px; font-family:'Plus Jakarta Sans',sans-serif; color:var(--muted); font-weight:600; }
                 .oc-table td { padding:8px 10px; border-bottom:1px solid #1a1f2b; }
@@ -2084,6 +2090,40 @@
                     </tr>
                   </tbody>
                 </table>
+              </div>
+              </div>
+            </div>
+            
+            <!-- 2: Sensibull-style Open Interest -->
+            <div id="view-oc-oi" style="display:none;">
+              <div style="margin-top:40px; border-top: 1px solid var(--border); padding-top:20px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+                  <h3 style="color:#c8cdd8; font-size:15px; font-family:'Plus Jakarta Sans',sans-serif; margin:0;">Call vs Put Open Interest (NIFTY)</h3>
+                  <button onclick="fetchOptionChain()" style="background:none; border:1px solid #00c4cc; border-radius:4px; padding:4px 10px; color:#00c4cc; font-size:10px; cursor:pointer;">Refresh Data</button>
+                </div>
+                <div style="background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:20px; font-family:'JetBrains Mono',monospace; min-height: 400px; display:flex; flex-direction:column; justify-content:center;" id="oi-chart-container">
+                    <div style="display:flex; justify-content:center; align-items:center; color:var(--muted); font-size:12px;">Waiting for data...</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3: FII DII Institutional Data -->
+            <div id="view-oc-fii" style="display:none;">
+              <div style="margin-top:40px; border-top: 1px solid var(--border); padding-top:20px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+                  <h3 style="color:#c8cdd8; font-size:15px; font-family:'Plus Jakarta Sans',sans-serif; margin:0;">FII DII Institutional Sentiment</h3>
+                  <button onclick="fetchOptionsAndFii()" style="background:none; border:1px solid #00c4cc; border-radius:4px; padding:4px 10px; color:#00c4cc; font-size:10px; cursor:pointer;">Refresh Data</button>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+                  <div style="background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:15px;">
+                    <h4 style="font-size:12px;color:var(--muted);text-transform:uppercase;margin:0 0 15px 0;">FII / FPI Activity</h4>
+                    <div id="fii-flow-table" style="font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text); line-height:1.8;">Loading...</div>
+                  </div>
+                  <div style="background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:15px;">
+                    <h4 style="font-size:12px;color:var(--muted);text-transform:uppercase;margin:0 0 15px 0;">DII Activity</h4>
+                    <div id="dii-flow-table" style="font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text); line-height:1.8;">Loading...</div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -7374,9 +7414,85 @@
         
         const tbody = document.getElementById('oc-body');
         if(tbody) tbody.innerHTML = html;
+        
+        // ---------- OPTION INTEREST BAR CHART GENERATION ----------
+        let oiHtml = `<div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+                        <span style="color:var(--red);font-weight:700;">CALL OI (Resistance)</span>
+                        <span style="color:var(--green);font-weight:700;">PUT OI (Support)</span>
+                      </div>`;
+                      
+        oiHtml += `<div style="display:flex; flex-direction:column; gap:4px;">`;
+        
+        // Find max total OI for scaling
+        let maxRowOi = 0;
+        d.chain.forEach(r => {
+            if (r.c_oi > maxRowOi) maxRowOi = r.c_oi;
+            if (r.p_oi > maxRowOi) maxRowOi = r.p_oi;
+        });
+        
+        d.chain.forEach(r => {
+            let pctCall = Math.min(100, (r.c_oi / maxRowOi) * 100);
+            let pctPut = Math.min(100, (r.p_oi / maxRowOi) * 100);
+            
+            oiHtml += `
+            <div style="display:flex; align-items:center; width:100%;">
+                <div style="flex:1; display:flex; justify-content:flex-end; align-items:center; gap:8px;">
+                    <span style="color:var(--muted); font-size:10px;">${r.c_oi.toFixed(1)}L</span>
+                    <div style="height:14px; background:var(--red); border-radius:2px 0 0 2px; width:${pctCall}%; opacity:0.8;"></div>
+                </div>
+                <div style="width:60px; text-align:center; font-weight:700; background:rgba(255,255,255,0.03); border-radius:4px; padding:2px; margin:0 10px; font-size:11px; color:${r.strike === d.spot ? '#fbbf24' : 'var(--text)'};">
+                    ${r.strike}
+                </div>
+                <div style="flex:1; display:flex; justify-content:flex-start; align-items:center; gap:8px;">
+                    <div style="height:14px; background:var(--green); border-radius:0 2px 2px 0; width:${pctPut}%; opacity:0.8;"></div>
+                    <span style="color:var(--muted); font-size:10px;">${r.p_oi.toFixed(1)}L</span>
+                </div>
+            </div>`;
+        });
+        oiHtml += `</div>`;
+        
+        const oiContainer = document.getElementById('oi-chart-container');
+        if (oiContainer) {
+            oiContainer.innerHTML = oiHtml;
+            oiContainer.style.justifyContent = 'flex-start';
+        }
+
       } catch (e) {
         console.warn('fetchOptionChain failed', e);
       }
+    };
+    
+    // ── TOOL SWITCH FETCHER ──────────────────────────────
+    window.switchOcTool = function(id) {
+        ['chain', 'oi', 'fii'].forEach(tid => {
+            const btn = document.getElementById('btn-oc-' + tid);
+            const view = document.getElementById('view-oc-' + tid);
+            if(btn) {
+                if(tid === id) {
+                    btn.classList.add('active');
+                    btn.style.background = 'rgba(0,196,204,0.1)';
+                    btn.style.border = '1px solid rgba(0,196,204,0.3)';
+                    const titleText = btn.querySelector('.btn-text');
+                    if (titleText) { titleText.style.color = '#00C4CC'; titleText.style.fontWeight = '600'; }
+                    const arrow = btn.querySelector('.oc-arrow');
+                    if(arrow) arrow.style.display = 'inline';
+                } else {
+                    btn.classList.remove('active');
+                    btn.style.background = 'transparent';
+                    btn.style.border = '1px solid transparent';
+                    const titleText = btn.querySelector('.btn-text');
+                    if (titleText) { titleText.style.color = 'var(--text)'; titleText.style.fontWeight = '400'; }
+                    const arrow = btn.querySelector('.oc-arrow');
+                    if(arrow) arrow.style.display = 'none';
+                }
+            }
+            if(view) {
+                view.style.display = (tid === id) ? 'block' : 'none';
+            }
+        });
+        
+        if (id === 'oi') fetchOptionChain();
+        if (id === 'fii') fetchOptionsAndFii();
     };
 
     async function fetchTechnical() {
