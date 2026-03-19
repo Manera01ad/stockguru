@@ -25,15 +25,40 @@ from collections import defaultdict, deque
 log = logging.getLogger("SpikeDetector")
 
 # ── CONFIGURATION ──────────────────────────────────────────────────────────────
-SPIKE_PCT_THRESHOLD   = 1.5   # % price move in one tick → spike alert
-VOLUME_SURGE_FACTOR   = 3.0   # × trailing average volume → surge alert
-VOLUME_WINDOW         = 5     # ticks of history for volume baseline
-ALERT_COOLDOWN_TICKS  = 3     # suppress repeat alerts for same symbol for N ticks
+SPIKE_PCT_THRESHOLD          = 1.5    # % price move in one tick → spike alert (equities/index)
+OPTIONS_SPIKE_PCT_THRESHOLD  = 5.0    # % threshold for F&O options — naturally more volatile
+FUTURES_SPIKE_PCT_THRESHOLD  = 1.0    # % threshold for index/stock futures (tighter than equity)
+VOLUME_SURGE_FACTOR          = 3.0   # × trailing average volume → surge alert
+VOLUME_WINDOW                = 5     # ticks of history for volume baseline
+ALERT_COOLDOWN_TICKS         = 3     # suppress repeat alerts for same symbol for N ticks
 WATCHLIST_SYMBOLS     = [
-    "NIFTY 50", "BANK NIFTY",
+    "NIFTY 50", "BANK NIFTY", "SENSEX",
     "RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS", "ICICIBANK.NS",
     "SBIN.NS", "KOTAKBANK.NS", "WIPRO.NS", "AXISBANK.NS", "BAJFINANCE.NS",
 ]
+
+import re as _re
+# Regex patterns to auto-classify F&O symbols found in price_cache
+_FNO_OPTIONS_RE = _re.compile(r'(?:NIFTY|BANKNIFTY|SENSEX|FINNIFTY)\s*\d{2}\w{3}\d{2,4}(?:PE|CE)|\d{4,6}(?:PE|CE)', _re.IGNORECASE)
+_FNO_FUTURES_RE = _re.compile(r'(?:NIFTY|BANKNIFTY|SENSEX|FINNIFTY)\s*\d{2}\w{3}\d{2,4}FUT|(?:NIFTY|BANKNIFTY)FUT', _re.IGNORECASE)
+
+def _classify_symbol(sym: str) -> str:
+    """Return 'options', 'futures', or 'equity' for threshold selection."""
+    if _FNO_OPTIONS_RE.search(sym):
+        return "options"
+    if _FNO_FUTURES_RE.search(sym):
+        return "futures"
+    # Heuristic: contains 5-digit strike price (e.g. '74500' in 'SENSEX 74500 PE')
+    if _re.search(r'\b\d{4,6}\s*(PE|CE)\b', sym, _re.IGNORECASE):
+        return "options"
+    return "equity"
+
+def _spike_threshold(sym: str) -> float:
+    """Return the correct spike % threshold for this symbol type."""
+    cls = _classify_symbol(sym)
+    if cls == "options":  return OPTIONS_SPIKE_PCT_THRESHOLD
+    if cls == "futures":  return FUTURES_SPIKE_PCT_THRESHOLD
+    return SPIKE_PCT_THRESHOLD
 
 # ── PERSISTENT HISTORY (in-process — resets on server restart) ────────────────
 _price_history:   dict[str, deque]  = defaultdict(lambda: deque(maxlen=2))
@@ -48,7 +73,8 @@ _cooldown_counter: dict[str, int]   = defaultdict(int)
 def _check_price_spike(symbol: str, current_price: float) -> dict | None:
     """
     Compare current price vs the previous tick price.
-    Returns a spike dict if |Δ%| ≥ SPIKE_PCT_THRESHOLD, else None.
+    Uses per-symbol-type thresholds: equity 1.5%, futures 1.0%, options 5.0%.
+    Returns a spike dict if |Δ%| ≥ threshold, else None.
     """
     hist = _price_history[symbol]
     if len(hist) < 1:
@@ -58,19 +84,22 @@ def _check_price_spike(symbol: str, current_price: float) -> dict | None:
     if prev_price == 0:
         return None
 
-    delta_pct = (current_price - prev_price) / prev_price * 100
-    if abs(delta_pct) < SPIKE_PCT_THRESHOLD:
+    delta_pct  = (current_price - prev_price) / prev_price * 100
+    threshold  = _spike_threshold(symbol)
+    if abs(delta_pct) < threshold:
         return None
 
     direction = "UP" if delta_pct > 0 else "DOWN"
+    sym_type  = _classify_symbol(symbol)
     return {
         "type":        "PRICE_SPIKE",
         "symbol":      symbol,
+        "sym_type":    sym_type,        # 'equity' | 'futures' | 'options'
         "prev_price":  round(prev_price, 2),
         "curr_price":  round(current_price, 2),
         "delta_pct":   round(delta_pct, 2),
         "direction":   direction,
-        "severity":    "CRITICAL" if abs(delta_pct) >= SPIKE_PCT_THRESHOLD * 2 else "HIGH",
+        "severity":    "CRITICAL" if abs(delta_pct) >= threshold * 2 else "HIGH",
     }
 
 
@@ -103,10 +132,13 @@ def _check_volume_surge(symbol: str, current_volume: float) -> dict | None:
 
 def _format_telegram_alert(spike: dict, volume: dict | None = None) -> str:
     """Build Telegram message for a spike event."""
-    s = spike
+    s        = spike
+    sym_type = s.get("sym_type", "equity")
+    type_tag = {"options": "🎯 F&O OPTIONS", "futures": "📦 FUTURES", "equity": "📈 EQUITY"}.get(sym_type, "")
+
     lines = [
         f"🚨 *SPIKE ALERT — {s['symbol']}*",
-        f"⏰ {datetime.now().strftime('%H:%M:%S')} IST",
+        f"🏷 {type_tag} | ⏰ {datetime.now().strftime('%H:%M:%S')} IST",
         "",
     ]
     if s["type"] == "PRICE_SPIKE":
@@ -115,6 +147,8 @@ def _format_telegram_alert(spike: dict, volume: dict | None = None) -> str:
             f"{arrow} *Price {s['direction']}: {s['delta_pct']:+.2f}% in one tick*",
             f"   Prev: ₹{s['prev_price']:,.2f} → Now: ₹{s['curr_price']:,.2f}",
         ]
+        if sym_type == "options":
+            lines.append(f"   _(Options threshold: {OPTIONS_SPIKE_PCT_THRESHOLD}% — this is a major move)_")
     if volume:
         lines += [
             f"📊 *Volume Surge: {volume['surge_factor']}× average*",
@@ -124,10 +158,13 @@ def _format_telegram_alert(spike: dict, volume: dict | None = None) -> str:
     severity = "CRITICAL" if (
         s.get("severity") == "CRITICAL" or (volume and volume.get("severity") == "CRITICAL")
     ) else "HIGH"
+    action = ("_Options spike: exit or hedge the position immediately if holding._"
+              if sym_type == "options"
+              else "_Positions: tighten SL. No new entries during spike window._")
     lines += [
         "",
         f"⚠️ Severity: *{severity}*",
-        "_Positions: tighten SL. No new entries during spike window._",
+        action,
     ]
     return "\n".join(lines)
 
@@ -139,13 +176,29 @@ def _format_telegram_alert(spike: dict, volume: dict | None = None) -> str:
 def run(shared_state, send_telegram_fn=None) -> list:
     """
     Scan price_cache for spikes / volume surges.
+    Covers:
+      1. Core WATCHLIST_SYMBOLS (equities + indices)
+      2. Any F&O options / futures symbols present in price_cache this cycle
+      3. Any symbols currently held in open positions (so open legs are always watched)
+
+    Uses per-type thresholds: equity 1.5% | futures 1.0% | options 5.0%
     Stores alerts in shared_state["spike_alerts"] (list, cleared each cycle).
     Returns list of alert dicts.
     """
     price_cache = shared_state.get("price_cache", {})
     alerts      = []
 
-    for symbol in WATCHLIST_SYMBOLS:
+    # Build the full scan set: watchlist + active F&O from price_cache + open positions
+    fno_from_cache   = {sym for sym in price_cache if _classify_symbol(sym) in ("options", "futures")}
+    open_pos_symbols = set()
+    for pos in shared_state.get("open_positions", []):
+        sym = pos.get("symbol") or pos.get("tradingsymbol") or ""
+        if sym:
+            open_pos_symbols.add(sym)
+
+    scan_symbols = list(set(WATCHLIST_SYMBOLS) | fno_from_cache | open_pos_symbols)
+
+    for symbol in scan_symbols:
         entry = price_cache.get(symbol)
         if not entry:
             continue

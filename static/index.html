@@ -5376,18 +5376,20 @@
                   style="background:rgba(255,61,113,.08);border:1px solid rgba(255,61,113,.3);border-radius:6px;
                          color:#FF3D71;cursor:pointer;padding:3px 10px;font-size:10px;font-weight:700;
                          font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:.3px;white-space:nowrap">🔔 ALERTS</button>
-                <button onclick="termOpenPanel('strategy')"
-                  style="background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.4);border-radius:6px;
-                         color:#fbbf24;cursor:pointer;padding:3px 10px;font-size:10px;font-weight:700;
-                         font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:.3px;white-space:nowrap">⚔️ STRATEGY</button>
-                <button onclick="termOpenPanel('brain');startBrainFeed()"
-                  style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.4);border-radius:6px;
-                         color:#a5b4fc;cursor:pointer;padding:3px 10px;font-size:10px;font-weight:700;
-                         font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:.3px;white-space:nowrap">🧠 AGENT BRAIN</button>
-                <div style="margin-left:auto;flex-shrink:0">
+                <!-- ── right-side group: STRATEGY · AGENT BRAIN · HIDE PANEL ── -->
+                <div style="margin-left:auto;flex-shrink:0;display:flex;align-items:center;gap:5px;">
+                  <button onclick="termOpenPanel('strategy')"
+                    style="background:rgba(251,191,36,.13);border:1px solid rgba(251,191,36,.5);border-radius:6px;
+                           color:#fbbf24;cursor:pointer;padding:3px 10px;font-size:10px;font-weight:700;
+                           font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:.3px;white-space:nowrap">⚔️ STRATEGY</button>
+                  <button onclick="termOpenPanel('brain');startBrainFeed()"
+                    style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.5);border-radius:6px;
+                           color:#a5b4fc;cursor:pointer;padding:3px 10px;font-size:10px;font-weight:700;
+                           font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:.3px;white-space:nowrap">🧠 AGENT BRAIN</button>
+                  <div style="width:1px;height:16px;background:rgba(0,196,204,.2);margin:0 3px;flex-shrink:0"></div>
                   <button id="chart-panel-toggle" onclick="termToggleBottomPanel()"
-                    style="background:rgba(99,102,241,.2);border:1px solid rgba(99,102,241,.5);border-radius:6px;
-                           color:#a5b4fc;cursor:pointer;padding:3px 14px;font-size:10px;font-weight:700;
+                    style="background:rgba(0,196,204,.1);border:1px solid rgba(0,196,204,.35);border-radius:6px;
+                           color:#00C4CC;cursor:pointer;padding:3px 14px;font-size:10px;font-weight:700;
                            font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:.3px;white-space:nowrap">▼ HIDE PANEL</button>
                 </div>
               </div>
