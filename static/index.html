@@ -11526,6 +11526,373 @@ TOP 3 PLAYS FOR THIS WEEK:
 })(); // end IIFE
 </script>
 
-</body>
+<!-- ══════════════════════════════════════════════════════
+     AI TUTOR FLOATING CHAT PANEL  — StockGuru Professor
+     ══════════════════════════════════════════════════════ -->
+<style>
+  #tutor-fab { position:fixed; bottom:28px; right:28px; z-index:9998;
+    width:58px; height:58px; border-radius:50%; background:linear-gradient(135deg,#7c3aed,#00c4cc);
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    box-shadow:0 4px 24px rgba(124,58,237,.5); border:none; font-size:24px;
+    transition:transform .2s; user-select:none; }
+  #tutor-fab:hover { transform:scale(1.08); }
+  #tutor-fab .fab-badge { position:absolute; top:-4px; right:-4px; background:#ef4444;
+    color:#fff; font-size:9px; font-weight:700; border-radius:8px; padding:1px 5px; }
+  
+  #tutor-panel {
+    position:fixed; bottom:100px; right:28px; z-index:9999;
+    width:420px; max-height:680px;
+    background:#0d1117; border:1px solid rgba(124,58,237,.35);
+    border-radius:16px; display:none; flex-direction:column;
+    box-shadow:0 8px 48px rgba(0,0,0,.7);
+    font-family:'Plus Jakarta Sans',sans-serif;
+  }
+  #tutor-panel.open { display:flex; animation:slideUp .25s ease; }
+  @keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+  
+  #tutor-header { padding:14px 16px; background:linear-gradient(135deg,rgba(124,58,237,.2),rgba(0,196,204,.1));
+    border-bottom:1px solid rgba(255,255,255,.06); border-radius:16px 16px 0 0;
+    display:flex; align-items:center; gap:10px; }
+  #tutor-header .avatar { width:36px; height:36px; border-radius:50%;
+    background:linear-gradient(135deg,#7c3aed,#00c4cc);
+    display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
+  #tutor-header .title-block { flex:1; }
+  #tutor-header h3 { margin:0; font-size:13px; font-weight:700; color:#e2e8f0; }
+  #tutor-header p  { margin:0; font-size:10px; color:#64748b; }
+  #tutor-close { background:none; border:none; color:#64748b; cursor:pointer; font-size:18px; padding:4px; }
+  #tutor-close:hover { color:#e2e8f0; }
+  
+  #tutor-mode-bar { display:flex; gap:6px; padding:10px 12px; border-bottom:1px solid rgba(255,255,255,.05); }
+  .tutor-mode-btn { flex:1; padding:5px 4px; border-radius:6px; border:1px solid rgba(255,255,255,.08);
+    background:transparent; color:#64748b; font-size:10px; font-weight:600; cursor:pointer;
+    transition:all .2s; font-family:inherit; }
+  .tutor-mode-btn.active { background:rgba(124,58,237,.25); color:#a78bfa; border-color:rgba(124,58,237,.4); }
+  .tutor-mode-btn:hover:not(.active) { background:rgba(255,255,255,.05); color:#c8cdd8; }
+  
+  #tutor-messages { flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:10px;
+    min-height:200px; max-height:380px; scrollbar-width:thin; scrollbar-color:#2a3040 transparent; }
+  
+  .tutor-msg-user { align-self:flex-end; background:rgba(124,58,237,.2); border:1px solid rgba(124,58,237,.3);
+    border-radius:12px 12px 2px 12px; padding:8px 12px; max-width:85%;
+    font-size:12px; color:#e2e8f0; line-height:1.5; }
+  .tutor-msg-ai { align-self:flex-start; background:rgba(0,196,204,.05); border:1px solid rgba(0,196,204,.15);
+    border-radius:12px 12px 12px 2px; padding:10px 12px; max-width:92%;
+    font-size:12px; color:#c8cdd8; line-height:1.65; }
+  .tutor-msg-ai b { color:#e2e8f0; }
+  .tutor-msg-ai .tutor-ai-header { display:flex; align-items:center; gap:6px; margin-bottom:6px;
+    font-size:10px; color:#00c4cc; font-weight:700; }
+  .tutor-img-preview { max-width:100%; border-radius:8px; border:1px solid rgba(255,255,255,.1); margin-bottom:6px; }
+  .tutor-tag { display:inline-block; font-size:9px; padding:1px 6px; border-radius:4px;
+    background:rgba(167,139,250,.15); color:#a78bfa; font-weight:700; margin-right:4px; }
+  
+  #tutor-img-preview-bar { padding:0 12px 8px; display:none; }
+  #tutor-img-thumb { max-height:70px; border-radius:6px; border:1px solid rgba(255,255,255,.1); }
+  #tutor-img-remove { background:rgba(239,68,68,.2); border:none; color:#ef4444; border-radius:4px;
+    padding:2px 8px; font-size:10px; cursor:pointer; margin-left:8px; }
+  
+  #tutor-input-area { padding:10px 12px; border-top:1px solid rgba(255,255,255,.06); }
+  #tutor-drop-zone { border:2px dashed rgba(124,58,237,.3); border-radius:8px; padding:8px;
+    text-align:center; font-size:10px; color:#64748b; cursor:pointer; margin-bottom:8px;
+    transition:border .2s; display:none; }
+  #tutor-drop-zone.drag-over { border-color:#a78bfa; color:#a78bfa; }
+  
+  #tutor-input-row { display:flex; gap:6px; align-items:flex-end; }
+  #tutor-input { flex:1; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1);
+    border-radius:8px; padding:8px 10px; color:#e2e8f0; font-size:12px; resize:none;
+    font-family:inherit; outline:none; min-height:36px; max-height:80px; }
+  #tutor-input:focus { border-color:rgba(124,58,237,.5); }
+  #tutor-img-btn { background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1);
+    border-radius:8px; padding:8px; color:#64748b; cursor:pointer; font-size:16px; }
+  #tutor-img-btn:hover { color:#a78bfa; border-color:rgba(124,58,237,.3); }
+  #tutor-send-btn { background:linear-gradient(135deg,#7c3aed,#00c4cc); border:none;
+    border-radius:8px; padding:8px 14px; color:#fff; cursor:pointer; font-size:12px;
+    font-weight:700; font-family:inherit; transition:opacity .2s; }
+  #tutor-send-btn:disabled { opacity:.4; cursor:default; }
+  
+  #tutor-paper-bar { padding:6px 12px; border-top:1px solid rgba(255,255,255,.05);
+    display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  .tutor-quick-chip { font-size:9px; padding:3px 8px; border-radius:10px;
+    background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08);
+    color:#94a3b8; cursor:pointer; white-space:nowrap; transition:all .15s; }
+  .tutor-quick-chip:hover { background:rgba(124,58,237,.15); color:#a78bfa; border-color:rgba(124,58,237,.3); }
+  #tutor-file-input { display:none; }
+</style>
 
+<!-- FAB Button -->
+<button id="tutor-fab" onclick="tutorToggle()">
+  🎓
+  <span class="fab-badge" id="tutor-fab-badge" style="display:none">!</span>
+</button>
+
+<!-- Chat Panel -->
+<div id="tutor-panel">
+  <!-- Header -->
+  <div id="tutor-header">
+    <div class="avatar">🎓</div>
+    <div class="title-block">
+      <h3>AI Professor &amp; Trader</h3>
+      <p id="tutor-status">Ready · Gemini Vision Active · Upload any chart</p>
+    </div>
+    <button id="tutor-close" onclick="tutorToggle()">✕</button>
+  </div>
+  
+  <!-- Mode Bar -->
+  <div id="tutor-mode-bar">
+    <button class="tutor-mode-btn active" id="mode-tutor"    onclick="tutorSetMode('tutor')">   📚 Professor</button>
+    <button class="tutor-mode-btn"        id="mode-trader"   onclick="tutorSetMode('trader')">  ⚡ AI Trader</button>
+    <button class="tutor-mode-btn"        id="mode-analyser" onclick="tutorSetMode('analyser')">🔍 Analyser</button>
+  </div>
+  
+  <!-- Messages -->
+  <div id="tutor-messages">
+    <div class="tutor-msg-ai">
+      <div class="tutor-ai-header">🎓 AI Professor · StockGuru</div>
+      <b>Welcome!</b> I am your personal AI Trading Professor &amp; Chart Analyst.<br><br>
+      📊 <b>Upload any chart screenshot</b> and I will instantly tell you:<br>
+      &nbsp;• What pattern is forming<br>
+      &nbsp;• Exact support &amp; resistance levels<br>
+      &nbsp;• Entry price, Stop Loss &amp; Target<br>
+      &nbsp;• Why the trade worked or failed<br><br>
+      💡 Switch to <b>AI Trader</b> for live NIFTY option strategies, or <b>Analyser</b> for pure TA reports.<br><br>
+      <i style="color:#64748b">Tip: You can paste a chart image directly into the chat (Ctrl+V)</i>
+    </div>
+  </div>
+  
+  <!-- Image Preview Bar -->
+  <div id="tutor-img-preview-bar">
+    <img id="tutor-img-thumb" src="" alt="chart">
+    <button id="tutor-img-remove" onclick="tutorRemoveImg()">✕ Remove</button>
+    <span style="font-size:10px;color:#a78bfa;margin-left:6px;">Chart ready for analysis</span>
+  </div>
+  
+  <!-- Input Area -->
+  <div id="tutor-input-area">
+    <div id="tutor-drop-zone" id="tutor-drop" ondragover="tutorDragOver(event)" ondragleave="tutorDragLeave(event)" ondrop="tutorDrop(event)">
+      📸 Drop chart image here or click 📎
+    </div>
+    <div id="tutor-input-row">
+      <textarea id="tutor-input" placeholder="Ask anything… or paste/upload a chart to analyse" rows="1"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();tutorSend()}"
+        oninput="this.style.height='';this.style.height=Math.min(this.scrollHeight,80)+'px'"></textarea>
+      <button id="tutor-img-btn" onclick="document.getElementById('tutor-file-input').click()" title="Upload chart image">📎</button>
+      <button id="tutor-send-btn" onclick="tutorSend()">Send ↑</button>
+    </div>
+  </div>
+  
+  <!-- Quick Chips -->
+  <div id="tutor-paper-bar">
+    <span style="font-size:9px;color:#64748b;margin-right:2px;">Quick:</span>
+    <span class="tutor-quick-chip" onclick="tutorAsk('Explain what happened in this NIFTY 22900 PE chart and what I should have done')">📊 Explain this chart</span>
+    <span class="tutor-quick-chip" onclick="tutorAsk('What is the best option strategy for high VIX war markets?')">⚔️ War market strategy</span>
+    <span class="tutor-quick-chip" onclick="tutorAsk('Explain Long Straddle with a practical NIFTY example for a beginner')">📚 Teach Long Straddle</span>
+    <span class="tutor-quick-chip" onclick="tutorAsk('Review my trade: I sold NIFTY 22900 PE at 150, it went to 80 and I exited with profit. Was this right?')">💼 Review my trade</span>
+    <span class="tutor-quick-chip" onclick="tutorAsk('What is Max Pain and how can I use it in NIFTY options?')">🎯 What is Max Pain?</span>
+  </div>
+  
+  <input type="file" id="tutor-file-input" accept="image/*" onchange="tutorFileSelected(event)">
+</div>
+
+<script>
+(function() {
+  let _tutorMode    = 'tutor';
+  let _tutorBusy    = false;
+  let _tutorImgB64  = '';   // current attached image
+  
+  window.tutorToggle = function() {
+    const panel = document.getElementById('tutor-panel');
+    panel.classList.toggle('open');
+    const badge = document.getElementById('tutor-fab-badge');
+    if(badge) badge.style.display = 'none';
+  };
+  
+  window.tutorSetMode = function(mode) {
+    _tutorMode = mode;
+    document.querySelectorAll('.tutor-mode-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById('mode-' + mode);
+    if(btn) btn.classList.add('active');
+    const status = document.getElementById('tutor-status');
+    const labels = { tutor:'Professor Mode · Teaching & Analysis', trader:'Trader Mode · Actionable Signals', analyser:'Analyser Mode · TA Report' };
+    if(status) status.textContent = labels[mode] || '';
+  };
+  
+  window.tutorAsk = function(q) {
+    const inp = document.getElementById('tutor-input');
+    if(inp) inp.value = q;
+    tutorSend();
+  };
+  
+  window.tutorRemoveImg = function() {
+    _tutorImgB64 = '';
+    const bar = document.getElementById('tutor-img-preview-bar');
+    if(bar) bar.style.display = 'none';
+    const th = document.getElementById('tutor-img-thumb');
+    if(th) th.src = '';
+  };
+  
+  function tutorAttachImg(b64) {
+    _tutorImgB64 = b64;
+    const bar = document.getElementById('tutor-img-preview-bar');
+    const th  = document.getElementById('tutor-img-thumb');
+    if(bar) bar.style.display = 'flex';
+    if(th)  th.src = 'data:image/png;base64,' + b64;
+    // Auto-fill helpful prompt
+    const inp = document.getElementById('tutor-input');
+    if(inp && !inp.value.trim()) inp.value = 'Analyse this chart and tell me: what pattern is forming, key levels, and what trade I should make with exact entry, SL, and target.';
+  }
+  
+  window.tutorFileSelected = function(e) {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      const b64 = ev.target.result.split(',')[1];
+      tutorAttachImg(b64);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+  
+  window.tutorDragOver = function(e) {
+    e.preventDefault();
+    document.getElementById('tutor-drop-zone').classList.add('drag-over');
+  };
+  window.tutorDragLeave = function(e) {
+    document.getElementById('tutor-drop-zone').classList.remove('drag-over');
+  };
+  window.tutorDrop = function(e) {
+    e.preventDefault();
+    document.getElementById('tutor-drop-zone').classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if(!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = ev => tutorAttachImg(ev.target.result.split(',')[1]);
+    reader.readAsDataURL(file);
+  };
+  
+  // Paste image support
+  document.addEventListener('paste', function(e) {
+    const panel = document.getElementById('tutor-panel');
+    if(!panel || !panel.classList.contains('open')) return;
+    const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+    for(let item of items) {
+      if(item.type.startsWith('image/')) {
+        const blob   = item.getAsFile();
+        const reader = new FileReader();
+        reader.onload = ev => tutorAttachImg(ev.target.result.split(',')[1]);
+        reader.readAsDataURL(blob);
+        break;
+      }
+    }
+  });
+  
+  function tutorAppend(role, htmlContent, imgB64) {
+    const msgs = document.getElementById('tutor-messages');
+    if(!msgs) return;
+    const div = document.createElement('div');
+    div.className = role === 'user' ? 'tutor-msg-user' : 'tutor-msg-ai';
+    if(role === 'ai') {
+      div.innerHTML = `<div class="tutor-ai-header">${{tutor:'📚 Professor',trader:'⚡ AI Trader',analyser:'🔍 Analyser'}[_tutorMode]||'🎓 AI'}</div>${formatTutorReply(htmlContent)}`;
+    } else {
+      let imgHtml = imgB64 ? `<img class="tutor-img-preview" src="data:image/png;base64,${imgB64}" alt="uploaded chart">` : '';
+      div.innerHTML = imgHtml + escHtml(htmlContent);
+    }
+    msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+  
+  function formatTutorReply(text) {
+    return text
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
+      .replace(/\*(.+?)\*/g,'<em>$1</em>')
+      .replace(/`(.+?)`/g,'<code style="background:#1e2330;padding:1px 4px;border-radius:3px;font-size:11px;color:#00c4cc">$1</code>')
+      .replace(/^#{1,3} (.+)$/gm,'<div style="color:#a78bfa;font-weight:700;margin:8px 0 4px">$1</div>')
+      .replace(/^(\d+)\. /gm,'<br><b>$1.</b> ')
+      .replace(/^[-•] /gm,'<br>• ')
+      .replace(/\n/g,'<br>');
+  }
+  
+  function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  
+  function tutorTyping(show) {
+    const el = document.getElementById('tutor-typing');
+    if(show && !el) {
+      const msgs = document.getElementById('tutor-messages');
+      const d = document.createElement('div');
+      d.id = 'tutor-typing'; d.className = 'tutor-msg-ai';
+      d.innerHTML = '<span style="color:#64748b;font-size:11px;">✍️ Professor is thinking…</span>';
+      msgs.appendChild(d); msgs.scrollTop = msgs.scrollHeight;
+    } else if(!show && el) { el.remove(); }
+  }
+  
+  window.tutorSend = async function() {
+    if(_tutorBusy) return;
+    const inp = document.getElementById('tutor-input');
+    const msg = inp.value.trim();
+    if(!msg && !_tutorImgB64) return;
+    
+    _tutorBusy = true;
+    document.getElementById('tutor-send-btn').disabled = true;
+    
+    // Append user message
+    tutorAppend('user', msg || '(chart image for analysis)', _tutorImgB64);
+    inp.value = '';
+    inp.style.height = '';
+    
+    const capturedImg = _tutorImgB64;
+    tutorRemoveImg(); // clear after capture
+    
+    tutorTyping(true);
+    
+    // Gather live context
+    let ctx = {};
+    try {
+      const ocData = await fetch(`${API}/option-chain?sym=NIFTY`).then(r=>r.json()).catch(()=>({}));
+      ctx = { spot: ocData.spot, alerts: ocData.alerts };
+    } catch(e) {}
+    
+    try {
+      const API_BASE = typeof API !== 'undefined' ? API : '/api';
+      const resp = await fetch(`${API_BASE}/ai-tutor`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message:   msg,
+          image_b64: capturedImg,
+          mode:      _tutorMode,
+          context:   ctx
+        })
+      });
+      const d = await resp.json();
+      tutorTyping(false);
+      tutorAppend('ai', d.reply || d.error || 'No response.');
+    } catch(e) {
+      tutorTyping(false);
+      tutorAppend('ai', '⚠️ Connection error. Please check server status.');
+    }
+    
+    _tutorBusy = false;
+    document.getElementById('tutor-send-btn').disabled = false;
+    inp.focus();
+  };
+  
+  // Show drop zone when panel opens and user hovers over input area
+  const inputArea = document.getElementById('tutor-input-area');
+  const dropZone  = document.getElementById('tutor-drop-zone');
+  if(inputArea && dropZone) {
+    inputArea.addEventListener('dragenter', () => { dropZone.style.display = 'block'; });
+    document.addEventListener('dragleave', e => { if(!inputArea.contains(e.relatedTarget)) dropZone.style.display = 'none'; });
+  }
+
+  // Flash FAB badge when spike alert fires
+  const _origFetch = window.fetch;
+  window.fetch = async function(...args) {
+    const result = await _origFetch(...args);
+    return result;
+  };
+  
+})();
+</script>
+
+</body>
 </html>

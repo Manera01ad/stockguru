@@ -3538,3 +3538,130 @@ def api_orderbook():
         # Return simulated empty book as 200 so frontend doesn't hang
         return jsonify({"bids": [], "asks": [], "spread": 0, "price": 0,
                         "feed": "yahoo", "symbol": sym, "error": str(e)})
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  AI TUTOR + CHART ANALYST — Gemini Vision Backend
+# ══════════════════════════════════════════════════════════════════════
+@app.route("/api/ai-tutor", methods=["POST"])
+def api_ai_tutor():
+    """
+    Multi-modal AI Tutor: accepts text + optional chart image (base64).
+    Uses Gemini (vision if image present) to analyse chart, patterns,
+    entry/SL/target recommendations, and teaching commentary.
+    """
+    try:
+        body = request.get_json(force=True) or {}
+        user_message = body.get("message", "").strip()
+        image_b64    = body.get("image_b64", "")   # base64 encoded chart image
+        context      = body.get("context", {})     # current OC / portfolio data
+        mode         = body.get("mode", "tutor")   # tutor | trader | analyser
+
+        GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
+        if not GEMINI_KEY:
+            return jsonify({"error": "GEMINI_API_KEY not configured"}), 500
+
+        import google.generativeai as genai
+        genai.configure(api_key=GEMINI_KEY)
+
+        # ── System persona based on mode ────────────────────────────
+        PERSONA = {
+            "tutor": (
+                "You are StockGuru AI Professor — an expert Indian stock market educator and trading coach. "
+                "You explain complex concepts in simple, practical terms using real-world Indian market examples (NIFTY, BANKNIFTY, NSE F&O). "
+                "When reviewing charts, identify: 1) Exact chart pattern name 2) Key support/resistance levels "
+                "3) Entry price, Stop Loss, Target 4) Risk:Reward ratio 5) One lesson the trader should learn from this. "
+                "Always be encouraging but honest about mistakes. Speak like a wise professor who has traded for 20+ years."
+            ),
+            "trader": (
+                "You are StockGuru AI Trader — a veteran options trader specialising in NIFTY/BANKNIFTY F&O strategies. "
+                "Give sharp, actionable trade ideas with exact strikes, entry, stop loss, and target. "
+                "Mention IV regime, PCR context, and whether to buy or sell options. Be concise and confident."
+            ),
+            "analyser": (
+                "You are StockGuru Chart Analyst — you specialise in technical analysis of Indian F&O charts. "
+                "Identify candlestick patterns, volume confirmation, trend lines, momentum divergences, and breakout levels. "
+                "Give a structured report: Pattern | Trend | Key Levels | Signal | Confidence %."
+            )
+        }.get(mode, "tutor")
+
+        # ── Build context snippet from live data ────────────────────
+        ctx_text = ""
+        if context:
+            spot   = context.get("spot", "N/A")
+            alerts = context.get("alerts", [])
+            ctx_text = f"\n\n[LIVE MARKET CONTEXT]\nNIFTY Spot: {spot}\n"
+            if alerts:
+                for a in alerts[:2]:
+                    ctx_text += f"⚠ {a.get('title','')}: {a.get('message','')}\n"
+
+        full_prompt = f"{PERSONA}\n\n[USER QUERY]\n{user_message}{ctx_text}"
+
+        # ── Choose model: Flash (text) or Pro Vision (image) ───────
+        if image_b64:
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            import base64
+            img_bytes = base64.b64decode(image_b64)
+            response = model.generate_content([
+                full_prompt,
+                {"mime_type": "image/png", "data": img_bytes}
+            ])
+        else:
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            response = model.generate_content(full_prompt)
+
+        reply_text = response.text if hasattr(response, "text") else str(response)
+
+        return jsonify({
+            "reply":   reply_text,
+            "mode":    mode,
+            "has_image": bool(image_b64),
+            "model": "gemini-1.5-flash"
+        })
+
+    except Exception as e:
+        log.error("AI Tutor error: %s", e)
+        return jsonify({"error": str(e), "reply": f"⚠️ AI Tutor temporarily unavailable: {e}"}), 500
+
+
+# ── Paper Trade Submit ───────────────────────────────────────────────
+@app.route("/api/paper-trade", methods=["POST"])
+def api_paper_trade():
+    """Log a paper trade from the UI and return AI feedback on the decision."""
+    try:
+        body   = request.get_json(force=True) or {}
+        symbol = body.get("symbol", "NIFTY")
+        action = body.get("action", "BUY")   # BUY | SELL
+        strike = body.get("strike", "")
+        opt_type = body.get("opt_type", "CE") # CE or PE
+        qty    = int(body.get("qty", 1))
+        entry  = float(body.get("entry", 0))
+        sl     = float(body.get("sl", 0))
+        target = float(body.get("target", 0))
+
+        rr = round((target - entry) / (entry - sl), 2) if sl and sl != entry else "N/A"
+
+        GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
+        feedback = "Trade logged. Connect GEMINI_API_KEY for AI feedback."
+        if GEMINI_KEY:
+            import google.generativeai as genai
+            genai.configure(api_key=GEMINI_KEY)
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            prompt = (
+                f"A trader just placed a PAPER TRADE. Evaluate this decision like an experienced trading professor:\n"
+                f"Trade: {action} {qty} lot {symbol} {strike} {opt_type}\n"
+                f"Entry: ₹{entry} | Stop Loss: ₹{sl} | Target: ₹{target} | R:R = {rr}\n\n"
+                f"Give: 1) Risk assessment (is SL too wide/tight?) 2) Strategy fit (right option type?) "
+                f"3) One key thing to watch. Keep it under 120 words. Be practical and encouraging."
+            )
+            resp = model.generate_content(prompt)
+            feedback = resp.text if hasattr(resp, "text") else feedback
+
+        return jsonify({
+            "status": "logged",
+            "rr": rr,
+            "ai_feedback": feedback,
+            "trade": body
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
