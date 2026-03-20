@@ -2037,6 +2037,7 @@
               </div>
 
               <div style="background:var(--bg2); border:1px solid var(--border); border-radius:8px; overflow:hidden;">
+                <div id="oc-alert-box"></div>
                 <table class="oc-table">
                   <thead>
                     <tr>
@@ -7459,6 +7460,17 @@
 
     // ── TECHNICAL ANALYSIS TABLE ───────────────────────────────
     // ── OPTION CHAIN FETCHER ──────────────────────────────
+    
+    // Live WebSocket Simulator Polling Loop
+    setInterval(() => {
+        // Only fetch rapidly if Option Chain or OI is visible
+        const cView = document.getElementById('view-oc-chain');
+        const oView = document.getElementById('view-oc-oi');
+        if ((cView && cView.style.display !== 'none') || (oView && oView.style.display !== 'none')) {
+            window.fetchOptionChain();
+        }
+    }, 1500);
+
     window.fetchOptionChain = async function() {
       try {
         const d = await fetch(`${API}/option-chain?sym=NIFTY`).then(r => r.json());
@@ -7470,6 +7482,29 @@
         if(chgEl) {
           chgEl.textContent = (d.spot_chg > 0 ? "+" : "") + d.spot_chg.toFixed(2) + "%";
           chgEl.style.color = d.spot_chg >= 0 ? "var(--green)" : "var(--red)";
+        }
+        
+        const alertBox = document.getElementById('oc-alert-box');
+        if(alertBox) {
+            if(d.alerts && d.alerts.length > 0) {
+                let alertHtml = '';
+                d.alerts.forEach(a => {
+                    let bg = a.level === 'critical' ? 'rgba(255,82,82,0.1)' : 'rgba(251,191,36,0.1)';
+                    let border = a.level === 'critical' ? '1px solid rgba(255,82,82,0.4)' : '1px solid rgba(251,191,36,0.4)';
+                    let text = a.level === 'critical' ? 'var(--red)' : '#fbbf24';
+                    alertHtml += `<div style="background:${bg}; border-bottom:${border}; padding:12px; display:flex; gap:10px; align-items:center;">
+                        <span style="font-size:20px;">${a.level === 'critical' ? '🔥' : '⚠️'}</span>
+                        <div>
+                            <div style="color:${text}; font-weight:700; font-size:12px;">${a.title}</div>
+                            <div style="color:var(--text); font-size:11px;">${a.message}</div>
+                        </div>
+                    </div>`;
+                });
+                alertBox.innerHTML = alertHtml;
+                alertBox.style.display = 'block';
+            } else {
+                alertBox.style.display = 'none';
+            }
         }
         
         let html = '';
