@@ -1937,9 +1937,12 @@
                     <div style="font-size:10px; color:var(--muted); line-height:1.4; padding-left:24px;">All stock data in one view</div>
                   </div>
 
-                  <div style="padding: 10px 14px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
-                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-                      <span style="color:var(--muted); width:16px; text-align:center;">📋</span> <span style="color:var(--text); font-size:13px;">Screener</span>
+                  <div id="btn-oc-screener" class="oc-btn" onclick="switchOcTool('screener')" style="padding: 10px 14px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; transition:background 0.2s;" onmouseover="this.classList.contains('active')?'':this.style.background='var(--bg2)'" onmouseout="this.classList.contains('active')?'':this.style.background='transparent'">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                      <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="color:var(--muted); width:16px; text-align:center;">📋</span> <span class="btn-text" style="color:var(--text); font-size:13px;">Screener</span>
+                      </div>
+                      <span class="oc-arrow" style="font-size:16px; color:#00C4CC; display:none;">→</span>
                     </div>
                     <div style="font-size:10px; color:var(--muted); line-height:1.4; padding-left:24px;">Filter stocks by OI/IV/PCR</div>
                   </div>
@@ -1974,9 +1977,12 @@
                     <div style="font-size:10px; color:var(--muted); line-height:1.4; padding-left:24px;">IV history charts</div>
                   </div>
 
-                  <div style="padding: 10px 14px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
-                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-                      <span style="color:var(--muted); width:16px; text-align:center;">📅</span> <span style="color:var(--text); font-size:13px;">Stock Market Calendar</span>
+                  <div id="btn-oc-calendar" class="oc-btn" onclick="switchOcTool('calendar')" style="padding: 10px 14px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; transition:background 0.2s;" onmouseover="this.classList.contains('active')?'':this.style.background='var(--bg2)'" onmouseout="this.classList.contains('active')?'':this.style.background='transparent'">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                      <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="color:var(--muted); width:16px; text-align:center;">📅</span> <span class="btn-text" style="color:var(--text); font-size:13px;">Stock Market Calendar</span>
+                      </div>
+                      <span class="oc-arrow" style="font-size:16px; color:#00C4CC; display:none;">→</span>
                     </div>
                     <div style="font-size:10px; color:var(--muted); line-height:1.4; padding-left:24px;">Economic, results & holiday events</div>
                   </div>
@@ -2122,6 +2128,65 @@
                   <div style="background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:15px;">
                     <h4 style="font-size:12px;color:var(--muted);text-transform:uppercase;margin:0 0 15px 0;">DII Activity</h4>
                     <div id="dii-flow-table" style="font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text); line-height:1.8;">Loading...</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 4: Screener -->
+            <div id="view-oc-screener" style="display:none;">
+              <div style="margin-top:40px; border-top: 1px solid var(--border); padding-top:20px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+                  <h3 style="color:#c8cdd8; font-size:15px; font-family:'Plus Jakarta Sans',sans-serif; margin:0;">Stock Screener (F&O)</h3>
+                  <button onclick="fetchOcScreener()" style="background:none; border:1px solid #00c4cc; border-radius:4px; padding:4px 10px; color:#00c4cc; font-size:10px; cursor:pointer;">Refresh Data</button>
+                </div>
+                <!-- Filters row mockup -->
+                <div style="display:flex; gap:10px; margin-bottom:15px;">
+                    <select style="background:var(--bg);color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:6px;font-size:12px;outline:none;"><option>Sector: All</option><option>IT</option><option>Banking</option></select>
+                    <select style="background:var(--bg);color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:6px;font-size:12px;outline:none;"><option>Signal: All</option><option>Bullish</option><option>Bearish</option></select>
+                    <select style="background:var(--bg);color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:6px;font-size:12px;outline:none;"><option>IV Range: Any</option><option>&gt; 25%</option></select>
+                </div>
+                <div style="background:var(--bg2); border:1px solid var(--border); border-radius:8px; overflow:hidden;">
+                    <table class="oc-table" style="text-align:left;">
+                        <thead>
+                            <tr style="background:rgba(255,255,255,0.02); height:35px;">
+                                <th style="text-align:left; border-right:1px solid #1a1f2b;">Symbol</th>
+                                <th>Fut Price</th>
+                                <th>ATM IV</th>
+                                <th>IVP</th>
+                                <th>PCR</th>
+                                <th>Max Pain</th>
+                                <th style="text-align:center;">Outlook</th>
+                            </tr>
+                        </thead>
+                        <tbody id="screener-table-body">
+                            <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px;">Loading screener data...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- 5: Stock Market Calendar -->
+            <div id="view-oc-calendar" style="display:none;">
+              <div style="margin-top:40px; border-top: 1px solid var(--border); padding-top:20px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+                  <h3 style="color:#c8cdd8; font-size:15px; font-family:'Plus Jakarta Sans',sans-serif; margin:0;">Stock Market Calendar</h3>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+                  <div style="background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:15px;">
+                    <h4 style="font-size:12px;color:var(--muted);text-transform:uppercase;margin:0 0 15px 0;">Upcoming Economic Events</h4>
+                    <div style="font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text); line-height:2.0;">
+                        <span style="color:var(--muted);">Tomorrow</span> &middot; <span style="color:var(--red);">High Impact</span><br/>Fed Interest Rate Decision<br/><br/>
+                        <span style="color:var(--muted);">In 2 Days</span> &middot; <span style="color:var(--green);">Medium Impact</span><br/>India CPI Inflation YoY
+                    </div>
+                  </div>
+                  <div style="background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:15px;">
+                    <h4 style="font-size:12px;color:var(--muted);text-transform:uppercase;margin:0 0 15px 0;">Stock Results & Holidays</h4>
+                    <div style="font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text); line-height:2.0;">
+                        <span style="color:var(--muted);">Next Week</span> &middot; <span style="color:#3b82f6;">Holiday</span><br/>Ram Navami - NSE Closed<br/><br/>
+                        <span style="color:var(--muted);">In 14 Days</span> &middot; <span style="color:var(--accent);">Earnings</span><br/>TCS Q4 Results
+                    </div>
                   </div>
                 </div>
               </div>
@@ -7462,9 +7527,33 @@
       }
     };
     
+    // ── SCREENER FETCHER ──────────────────────────────
+    window.fetchOcScreener = async function() {
+        try {
+            const d = await fetch(`${API}/sensibull-screener`).then(r => r.json());
+            if (!d.screener) return;
+            let html = '';
+            d.screener.forEach(s => {
+                let badgeColor = s.bias === 'Bullish' ? 'rgba(0,230,118,0.2)' : (s.bias === 'Bearish' ? 'rgba(255,82,82,0.2)' : 'rgba(255,255,255,0.1)');
+                let textColor = s.bias === 'Bullish' ? 'var(--green)' : (s.bias === 'Bearish' ? 'var(--red)' : 'var(--muted)');
+                html += `<tr>
+                    <td style="text-align:left; font-weight:700; border-right:1px solid #1a1f2b; color:var(--text);">${s.ticker}</td>
+                    <td style="text-align:left;">${s.fut_price.toFixed(1)} <span class="${s.fut_chg>0?'grn':'red'}" style="font-size:9px;">${s.fut_chg>0?'+':''}${s.fut_chg.toFixed(1)}%</span></td>
+                    <td style="text-align:left;">${s.atm_iv.toFixed(1)}</td>
+                    <td style="text-align:left;">${s.ivp}</td>
+                    <td style="text-align:left;">${s.pcr.toFixed(2)}</td>
+                    <td style="text-align:left; font-weight:700;">${s.max_pain}</td>
+                    <td style="text-align:center;"><span style="font-size:9px; font-family:'Plus Jakarta Sans',sans-serif; font-weight:700; background:${badgeColor}; color:${textColor}; padding:2px 8px; border-radius:12px;">${s.bias}</span></td>
+                </tr>`;
+            });
+            const tbody = document.getElementById('screener-table-body');
+            if (tbody) tbody.innerHTML = html;
+        } catch(e) { console.warn('fetchOcScreener failed', e); }
+    };
+    
     // ── TOOL SWITCH FETCHER ──────────────────────────────
     window.switchOcTool = function(id) {
-        ['chain', 'oi', 'fii'].forEach(tid => {
+        ['chain', 'oi', 'fii', 'screener', 'calendar'].forEach(tid => {
             const btn = document.getElementById('btn-oc-' + tid);
             const view = document.getElementById('view-oc-' + tid);
             if(btn) {
@@ -7493,6 +7582,7 @@
         
         if (id === 'oi') fetchOptionChain();
         if (id === 'fii') fetchOptionsAndFii();
+        if (id === 'screener') fetchOcScreener();
     };
 
     async function fetchTechnical() {

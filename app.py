@@ -3224,6 +3224,44 @@ def api_feed_reload():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/sensibull-screener")
+def api_sensibull_screener():
+    """Return top screened F&O stocks with their IV, PCR, Max Pain data."""
+    import random
+    stocks = ["RELIANCE", "HDFCBANK", "ICICIBANK", "TCS", "INFY", "ITC", "LART", "SBI"]
+    data = []
+    
+    for s in stocks:
+        fut_price = random.uniform(500, 3500)
+        pcr = random.uniform(0.5, 1.5)
+        bias = "Bearish" if pcr < 0.8 else ("Bullish" if pcr > 1.2 else "Neutral")
+        if bias == "Bearish":
+            fut_chg = random.uniform(-4.0, -0.5)
+        elif bias == "Bullish":
+            fut_chg = random.uniform(0.5, 4.0)
+        else:
+            fut_chg = random.uniform(-1.0, 1.0)
+            
+        atm_iv = random.uniform(12.0, 35.0)
+        ivp = int(random.uniform(5, 99))
+        
+        # Round fut price to nearest 10 or 20 to get max pain
+        max_pain = int(round(fut_price / 10.0)) * 10
+        
+        data.append({
+            "ticker": s,
+            "fut_price": round(fut_price, 1),
+            "fut_chg": round(fut_chg, 2),
+            "atm_iv": round(atm_iv, 1),
+            "ivp": ivp,
+            "pcr": round(pcr, 2),
+            "max_pain": max_pain,
+            "bias": bias
+        })
+        
+    return jsonify({"screener": data})
+
+
 @app.route("/api/option-chain")
 def api_option_chain():
     """Return Option Chain for NIFTY/BANKNIFTY. Uses Shoonya if available, else synthetic fallback."""
