@@ -3224,6 +3224,33 @@ def api_feed_reload():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/multi-strike")
+def api_multi_strike():
+    """Mock API returning intraday Open Interest changes for 3 major strikes."""
+    import time, random
+    # Generate 5-minute ticks for the last 4 hours
+    now = int(time.time())
+    start = now - (4 * 3600)
+    times = list(range(start, now, 300))
+    
+    strikes = [
+        {"name": "23000 CE", "color": "#ef4444", "base": 50.0},
+        {"name": "23000 PE", "color": "#10b981", "base": 42.0},
+        {"name": "22900 PE", "color": "#0ea5e9", "base": 30.0}
+    ]
+    
+    series_data = []
+    for s in strikes:
+        val = s["base"]
+        data_points = []
+        for t in times:
+            val += random.uniform(-0.5, 0.6) # add some trend
+            data_points.append({"time": t, "value": round(val, 2)})
+        series_data.append({"name": s["name"], "color": s["color"], "data": data_points})
+        
+    return jsonify({"series": series_data})
+
+
 @app.route("/api/sensibull-screener")
 def api_sensibull_screener():
     """Return top screened F&O stocks with their IV, PCR, Max Pain data."""

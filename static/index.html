@@ -1891,9 +1891,12 @@
                     <div style="font-size:10px; color:var(--muted); line-height:1.4; padding-left:24px;">Call vs Put OI bar charts</div>
                   </div>
 
-                  <div style="padding: 10px 14px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; transition:background 0.2s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
-                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-                      <span style="color:var(--muted); width:16px; text-align:center;">⤨</span> <span style="color:var(--text); font-size:13px;">Multi Strike OI</span>
+                  <div id="btn-oc-multistrike" class="oc-btn" onclick="switchOcTool('multistrike')" style="padding: 10px 14px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; transition:background 0.2s;" onmouseover="this.classList.contains('active')?'':this.style.background='var(--bg2)'" onmouseout="this.classList.contains('active')?'':this.style.background='transparent'">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                      <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="color:var(--muted); width:16px; text-align:center;">⤨</span> <span class="btn-text" style="color:var(--text); font-size:13px;">Multi Strike OI</span>
+                      </div>
+                      <span class="oc-arrow" style="font-size:16px; color:#00C4CC; display:none;">→</span>
                     </div>
                     <div style="font-size:10px; color:var(--muted); line-height:1.4; padding-left:24px;">Multi-strike OI over time</div>
                   </div>
@@ -2100,6 +2103,30 @@
               </div>
             </div>
             
+            <!-- 6: Multi-Strike OI -->
+            <div id="view-oc-multistrike" style="display:none;">
+              <div style="margin-top:40px; border-top: 1px solid var(--border); padding-top:20px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+                  <h3 style="color:#c8cdd8; font-size:15px; font-family:'Plus Jakarta Sans',sans-serif; margin:0;">Multi-Strike OI (NIFTY)</h3>
+                  <button onclick="fetchMultiStrikeOi()" style="background:none; border:1px solid #00c4cc; border-radius:4px; padding:4px 10px; color:#00c4cc; font-size:10px; cursor:pointer;">Refresh Data</button>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:15px; font-size:11px; color:var(--muted);">
+                    <div style="display:flex; gap:10px;">
+                        <span style="background:var(--bg2); padding:4px 8px; border-radius:4px; border:1px solid var(--border);">NIFTY</span>
+                        <span style="background:var(--bg2); padding:4px 8px; border-radius:4px; border:1px solid var(--border); color:#ef4444; font-weight:700;">23000 CE</span>
+                        <span style="background:var(--bg2); padding:4px 8px; border-radius:4px; border:1px solid var(--border); color:#10b981; font-weight:700;">23000 PE</span>
+                        <span style="background:var(--bg2); padding:4px 8px; border-radius:4px; border:1px solid var(--border); color:#0ea5e9; font-weight:700;">22900 PE</span>
+                    </div>
+                </div>
+                <!-- Chart container for LightweightCharts -->
+                <div style="background:var(--bg2); border:1px solid var(--border); border-radius:8px; overflow:hidden;">
+                    <div id="multistrike-chart-container" style="width:100%; height:400px; display:flex; justify-content:center; align-items:center;">
+                        <span style="color:var(--muted); font-size:12px;">Loading Multistrike OI...</span>
+                    </div>
+                </div>
+              </div>
+            </div>
+
             <!-- 2: Sensibull-style Open Interest -->
             <div id="view-oc-oi" style="display:none;">
               <div style="margin-top:40px; border-top: 1px solid var(--border); padding-top:20px;">
@@ -7551,9 +7578,49 @@
         } catch(e) { console.warn('fetchOcScreener failed', e); }
     };
     
+    // ── MULTI-STRIKE OI FETCHER ──────────────────────────────
+    let multiStrikeChart = null;
+    window.fetchMultiStrikeOi = async function() {
+        try {
+            const d = await fetch(`${API}/multi-strike`).then(r => r.json());
+            if (!d.series) return;
+            
+            const container = document.getElementById('multistrike-chart-container');
+            if(!container) return;
+            
+            if(!multiStrikeChart) {
+                container.innerHTML = ''; // clear loading text
+                multiStrikeChart = LightweightCharts.createChart(container, {
+                    layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#848e9c' },
+                    grid: { vertLines: { color: 'rgba(255,255,255,0.05)' }, horzLines: { color: 'rgba(255,255,255,0.05)' } },
+                    rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)' },
+                    timeScale: { borderColor: 'rgba(255,255,255,0.1)', timeVisible: true }
+                });
+            } else {
+                // Re-create to aggressively clear old data (for mocking ease)
+                container.innerHTML = '';
+                multiStrikeChart = LightweightCharts.createChart(container, {
+                    layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#848e9c' },
+                    grid: { vertLines: { color: 'rgba(255,255,255,0.05)' }, horzLines: { color: 'rgba(255,255,255,0.05)' } },
+                    rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)' },
+                    timeScale: { borderColor: 'rgba(255,255,255,0.1)', timeVisible: true }
+                });
+            }
+            
+            d.series.forEach(s => {
+                const line = multiStrikeChart.addLineSeries({
+                    color: s.color,
+                    lineWidth: 2
+                });
+                line.setData(s.data);
+            });
+            multiStrikeChart.timeScale().fitContent();
+        } catch(e) { console.warn('fetchMultiStrikeOi failed', e); }
+    };
+
     // ── TOOL SWITCH FETCHER ──────────────────────────────
     window.switchOcTool = function(id) {
-        ['chain', 'oi', 'fii', 'screener', 'calendar'].forEach(tid => {
+        ['chain', 'oi', 'fii', 'screener', 'calendar', 'multistrike'].forEach(tid => {
             const btn = document.getElementById('btn-oc-' + tid);
             const view = document.getElementById('view-oc-' + tid);
             if(btn) {
@@ -7583,6 +7650,7 @@
         if (id === 'oi') fetchOptionChain();
         if (id === 'fii') fetchOptionsAndFii();
         if (id === 'screener') fetchOcScreener();
+        if (id === 'multistrike') fetchMultiStrikeOi();
     };
 
     async function fetchTechnical() {
