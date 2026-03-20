@@ -3599,7 +3599,7 @@ def api_ai_tutor():
 
         # ── Choose model: Flash (text) or Pro Vision (image) ───────
         if image_b64:
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            model = genai.GenerativeModel("gemini-2.5-flash")
             import base64
             img_bytes = base64.b64decode(image_b64)
             response = model.generate_content([
@@ -3607,7 +3607,7 @@ def api_ai_tutor():
                 {"mime_type": "image/png", "data": img_bytes}
             ])
         else:
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            model = genai.GenerativeModel("gemini-2.5-flash")
             response = model.generate_content(full_prompt)
 
         reply_text = response.text if hasattr(response, "text") else str(response)
@@ -3616,7 +3616,7 @@ def api_ai_tutor():
             "reply":   reply_text,
             "mode":    mode,
             "has_image": bool(image_b64),
-            "model": "gemini-1.5-flash"
+            "model": "gemini-2.5-flash"
         })
 
     except Exception as e:
@@ -3646,7 +3646,7 @@ def api_paper_trade():
         if GEMINI_KEY:
             import google.generativeai as genai
             genai.configure(api_key=GEMINI_KEY)
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            model = genai.GenerativeModel("gemini-2.5-flash")
             prompt = (
                 f"A trader just placed a PAPER TRADE. Evaluate this decision like an experienced trading professor:\n"
                 f"Trade: {action} {qty} lot {symbol} {strike} {opt_type}\n"
