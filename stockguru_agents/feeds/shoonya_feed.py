@@ -125,32 +125,44 @@ class ShoonyaFeed(DataFeed):
             return ShoonyaFeed._session
         try:
             import pyotp
+            from NorenRestApiPy.NorenApi import NorenApi as _NorenApi
+
             totp_secret = os.getenv("SHOONYA_TOTP_KEY", "").replace(" ", "")
             try:
                 totp = pyotp.TOTP(totp_secret).now()
             except Exception as e:
-                raise ValueError(f"Invalid TOTP Secret. It must be a base32 encoded string. Error: {e}")
-            import hashlib
-            pwd_hash = hashlib.sha256(
-                os.getenv("SHOONYA_PASSWORD", "").encode()
-            ).hexdigest()
-            payload = {
-                "apkversion": "1.0.0",
-                "uid":     os.getenv("SHOONYA_USER"),
-                "pwd":     pwd_hash,
-                "factor2": totp,
-                "imei":    "abc123",
-                "source":  "API",
-                "appkey":  f"{os.getenv('SHOONYA_USER')}|{os.getenv('SHOONYA_API_KEY')}",
-            }
-            r = requests.post(f"{self.BASE}/QuickAuth", json=payload, timeout=10)
-            data = r.json()
-            if data.get("stat") == "Ok":
-                ShoonyaFeed._session = data.get("susertoken")
+                raise ValueError(f"Invalid TOTP Secret (must be base32): {e}")
+
+            uid      = os.getenv("SHOONYA_USER", "")
+            pwd      = os.getenv("SHOONYA_PASSWORD", "")
+            api_key  = os.getenv("SHOONYA_API_KEY", "")
+            # vendor_code: set SHOONYA_VENDOR_CODE in .env if your app's vc differs
+            # If not set, Shoonya convention is uid + "_U" BUT only when uid doesn't already end in _U
+            vc = os.getenv("SHOONYA_VENDOR_CODE", "")
+            if not vc:
+                vc = uid if uid.endswith("_U") else uid + "_U"
+
+
+            class _Api(_NorenApi):
+                def __init__(self):
+                    super().__init__(
+                        host="https://api.shoonya.com/NorenWClientTP",
+                        websocket="wss://api.shoonya.com/NorenWSTP/"
+                    )
+
+            api = _Api()
+            ret = api.login(userid=uid, password=pwd, twoFA=totp,
+                            vendor_code=vc, api_secret=api_key, imei="abc1234")
+            if ret is not None and ret.get("stat") == "Ok":
+                ShoonyaFeed._session  = ret.get("susertoken")
+                ShoonyaFeed._noren_api = api
+                log.info("Shoonya login OK for %s", uid)
                 return ShoonyaFeed._session
-            raise ValueError(f"Shoonya auth failed: {data.get('emsg', 'unknown')}")
+            raise ValueError(f"Shoonya auth failed: {ret}")
         except ImportError:
             raise ImportError("Run: pip install NorenRestApiPy pyotp")
+
+
 
     def _post(self, endpoint: str, jdata: dict) -> dict:
         import json
