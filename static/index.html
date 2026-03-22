@@ -1768,18 +1768,10 @@
       <!-- Group: Markets -->
       <div class="sidebar-group">
         <span class="sidebar-group-label">Markets</span>
-        <button class="tab-btn active" data-label="Overview" onclick="showTab('overview',this)"> <span
-            class="tab-icon">📊</span><span class="tab-label">Overview</span></button>
-        <button class="tab-btn" data-label="Equities" onclick="showTab('watchlist',this)"> <span
-            class="tab-icon">📈</span><span class="tab-label">Equities</span></button>
-        <button class="tab-btn" data-label="Commodities" onclick="showTab('commodities',this)"> <span
-            class="tab-icon">🥇</span><span class="tab-label">Commodities</span></button>
+        <button class="tab-btn active" data-label="Indian Markets" onclick="showTab('indian-markets',this)"> <span
+            class="tab-icon">📊</span><span class="tab-label">Indian Markets</span></button>
         <button class="tab-btn" data-label="Crypto" onclick="showTab('crypto',this)"> <span
             class="tab-icon">₿</span><span class="tab-label">Crypto</span></button>
-        <button class="tab-btn" data-label="F&amp;O" onclick="showTab('fno',this)"> <span class="tab-icon">⚡</span><span
-            class="tab-label">F&amp;O</span></button>
-        <button class="tab-btn" data-label="Markets" onclick="showTab('market',this)"> <span
-            class="tab-icon">🌐</span><span class="tab-label">Markets</span></button>
       </div>
 
       <!-- Group: Intelligence -->
@@ -2223,8 +2215,17 @@
           </div>
         </div>
 
-        <!-- ══════════════════ OVERVIEW ══════════════════ -->
-        <div class="section active" id="tab-overview">
+        
+
+        
+
+        
+
+        
+        <!-- ══════════════════ INDIAN MARKETS (MERGED) ══════════════════ -->
+        <div class="section active" id="tab-indian-markets">
+          <div style="padding: 10px 0;">
+          <div class="sec-title" style="margin-top:40px; margin-bottom: 22px; font-size: 28px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Sectors Index and markets</div>
           <div class="g4" style="margin-top:22px">
             <div class="stat g">
               <div class="stat-label">NIFTY 50</div>
@@ -2364,8 +2365,7 @@
           </div>
         </div>
 
-        <!-- ══════════════════ EQUITIES ══════════════════ -->
-        <div class="section" id="tab-watchlist">
+          <div class="sec-title" style="margin-top:40px; margin-bottom: 22px; font-size: 28px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Stocks</div>
           <div style="margin-top:22px">
             <div class="sec-title">NSE / BSE EQUITY WATCHLIST</div>
             <div class="card" style="margin-bottom:18px">
@@ -2528,8 +2528,7 @@
           </div>
         </div>
 
-        <!-- ══════════════════ COMMODITIES ══════════════════ -->
-        <div class="section" id="tab-commodities">
+          <div class="sec-title" style="margin-top:40px; margin-bottom: 22px; font-size: 28px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Commodity</div>
           <div style="margin-top:22px">
             <div class="sec-title">MCX COMMODITIES DASHBOARD</div>
             <div class="g4">
@@ -2641,76 +2640,7 @@
           </div>
         </div>
 
-        <!-- ══════════════════ CRYPTO ══════════════════ -->
-        <div class="section" id="tab-crypto">
-          <div style="margin-top:22px">
-            <div class="sec-title">CRYPTO — INR PAIRS & GLOBAL</div>
-            <div class="g3">
-              <div class="crypto-card">
-                <div class="crypto-hdr">
-                  <div class="crypto-icon" style="background:rgba(255,153,0,.15)">₿</div>
-                  <div>
-                    <div style="font-weight:600;font-size:14px">Bitcoin</div>
-                    <div style="font-family:'Space Mono';font-size:10px;color:var(--muted)">BTC/INR</div>
-                  </div>
-                </div>
-                <div class="crypto-price" id="c-btc">--</div>
-                <div class="crypto-stats"><span>24h: <span id="c-btc-chg" class="flat">--</span></span></div>
-                <div class="crypto-insight">Above key level. FII interest in BTC ETFs rising. <strong
-                    style="color:var(--accent4)">Cautious Buy</strong> — accumulate on dips. Target ₹1Cr by Q3 2026.
-                </div>
-              </div>
-              <div class="crypto-card">
-                <div class="crypto-hdr">
-                  <div class="crypto-icon" style="background:rgba(77,166,255,.15)">Ξ</div>
-                  <div>
-                    <div style="font-weight:600;font-size:14px">Ethereum</div>
-                    <div style="font-family:'Space Mono';font-size:10px;color:var(--muted)">ETH/INR</div>
-                  </div>
-                </div>
-                <div class="crypto-price" id="c-eth">--</div>
-                <div class="crypto-stats"><span>24h: <span id="c-eth-chg" class="flat">--</span></span></div>
-                <div class="crypto-insight">ETH lagging BTC. ETF approvals + staking upgrade catalyst. <strong
-                    style="color:var(--accent4)">Watch</strong> — buy on confirmation above key levels.</div>
-              </div>
-              <div class="crypto-card">
-                <div class="crypto-hdr">
-                  <div class="crypto-icon" style="background:rgba(0,229,160,.15)">◎</div>
-                  <div>
-                    <div style="font-weight:600;font-size:14px">Solana</div>
-                    <div style="font-family:'Space Mono';font-size:10px;color:var(--muted)">SOL/INR</div>
-                  </div>
-                </div>
-                <div class="crypto-price" id="c-sol">--</div>
-                <div class="crypto-stats"><span>24h: <span id="c-sol-chg" class="flat">--</span></span></div>
-                <div class="crypto-insight">DeFi + meme coin activity high on Solana. <strong
-                    style="color:var(--accent4)">Speculative</strong> — small position only. High beta to BTC.</div>
-              </div>
-            </div>
-            <div class="card">
-              <div class="card-head">
-                <div class="card-title">CRYPTO ↔ INDIA MARKET CORRELATION</div>
-                <div class="badge bb">MACRO LINK</div>
-              </div>
-              <div style="padding:16px 20px;font-size:13px;line-height:2;color:var(--muted)">
-                <p>📌 <strong style="color:var(--text)">BTC & Nifty IT:</strong> Strong positive correlation (~0.65)
-                  when
-                  global risk-on. Both fall when DXY rises.</p>
-                <p>📌 <strong style="color:var(--text)">USD/INR Impact:</strong> Weak Rupee = Crypto prices appear
-                  higher in
-                  INR. Watch USD/INR as lead indicator.</p>
-                <p>📌 <strong style="color:var(--text)">RBI & Crypto:</strong> India has 30% flat tax on crypto gains +
-                  1%
-                  TDS. Factor this into profit calculations.</p>
-                <p>📌 <strong style="color:var(--text)">Best Indian Platforms:</strong> CoinDCX, WazirX, Mudrex for INR
-                  pairs. Always use 2FA.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ══════════════════ F&O ══════════════════ -->
-        <div class="section" id="tab-fno">
+          <div class="sec-title" style="margin-top:40px; margin-bottom: 22px; font-size: 28px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">F&amp;O</div>
           <div style="margin-top:22px">
             <div class="sec-title">F&amp;O — DERIVATIVES DASHBOARD</div>
             <div class="g4">
@@ -2838,8 +2768,7 @@
           </div>
         </div>
 
-        <!-- ══════════════════ MARKETS ══════════════════ -->
-        <div class="section" id="tab-market">
+          <div class="sec-title" style="margin-top:40px; margin-bottom: 22px; font-size: 28px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Currency and etc</div>
           <div style="margin-top:22px">
             <div class="sec-title">LIVE MARKET PRICES</div>
             <div class="sec-title" style="font-size:16px">COMMODITIES</div>
@@ -2901,6 +2830,81 @@
             </div>
           </div>
         </div>
+
+          </div>
+        </div>
+
+        <!-- ══════════════════ CRYPTO ══════════════════ -->
+        <div class="section" id="tab-crypto">
+          <div style="margin-top:22px">
+            <div class="sec-title">CRYPTO — INR PAIRS & GLOBAL</div>
+            <div class="g3">
+              <div class="crypto-card">
+                <div class="crypto-hdr">
+                  <div class="crypto-icon" style="background:rgba(255,153,0,.15)">₿</div>
+                  <div>
+                    <div style="font-weight:600;font-size:14px">Bitcoin</div>
+                    <div style="font-family:'Space Mono';font-size:10px;color:var(--muted)">BTC/INR</div>
+                  </div>
+                </div>
+                <div class="crypto-price" id="c-btc">--</div>
+                <div class="crypto-stats"><span>24h: <span id="c-btc-chg" class="flat">--</span></span></div>
+                <div class="crypto-insight">Above key level. FII interest in BTC ETFs rising. <strong
+                    style="color:var(--accent4)">Cautious Buy</strong> — accumulate on dips. Target ₹1Cr by Q3 2026.
+                </div>
+              </div>
+              <div class="crypto-card">
+                <div class="crypto-hdr">
+                  <div class="crypto-icon" style="background:rgba(77,166,255,.15)">Ξ</div>
+                  <div>
+                    <div style="font-weight:600;font-size:14px">Ethereum</div>
+                    <div style="font-family:'Space Mono';font-size:10px;color:var(--muted)">ETH/INR</div>
+                  </div>
+                </div>
+                <div class="crypto-price" id="c-eth">--</div>
+                <div class="crypto-stats"><span>24h: <span id="c-eth-chg" class="flat">--</span></span></div>
+                <div class="crypto-insight">ETH lagging BTC. ETF approvals + staking upgrade catalyst. <strong
+                    style="color:var(--accent4)">Watch</strong> — buy on confirmation above key levels.</div>
+              </div>
+              <div class="crypto-card">
+                <div class="crypto-hdr">
+                  <div class="crypto-icon" style="background:rgba(0,229,160,.15)">◎</div>
+                  <div>
+                    <div style="font-weight:600;font-size:14px">Solana</div>
+                    <div style="font-family:'Space Mono';font-size:10px;color:var(--muted)">SOL/INR</div>
+                  </div>
+                </div>
+                <div class="crypto-price" id="c-sol">--</div>
+                <div class="crypto-stats"><span>24h: <span id="c-sol-chg" class="flat">--</span></span></div>
+                <div class="crypto-insight">DeFi + meme coin activity high on Solana. <strong
+                    style="color:var(--accent4)">Speculative</strong> — small position only. High beta to BTC.</div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <div class="card-title">CRYPTO ↔ INDIA MARKET CORRELATION</div>
+                <div class="badge bb">MACRO LINK</div>
+              </div>
+              <div style="padding:16px 20px;font-size:13px;line-height:2;color:var(--muted)">
+                <p>📌 <strong style="color:var(--text)">BTC & Nifty IT:</strong> Strong positive correlation (~0.65)
+                  when
+                  global risk-on. Both fall when DXY rises.</p>
+                <p>📌 <strong style="color:var(--text)">USD/INR Impact:</strong> Weak Rupee = Crypto prices appear
+                  higher in
+                  INR. Watch USD/INR as lead indicator.</p>
+                <p>📌 <strong style="color:var(--text)">RBI & Crypto:</strong> India has 30% flat tax on crypto gains +
+                  1%
+                  TDS. Factor this into profit calculations.</p>
+                <p>📌 <strong style="color:var(--text)">Best Indian Platforms:</strong> CoinDCX, WazirX, Mudrex for INR
+                  pairs. Always use 2FA.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        
+
+        
 
         <!-- ══════════════════ DAILY BRIEF ══════════════════ -->
         <div class="section" id="tab-daily">
@@ -5221,7 +5225,7 @@
               <div class="card-title">👁️ Observer Swarm — NSE + Screener.in</div>
               <div style="display:flex;align-items:center;gap:.5rem">
                 <span id="obs-last-run" style="font-size:.72rem;color:var(--muted)">—</span>
-                <button onclick="fetch('/api/run-observer',{method:'POST'})"
+                <button onclick="fetch('/api/run-observer',{method:'POST',headers:_apiHeaders()})"
                   style="font-size:.72rem;padding:.2rem .5rem;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--accent);border-radius:4px">▶
                   Scan</button>
               </div>
@@ -5260,7 +5264,7 @@
           <div class="card" style="margin-top:1.5rem">
             <div class="card-head">
               <div class="card-title">🏗️ Builder Agent — Dashboard Proposals</div>
-              <button onclick="fetch('/api/run-builder',{method:'POST'})"
+              <button onclick="fetch('/api/run-builder',{method:'POST',headers:_apiHeaders()})"
                 style="font-size:.72rem;padding:.2rem .5rem;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--accent);border-radius:4px">▶
                 Run Now</button>
             </div>
@@ -6172,6 +6176,19 @@
     // Works on localhost AND Railway/any cloud host automatically
     const API = '/api';
 
+    // ── APP API KEY — loaded from server, used to authenticate trigger endpoints ──
+    let _appApiKey = '';
+    fetch('/api/get-keys').then(r => r.json()).then(d => {
+      if (d.app_api_key) _appApiKey = d.app_api_key;
+    }).catch(() => {});
+
+    // Helper: build headers with API key for protected endpoints
+    function _apiHeaders(extra) {
+      const h = { 'Content-Type': 'application/json' };
+      if (_appApiKey) h['X-API-Key'] = _appApiKey;
+      return Object.assign(h, extra || {});
+    }
+
     // ── CLOCK & SYNC TIMER ──────────────────────────────────────────
     let _lastSyncTime = Date.now();
 
@@ -6973,7 +6990,8 @@
       const btn = document.getElementById('run-agents-btn');
       if (btn) { btn.disabled = true; btn.textContent = '⏳ Starting...'; }
       try {
-        await fetch(`${API}/run-now`);
+        const resp = await fetch(`${API}/run-now`, { method: 'POST', headers: _apiHeaders() });
+        if (resp.status === 401) { alert('API key required. Check Settings tab.'); if (btn) { btn.disabled = false; btn.textContent = '▶ Run Agents Now'; } return; }
         setTimeout(fetchAgentStatus, 1500);
         setTimeout(() => { fetchAgentStatus(); fetchScanner(); fetchSignals(); fetchAgentNews(); }, 8000);
         setTimeout(() => { fetchAgentStatus(); fetchScanner(); fetchSignals(); fetchAgentNews(); }, 25000);
