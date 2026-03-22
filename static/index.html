@@ -2224,150 +2224,226 @@
         
         <!-- ══════════════════ INDIAN MARKETS (MERGED) ══════════════════ -->
         <div class="section active" id="tab-indian-markets">
-          <div style="padding: 10px 0;">
-          <div class="sec-title" style="margin-top:40px; margin-bottom: 22px; font-size: 28px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Sectors Index and markets</div>
-          <div class="g4" style="margin-top:22px">
-            <div class="stat g">
-              <div class="stat-label">NIFTY 50</div>
-              <div class="stat-val" id="nifty-val">--</div>
-              <div class="stat-chg" id="nifty-chg">Loading...</div>
+
+          <!-- ══ LIVE INDICES GRID ══ -->
+          <div style="margin:14px 0 18px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+              <div style="font-family:'Space Mono';font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase">Live Market Data</div>
+              <div style="display:flex;align-items:center;gap:12px;font-family:'Space Mono';font-size:9px;color:var(--muted)">
+                <span id="ws-badge" title="WebSocket connection status" style="color:#f59e0b">○ POLL</span>
+                <span>Updated: <span id="last-update">--</span></span>
+              </div>
             </div>
-            <div class="stat b">
-              <div class="stat-label">SENSEX</div>
-              <div class="stat-val" id="sensex-val">--</div>
-              <div class="stat-chg" id="sensex-chg">Loading...</div>
+
+            <!-- PRIMARY INDICES -->
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
+              <div style="background:rgba(0,229,160,.07);border:1px solid rgba(0,229,160,.25);border-radius:10px;padding:14px 16px">
+                <div style="font-size:9px;color:var(--muted);font-family:'Space Mono';letter-spacing:1px">NIFTY 50</div>
+                <div style="font-family:'Bebas Neue';font-size:26px;color:var(--green);margin:4px 0 2px" id="nifty-val">--</div>
+                <div style="font-size:11px;font-family:'Space Mono'" id="nifty-chg">--</div>
+              </div>
+              <div style="background:rgba(77,166,255,.07);border:1px solid rgba(77,166,255,.25);border-radius:10px;padding:14px 16px">
+                <div style="font-size:9px;color:var(--muted);font-family:'Space Mono';letter-spacing:1px">SENSEX</div>
+                <div style="font-family:'Bebas Neue';font-size:26px;color:var(--accent3);margin:4px 0 2px" id="sensex-val">--</div>
+                <div style="font-size:11px;font-family:'Space Mono'" id="sensex-chg">--</div>
+              </div>
+              <div style="background:rgba(255,107,53,.07);border:1px solid rgba(255,107,53,.25);border-radius:10px;padding:14px 16px">
+                <div style="font-size:9px;color:var(--muted);font-family:'Space Mono';letter-spacing:1px">BANK NIFTY</div>
+                <div style="font-family:'Bebas Neue';font-size:26px;color:var(--accent2);margin:4px 0 2px" id="bn-val">--</div>
+                <div style="font-size:11px;font-family:'Space Mono'" id="bn-chg">--</div>
+              </div>
+              <div style="background:rgba(255,71,87,.07);border:1px solid rgba(255,71,87,.25);border-radius:10px;padding:14px 16px">
+                <div style="font-size:9px;color:var(--muted);font-family:'Space Mono';letter-spacing:1px">INDIA VIX</div>
+                <div style="font-family:'Bebas Neue';font-size:26px;color:var(--red);margin:4px 0 2px" id="vix-val">--</div>
+                <div style="font-size:11px;font-family:'Space Mono';color:var(--muted)">Fear Index</div>
+              </div>
             </div>
-            <div class="stat y">
-              <div class="stat-label">GOLD MCX</div>
-              <div class="stat-val" id="gold-val">--</div>
-              <div class="stat-chg" id="gold-chg">Loading...</div>
+
+            <!-- SECTOR INDICES LABEL -->
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+              <span style="font-size:9px;color:var(--muted);font-family:'Space Mono';letter-spacing:2px;text-transform:uppercase;white-space:nowrap">Sector Indices</span>
+              <div style="flex:1;height:1px;background:var(--border)"></div>
             </div>
-            <div class="stat o">
-              <div class="stat-label">CRUDE OIL</div>
-              <div class="stat-val" id="crude-val">--</div>
-              <div class="stat-chg" id="crude-chg">Loading...</div>
+
+            <!-- SECTOR INDICES — ROW 1: 5 tiles -->
+            <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:8px">
+              <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+                <div style="font-size:9px;color:var(--muted);font-family:'Space Mono';letter-spacing:.5px">FINNIFTY</div>
+                <div style="font-family:'Bebas Neue';font-size:20px;margin:3px 0 1px" id="finnifty-val">--</div>
+                <div style="font-size:10px;font-family:'Space Mono'" id="finnifty-chg">--</div>
+              </div>
+              <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+                <div style="font-size:9px;color:var(--muted);font-family:'Space Mono';letter-spacing:.5px">MIDCAP NIFTY</div>
+                <div style="font-family:'Bebas Neue';font-size:20px;margin:3px 0 1px" id="midcap-val">--</div>
+                <div style="font-size:10px;font-family:'Space Mono'" id="midcap-chg">--</div>
+              </div>
+              <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+                <div style="font-size:9px;color:var(--muted);font-family:'Space Mono';letter-spacing:.5px">NIFTY NEXT 50</div>
+                <div style="font-family:'Bebas Neue';font-size:20px;margin:3px 0 1px" id="next50-val">--</div>
+                <div style="font-size:10px;font-family:'Space Mono'" id="next50-chg">--</div>
+              </div>
+              <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+                <div style="font-size:9px;color:var(--muted);font-family:'Space Mono';letter-spacing:.5px">NIFTY IT</div>
+                <div style="font-family:'Bebas Neue';font-size:20px;margin:3px 0 1px" id="niftyit-val">--</div>
+                <div style="font-size:10px;font-family:'Space Mono'" id="niftyit-chg">--</div>
+              </div>
+              <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+                <div style="font-size:9px;color:var(--muted);font-family:'Space Mono';letter-spacing:.5px">NIFTY METAL</div>
+                <div style="font-family:'Bebas Neue';font-size:20px;margin:3px 0 1px" id="niftymetal-val">--</div>
+                <div style="font-size:10px;font-family:'Space Mono'" id="niftymetal-chg">--</div>
+              </div>
             </div>
-            <div class="stat b">
-              <div class="stat-label">USD / INR</div>
-              <div class="stat-val" id="usd-val">--</div>
-              <div class="stat-chg" id="usd-chg">Loading...</div>
+
+            <!-- SECTOR INDICES — ROW 2: 5 tiles -->
+            <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px">
+              <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+                <div style="font-size:9px;color:var(--muted);font-family:'Space Mono';letter-spacing:.5px">NIFTY PHARMA</div>
+                <div style="font-family:'Bebas Neue';font-size:20px;margin:3px 0 1px" id="niftypharma-val">--</div>
+                <div style="font-size:10px;font-family:'Space Mono'" id="niftypharma-chg">--</div>
+              </div>
+              <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+                <div style="font-size:9px;color:var(--muted);font-family:'Space Mono';letter-spacing:.5px">NIFTY AUTO</div>
+                <div style="font-family:'Bebas Neue';font-size:20px;margin:3px 0 1px" id="niftyauto-val">--</div>
+                <div style="font-size:10px;font-family:'Space Mono'" id="niftyauto-chg">--</div>
+              </div>
+              <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+                <div style="font-size:9px;color:var(--muted);font-family:'Space Mono';letter-spacing:.5px">NIFTY FMCG</div>
+                <div style="font-family:'Bebas Neue';font-size:20px;margin:3px 0 1px" id="niftyfmcg-val">--</div>
+                <div style="font-size:10px;font-family:'Space Mono'" id="niftyfmcg-chg">--</div>
+              </div>
+              <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+                <div style="font-size:9px;color:var(--muted);font-family:'Space Mono';letter-spacing:.5px">NIFTY REALTY</div>
+                <div style="font-family:'Bebas Neue';font-size:20px;margin:3px 0 1px" id="niftyrealty-val">--</div>
+                <div style="font-size:10px;font-family:'Space Mono'" id="niftyrealty-chg">--</div>
+              </div>
+              <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+                <div style="font-size:9px;color:var(--muted);font-family:'Space Mono';letter-spacing:.5px">NIFTY ENERGY</div>
+                <div style="font-family:'Bebas Neue';font-size:20px;margin:3px 0 1px" id="niftyenergy-val">--</div>
+                <div style="font-size:10px;font-family:'Space Mono'" id="niftyenergy-chg">--</div>
+              </div>
             </div>
-            <div class="stat g">
-              <div class="stat-label">BTC / INR</div>
-              <div class="stat-val" id="btc-val">--</div>
-              <div class="stat-chg" id="btc-chg">Loading...</div>
+
+            <!-- MACRO & GLOBAL LABEL -->
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+              <span style="font-size:9px;color:var(--muted);font-family:'Space Mono';letter-spacing:2px;text-transform:uppercase;white-space:nowrap">Macro & Global</span>
+              <div style="flex:1;height:1px;background:var(--border)"></div>
             </div>
-            <div class="stat o">
-              <div class="stat-label">BANK NIFTY</div>
-              <div class="stat-val" id="bn-val">--</div>
-              <div class="stat-chg" id="bn-chg">Loading...</div>
-            </div>
-            <div class="stat r">
-              <div class="stat-label">INDIA VIX</div>
-              <div class="stat-val" id="vix-val">--</div>
-              <div class="stat-chg flat">Fear Index</div>
+
+            <!-- MACRO: GOLD, CRUDE, USD/INR, BTC/INR -->
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+              <div style="background:rgba(255,209,102,.07);border:1px solid rgba(255,209,102,.25);border-radius:10px;padding:14px 16px">
+                <div style="font-size:9px;color:var(--muted);font-family:'Space Mono';letter-spacing:1px">GOLD MCX</div>
+                <div style="font-family:'Bebas Neue';font-size:26px;color:var(--accent4);margin:4px 0 2px" id="gold-val">--</div>
+                <div style="font-size:11px;font-family:'Space Mono'" id="gold-chg">--</div>
+              </div>
+              <div style="background:rgba(255,107,53,.07);border:1px solid rgba(255,107,53,.2);border-radius:10px;padding:14px 16px">
+                <div style="font-size:9px;color:var(--muted);font-family:'Space Mono';letter-spacing:1px">CRUDE OIL</div>
+                <div style="font-family:'Bebas Neue';font-size:26px;color:var(--accent2);margin:4px 0 2px" id="crude-val">--</div>
+                <div style="font-size:11px;font-family:'Space Mono'" id="crude-chg">--</div>
+              </div>
+              <div style="background:rgba(77,166,255,.07);border:1px solid rgba(77,166,255,.2);border-radius:10px;padding:14px 16px">
+                <div style="font-size:9px;color:var(--muted);font-family:'Space Mono';letter-spacing:1px">USD / INR</div>
+                <div style="font-family:'Bebas Neue';font-size:26px;color:var(--accent3);margin:4px 0 2px" id="usd-val">--</div>
+                <div style="font-size:11px;font-family:'Space Mono'" id="usd-chg">--</div>
+              </div>
+              <div style="background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:10px;padding:14px 16px">
+                <div style="font-size:9px;color:var(--muted);font-family:'Space Mono';letter-spacing:1px">BTC / INR</div>
+                <div style="font-family:'Bebas Neue';font-size:26px;color:#f59e0b;margin:4px 0 2px" id="btc-val">--</div>
+                <div style="font-size:11px;font-family:'Space Mono'" id="btc-chg">--</div>
+              </div>
             </div>
           </div>
 
-          <div class="mood-card">
-            <div
-              style="font-family:'Space Mono';font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase">
-              MARKET MOOD METER — LIVE</div>
+          <!-- ══ MOOD METER ══ -->
+          <div class="mood-card" style="margin-bottom:18px">
+            <div style="font-family:'Space Mono';font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase">MARKET MOOD METER — LIVE</div>
             <div class="mood-meter">
               <div class="mood-needle" id="mood-needle" style="left:50%"></div>
             </div>
-            <div class="mood-labels"><span>😨 EXTREME FEAR</span><span>😰 FEAR</span><span>😐 NEUTRAL</span><span>😊
-                GREED</span><span>🤑 EXTREME GREED</span></div>
+            <div class="mood-labels"><span>😨 EXTREME FEAR</span><span>😰 FEAR</span><span>😐 NEUTRAL</span><span>😊 GREED</span><span>🤑 EXTREME GREED</span></div>
             <div class="mood-val" id="mood-val">--</div>
             <div class="mood-lbl" id="mood-lbl">Calculating...</div>
           </div>
 
-          <div class="g2">
-            <div class="card">
-              <div class="card-head">
-                <div class="card-title">🏆 TOP PICKS — LIVE SCORED</div>
-                <button class="btn" onclick="refreshPrices()" id="refresh-btn">↻ Refresh</button>
-              </div>
-              <table>
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Script</th>
-                    <th>CMP</th>
-                    <th>Chg%</th>
-                    <th>Score</th>
-                    <th>Signal</th>
-                    <th>Target</th>
-                    <th>SL</th>
-                  </tr>
-                </thead>
-                <tbody id="watchlist-table">
-                  <tr>
-                    <td colspan="8" style="text-align:center;color:var(--muted);padding:24px">Loading live data...</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="card">
-              <div class="card-head">
-                <div class="card-title">📰 MARKET NEWS</div>
-                <div class="badge bb">SENTIMENT</div>
-              </div>
-              <div class="news-item">
-                <div class="news-dot" style="background:var(--green)"></div>
-                <div>
-                  <div class="news-headline">RBI holds rates at 6.25%; signals possible cut in April 2026</div>
-                  <div class="news-meta"><span>ET Markets</span><span class="up">+BFSI</span></div>
-                </div>
-              </div>
-              <div class="news-item">
-                <div class="news-dot" style="background:var(--green)"></div>
-                <div>
-                  <div class="news-headline">Bharti Airtel Q3 ARPU hits ₹245, highest ever; 5G subs cross 10Cr</div>
-                  <div class="news-meta"><span>Moneycontrol</span><span class="up">+AIRTEL</span></div>
-                </div>
-              </div>
-              <div class="news-item">
-                <div class="news-dot" style="background:var(--red)"></div>
-                <div>
-                  <div class="news-headline">Crude falls to $74 on demand concerns; Iran supply resumes</div>
-                  <div class="news-meta"><span>Reuters</span><span class="down">-ONGC</span></div>
-                </div>
-              </div>
-              <div class="news-item">
-                <div class="news-dot" style="background:var(--green)"></div>
-                <div>
-                  <div class="news-headline">BEL secures ₹4,200Cr radar order from Indian Army</div>
-                  <div class="news-meta"><span>BSE Filing</span><span class="up">+BEL</span></div>
-                </div>
-              </div>
-              <div class="news-item">
-                <div class="news-dot" style="background:var(--accent4)"></div>
-                <div>
-                  <div class="news-headline">Gold at all-time high on global uncertainty — Muthoot plays</div>
-                  <div class="news-meta"><span>MCX Data</span><span style="color:var(--accent4)">~MUTHOOT</span></div>
-                </div>
-              </div>
-              <div class="news-item">
-                <div class="news-dot" style="background:var(--green)"></div>
-                <div>
-                  <div class="news-headline">FIIs net buyers ₹2,840Cr; DIIs add ₹1,200Cr in equities</div>
-                  <div class="news-meta"><span>NSE Data</span><span class="up">+MARKET</span></div>
-                </div>
-              </div>
-            </div>
+          <!-- ══ INTERNAL SUB-NAV PILLS ══ -->
+          <div style="display:flex;gap:8px;flex-wrap:wrap;padding-bottom:16px;margin-bottom:18px;border-bottom:1px solid var(--border)">
+            <button onclick="showIMTab('overview')" id="impill-overview" style="padding:7px 18px;border-radius:20px;border:1px solid var(--green);background:rgba(0,229,160,.12);color:var(--green);font-family:'Space Mono';font-size:10px;cursor:pointer;letter-spacing:.5px">Overview</button>
+            <button onclick="showIMTab('stocks')" id="impill-stocks" style="padding:7px 18px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'Space Mono';font-size:10px;cursor:pointer;letter-spacing:.5px">Stocks</button>
+            <button onclick="showIMTab('fno')" id="impill-fno" style="padding:7px 18px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'Space Mono';font-size:10px;cursor:pointer;letter-spacing:.5px">F&amp;O Derivatives</button>
+            <button onclick="showIMTab('commodities')" id="impill-commodities" style="padding:7px 18px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'Space Mono';font-size:10px;cursor:pointer;letter-spacing:.5px">Commodities</button>
+            <button onclick="showIMTab('forex-crypto')" id="impill-forex-crypto" style="padding:7px 18px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'Space Mono';font-size:10px;cursor:pointer;letter-spacing:.5px">Forex &amp; Crypto</button>
           </div>
-          <div
-            style="font-family:'Space Mono';font-size:10px;color:var(--muted);text-align:right;margin-top:-10px;display:flex;align-items:center;justify-content:flex-end;gap:10px">
-            <span id="ws-badge" title="WebSocket connection status"
-              style="font-size:10px;color:#f59e0b;letter-spacing:.04em">○ POLL</span>
-            Last updated: <span id="last-update">--</span>
-          </div>
-        </div>
 
-          <div class="sec-title" style="margin-top:40px; margin-bottom: 22px; font-size: 28px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Stocks</div>
-          <div style="margin-top:22px">
-            <div class="sec-title">NSE / BSE EQUITY WATCHLIST</div>
+          <!-- ══════════════ OVERVIEW ══════════════ -->
+          <div id="imsub-overview">
+            <div class="g2" style="margin-bottom:0">
+              <div class="card">
+                <div class="card-head">
+                  <div class="card-title">🏆 TOP PICKS — LIVE SCORED</div>
+                  <button class="btn" onclick="refreshPrices()" id="refresh-btn">↻ Refresh</button>
+                </div>
+                <table>
+                  <thead>
+                    <tr><th>#</th><th>Script</th><th>CMP</th><th>Chg%</th><th>Score</th><th>Signal</th><th>Target</th><th>SL</th></tr>
+                  </thead>
+                  <tbody id="watchlist-table">
+                    <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">Loading live data...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="card">
+                <div class="card-head">
+                  <div class="card-title">📰 MARKET NEWS</div>
+                  <div class="badge bb">SENTIMENT</div>
+                </div>
+                <div class="news-item">
+                  <div class="news-dot" style="background:var(--green)"></div>
+                  <div>
+                    <div class="news-headline">RBI holds rates at 6.25%; signals possible cut in April 2026</div>
+                    <div class="news-meta"><span>ET Markets</span><span class="up">+BFSI</span></div>
+                  </div>
+                </div>
+                <div class="news-item">
+                  <div class="news-dot" style="background:var(--green)"></div>
+                  <div>
+                    <div class="news-headline">Bharti Airtel Q3 ARPU hits ₹245, highest ever; 5G subs cross 10Cr</div>
+                    <div class="news-meta"><span>Moneycontrol</span><span class="up">+AIRTEL</span></div>
+                  </div>
+                </div>
+                <div class="news-item">
+                  <div class="news-dot" style="background:var(--red)"></div>
+                  <div>
+                    <div class="news-headline">Crude falls to $74 on demand concerns; Iran supply resumes</div>
+                    <div class="news-meta"><span>Reuters</span><span class="down">-ONGC</span></div>
+                  </div>
+                </div>
+                <div class="news-item">
+                  <div class="news-dot" style="background:var(--green)"></div>
+                  <div>
+                    <div class="news-headline">BEL secures ₹4,200Cr radar order from Indian Army</div>
+                    <div class="news-meta"><span>BSE Filing</span><span class="up">+BEL</span></div>
+                  </div>
+                </div>
+                <div class="news-item">
+                  <div class="news-dot" style="background:var(--accent4)"></div>
+                  <div>
+                    <div class="news-headline">Gold at all-time high on global uncertainty — Muthoot plays</div>
+                    <div class="news-meta"><span>MCX Data</span><span style="color:var(--accent4)">~MUTHOOT</span></div>
+                  </div>
+                </div>
+                <div class="news-item">
+                  <div class="news-dot" style="background:var(--green)"></div>
+                  <div>
+                    <div class="news-headline">FIIs net buyers ₹2,840Cr; DIIs add ₹1,200Cr in equities</div>
+                    <div class="news-meta"><span>NSE Data</span><span class="up">+MARKET</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ══════════════ STOCKS ══════════════ -->
+          <div id="imsub-stocks" style="display:none">
             <div class="card" style="margin-bottom:18px">
               <div class="card-head">
                 <div class="card-title">📊 SECTOR HEATMAP</div>
@@ -2416,56 +2492,32 @@
                 </div>
               </div>
             </div>
-            <div class="card">
+            <div class="card" style="margin-bottom:18px">
               <div class="card-head">
                 <div class="card-title">📈 FULL WATCHLIST — LIVE SCORES</div>
                 <div class="badge bg">AUTO-UPDATING</div>
               </div>
               <table>
                 <thead>
-                  <tr>
-                    <th>Rank</th>
-                    <th>Script</th>
-                    <th>Sector</th>
-                    <th>CMP (₹)</th>
-                    <th>Change</th>
-                    <th>Score/100</th>
-                    <th>Signal</th>
-                    <th>Target</th>
-                    <th>SL</th>
-                    <th>Updated</th>
-                  </tr>
+                  <tr><th>Rank</th><th>Script</th><th>Sector</th><th>CMP (₹)</th><th>Change</th><th>Score/100</th><th>Signal</th><th>Target</th><th>SL</th><th>Updated</th></tr>
                 </thead>
                 <tbody id="full-watchlist">
-                  <tr>
-                    <td colspan="10" style="text-align:center;color:var(--muted);padding:24px">Loading...</td>
-                  </tr>
+                  <tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">Loading...</td></tr>
                 </tbody>
               </table>
             </div>
-            <div class="card" style="margin-top:18px">
+            <div class="card">
               <div class="card-head">
                 <div class="card-title">WATCHLIST — NEXT SETUPS TO STUDY</div>
                 <div class="badge bo">STUDY THESE</div>
               </div>
               <table>
                 <thead>
-                  <tr>
-                    <th>STOCK</th>
-                    <th>SECTOR</th>
-                    <th>P/E</th>
-                    <th>ROE %</th>
-                    <th>D/E</th>
-                    <th>RSI</th>
-                    <th>vs 200DMA</th>
-                    <th>ACTION</th>
-                  </tr>
+                  <tr><th>STOCK</th><th>SECTOR</th><th>P/E</th><th>ROE %</th><th>D/E</th><th>RSI</th><th>vs 200DMA</th><th>ACTION</th></tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td>
-                      <div class="sname">DIVIS LAB</div>
-                    </td>
+                    <td><div class="sname">DIVIS LAB</div></td>
                     <td class="ssec">PHARMA</td>
                     <td style="font-family:'Space Mono';font-size:11px">38x</td>
                     <td class="up" style="font-family:'Space Mono';font-size:11px">22%</td>
@@ -2475,9 +2527,7 @@
                     <td><span class="sig sig-w">WATCH</span></td>
                   </tr>
                   <tr>
-                    <td>
-                      <div class="sname">TORRENT PHARMA</div>
-                    </td>
+                    <td><div class="sname">TORRENT PHARMA</div></td>
                     <td class="ssec">PHARMA</td>
                     <td style="font-family:'Space Mono';font-size:11px">44x</td>
                     <td class="up" style="font-family:'Space Mono';font-size:11px">19%</td>
@@ -2487,9 +2537,7 @@
                     <td><span class="sig sig-w">WATCH</span></td>
                   </tr>
                   <tr>
-                    <td>
-                      <div class="sname">MARUTI SUZUKI</div>
-                    </td>
+                    <td><div class="sname">MARUTI SUZUKI</div></td>
                     <td class="ssec">AUTO</td>
                     <td style="font-family:'Space Mono';font-size:11px">28x</td>
                     <td class="up" style="font-family:'Space Mono';font-size:11px">17%</td>
@@ -2499,9 +2547,7 @@
                     <td><span class="sig sig-h">HOLD</span></td>
                   </tr>
                   <tr>
-                    <td>
-                      <div class="sname">SBI LIFE</div>
-                    </td>
+                    <td><div class="sname">SBI LIFE</div></td>
                     <td class="ssec">INSURANCE</td>
                     <td style="font-family:'Space Mono';font-size:11px">62x</td>
                     <td class="up" style="font-family:'Space Mono';font-size:11px">16%</td>
@@ -2511,9 +2557,7 @@
                     <td><span class="sig sig-w">WATCH</span></td>
                   </tr>
                   <tr>
-                    <td>
-                      <div class="sname">ASHOK LEYLAND</div>
-                    </td>
+                    <td><div class="sname">ASHOK LEYLAND</div></td>
                     <td class="ssec">CV / AUTO</td>
                     <td style="font-family:'Space Mono';font-size:11px">22x</td>
                     <td class="up" style="font-family:'Space Mono';font-size:11px">21%</td>
@@ -2526,12 +2570,95 @@
               </table>
             </div>
           </div>
-        </div>
 
-          <div class="sec-title" style="margin-top:40px; margin-bottom: 22px; font-size: 28px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Commodity</div>
-          <div style="margin-top:22px">
-            <div class="sec-title">MCX COMMODITIES DASHBOARD</div>
-            <div class="g4">
+          <!-- ══════════════ F&O DERIVATIVES ══════════════ -->
+          <div id="imsub-fno" style="display:none">
+            <div class="g4" style="margin-bottom:18px">
+              <div class="stat b">
+                <div class="stat-label">NIFTY PCR</div>
+                <div class="stat-val" style="color:var(--accent4)">0.82</div>
+                <div class="stat-chg" style="color:var(--accent4)">→ Mildly Bullish</div>
+              </div>
+              <div class="stat g">
+                <div class="stat-label">BANKNIFTY PCR</div>
+                <div class="stat-val up">1.12</div>
+                <div class="stat-chg up">▲ Bullish Signal</div>
+              </div>
+              <div class="stat o">
+                <div class="stat-label">MAX PAIN — NIFTY</div>
+                <div class="stat-val flat">22,800</div>
+                <div class="stat-chg flat">Weekly Expiry Thu</div>
+              </div>
+              <div class="stat b">
+                <div class="stat-label">INDIA VIX</div>
+                <div class="stat-val" id="fno-vix">--</div>
+                <div class="stat-chg flat">→ Options pricing</div>
+              </div>
+            </div>
+            <div id="oi-wall-alert-banner" style="display:none;margin-bottom:14px;padding:12px 16px;border-radius:8px;border:1px solid #f59e0b;background:rgba(245,158,11,0.12);font-size:12px;color:#f59e0b;font-family:'Space Mono'">
+              <div id="oi-wall-alert-text"></div>
+            </div>
+            <div class="card" style="margin-bottom:14px">
+              <div class="card-head">
+                <div class="card-title">NIFTY — INSTITUTIONAL OI WALLS (Live)</div>
+                <div id="fno-nifty-meta" class="badge bo">LOADING…</div>
+              </div>
+              <table>
+                <thead>
+                  <tr><th>STRIKE</th><th>TYPE</th><th>OI (LOTS)</th><th>VS AVG</th><th>IV</th><th>SIGNAL</th><th>GAMMA RISK</th></tr>
+                </thead>
+                <tbody id="nifty-oi-walls-tbody">
+                  <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Run agents to load live OI walls</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="card" style="margin-bottom:18px">
+              <div class="card-head">
+                <div class="card-title">BANKNIFTY — INSTITUTIONAL OI WALLS (Live)</div>
+                <div id="fno-bn-meta" class="badge bo">LOADING…</div>
+              </div>
+              <table>
+                <thead>
+                  <tr><th>STRIKE</th><th>TYPE</th><th>OI (LOTS)</th><th>VS AVG</th><th>IV</th><th>SIGNAL</th><th>GAMMA RISK</th></tr>
+                </thead>
+                <tbody id="banknifty-oi-walls-tbody">
+                  <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Run agents to load live OI walls</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <div class="card-title">F&amp;O LEARNING PATH — 4 STAGES</div>
+                <div class="badge bg">START HERE</div>
+              </div>
+              <div style="padding:16px 20px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div style="border:1px solid var(--border);border-radius:8px;padding:14px">
+                  <div style="font-family:'Space Mono';font-size:10px;color:var(--green);margin-bottom:8px">STAGE 1 — NOW</div>
+                  <div style="font-size:13px;font-weight:600;margin-bottom:6px">Understand the Language</div>
+                  <div style="font-size:11px;color:var(--muted);line-height:1.6">Learn: Call vs Put, Strike Price, Expiry, Premium, ITM/OTM/ATM. Study Nifty option chain daily on NSE website.</div>
+                </div>
+                <div style="border:1px solid var(--border);border-radius:8px;padding:14px">
+                  <div style="font-family:'Space Mono';font-size:10px;color:var(--accent4);margin-bottom:8px">STAGE 2 — MONTH 2</div>
+                  <div style="font-size:13px;font-weight:600;margin-bottom:6px">Paper Trade Options</div>
+                  <div style="font-size:11px;color:var(--muted);line-height:1.6">Buy 1 Nifty CE or PE on paper. Track daily P&L. Understand Theta decay. Never buy options on expiry day.</div>
+                </div>
+                <div style="border:1px solid var(--border);border-radius:8px;padding:14px">
+                  <div style="font-family:'Space Mono';font-size:10px;color:var(--accent3);margin-bottom:8px">STAGE 3 — MONTH 3–4</div>
+                  <div style="font-size:13px;font-weight:600;margin-bottom:6px">Simple Strategies</div>
+                  <div style="font-size:11px;color:var(--muted);line-height:1.6">Learn: Bull Call Spread, Bear Put Spread. Defined risk, defined reward. Safer than naked options.</div>
+                </div>
+                <div style="border:1px solid var(--border);border-radius:8px;padding:14px">
+                  <div style="font-family:'Space Mono';font-size:10px;color:var(--accent2);margin-bottom:8px">STAGE 4 — MONTH 5+</div>
+                  <div style="font-size:13px;font-weight:600;margin-bottom:6px">Selling Strategies</div>
+                  <div style="font-size:11px;color:var(--muted);line-height:1.6">Covered Calls, Cash-Secured Puts. This is where consistent income is generated. Requires margin.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ══════════════ COMMODITIES ══════════════ -->
+          <div id="imsub-commodities" style="display:none">
+            <div class="g4" style="margin-bottom:18px">
               <div class="ptile">
                 <div class="pt-icon">🥇</div>
                 <div class="pt-name">GOLD MCX</div>
@@ -2596,12 +2723,7 @@
               </div>
               <table>
                 <thead>
-                  <tr>
-                    <th>COMMODITY MOVE</th>
-                    <th>AFFECTED STOCKS</th>
-                    <th>IMPACT</th>
-                    <th>ACTION</th>
-                  </tr>
+                  <tr><th>COMMODITY MOVE</th><th>AFFECTED STOCKS</th><th>IMPACT</th><th>ACTION</th></tr>
                 </thead>
                 <tbody>
                   <tr>
@@ -2638,140 +2760,10 @@
               </table>
             </div>
           </div>
-        </div>
 
-          <div class="sec-title" style="margin-top:40px; margin-bottom: 22px; font-size: 28px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">F&amp;O</div>
-          <div style="margin-top:22px">
-            <div class="sec-title">F&amp;O — DERIVATIVES DASHBOARD</div>
-            <div class="g4">
-              <div class="stat b">
-                <div class="stat-label">NIFTY PCR</div>
-                <div class="stat-val" style="color:var(--accent4)">0.82</div>
-                <div class="stat-chg" style="color:var(--accent4)">→ Mildly Bullish</div>
-              </div>
-              <div class="stat g">
-                <div class="stat-label">BANKNIFTY PCR</div>
-                <div class="stat-val up">1.12</div>
-                <div class="stat-chg up">▲ Bullish Signal</div>
-              </div>
-              <div class="stat o">
-                <div class="stat-label">MAX PAIN — NIFTY</div>
-                <div class="stat-val flat">22,800</div>
-                <div class="stat-chg flat">Weekly Expiry Thu</div>
-              </div>
-              <div class="stat b">
-                <div class="stat-label">INDIA VIX</div>
-                <div class="stat-val" id="fno-vix">--</div>
-                <div class="stat-chg flat">→ Options pricing</div>
-              </div>
-            </div>
-            <!-- OI WALL APPROACH ALERT BANNER (hidden until walls detected) -->
-            <div id="oi-wall-alert-banner"
-              style="display:none;margin-bottom:14px;padding:12px 16px;border-radius:8px;border:1px solid #f59e0b;background:rgba(245,158,11,0.12);font-size:12px;color:#f59e0b;font-family:'Space Mono'">
-              <div id="oi-wall-alert-text"></div>
-            </div>
-
-            <!-- NIFTY OI WALLS — Live -->
-            <div class="card" style="margin-bottom:14px">
-              <div class="card-head">
-                <div class="card-title">NIFTY — INSTITUTIONAL OI WALLS (Live)</div>
-                <div id="fno-nifty-meta" class="badge bo">LOADING…</div>
-              </div>
-              <table>
-                <thead>
-                  <tr>
-                    <th>STRIKE</th>
-                    <th>TYPE</th>
-                    <th>OI (LOTS)</th>
-                    <th>VS AVG</th>
-                    <th>IV</th>
-                    <th>SIGNAL</th>
-                    <th>GAMMA RISK</th>
-                  </tr>
-                </thead>
-                <tbody id="nifty-oi-walls-tbody">
-                  <tr>
-                    <td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Run agents to load live OI
-                      walls</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <!-- BANKNIFTY OI WALLS — Live -->
-            <div class="card" style="margin-bottom:18px">
-              <div class="card-head">
-                <div class="card-title">BANKNIFTY — INSTITUTIONAL OI WALLS (Live)</div>
-                <div id="fno-bn-meta" class="badge bo">LOADING…</div>
-              </div>
-              <table>
-                <thead>
-                  <tr>
-                    <th>STRIKE</th>
-                    <th>TYPE</th>
-                    <th>OI (LOTS)</th>
-                    <th>VS AVG</th>
-                    <th>IV</th>
-                    <th>SIGNAL</th>
-                    <th>GAMMA RISK</th>
-                  </tr>
-                </thead>
-                <tbody id="banknifty-oi-walls-tbody">
-                  <tr>
-                    <td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Run agents to load live OI
-                      walls</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="card">
-              <div class="card-head">
-                <div class="card-title">F&amp;O LEARNING PATH — 4 STAGES</div>
-                <div class="badge bg">START HERE</div>
-              </div>
-              <div style="padding:16px 20px;display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                <div style="border:1px solid var(--border);border-radius:8px;padding:14px">
-                  <div style="font-family:'Space Mono';font-size:10px;color:var(--green);margin-bottom:8px">STAGE 1 —
-                    NOW
-                  </div>
-                  <div style="font-size:13px;font-weight:600;margin-bottom:6px">Understand the Language</div>
-                  <div style="font-size:11px;color:var(--muted);line-height:1.6">Learn: Call vs Put, Strike Price,
-                    Expiry,
-                    Premium, ITM/OTM/ATM. Study Nifty option chain daily on NSE website.</div>
-                </div>
-                <div style="border:1px solid var(--border);border-radius:8px;padding:14px">
-                  <div style="font-family:'Space Mono';font-size:10px;color:var(--accent4);margin-bottom:8px">STAGE 2 —
-                    MONTH 2</div>
-                  <div style="font-size:13px;font-weight:600;margin-bottom:6px">Paper Trade Options</div>
-                  <div style="font-size:11px;color:var(--muted);line-height:1.6">Buy 1 Nifty CE or PE on paper. Track
-                    daily
-                    P&L. Understand Theta decay. Never buy options on expiry day.</div>
-                </div>
-                <div style="border:1px solid var(--border);border-radius:8px;padding:14px">
-                  <div style="font-family:'Space Mono';font-size:10px;color:var(--accent3);margin-bottom:8px">STAGE 3 —
-                    MONTH 3–4</div>
-                  <div style="font-size:13px;font-weight:600;margin-bottom:6px">Simple Strategies</div>
-                  <div style="font-size:11px;color:var(--muted);line-height:1.6">Learn: Bull Call Spread, Bear Put
-                    Spread.
-                    Defined risk, defined reward. Safer than naked options.</div>
-                </div>
-                <div style="border:1px solid var(--border);border-radius:8px;padding:14px">
-                  <div style="font-family:'Space Mono';font-size:10px;color:var(--accent2);margin-bottom:8px">STAGE 4 —
-                    MONTH 5+</div>
-                  <div style="font-size:13px;font-weight:600;margin-bottom:6px">Selling Strategies</div>
-                  <div style="font-size:11px;color:var(--muted);line-height:1.6">Covered Calls, Cash-Secured Puts. This
-                    is
-                    where consistent income is generated. Requires margin.</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-          <div class="sec-title" style="margin-top:40px; margin-bottom: 22px; font-size: 28px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Currency and etc</div>
-          <div style="margin-top:22px">
-            <div class="sec-title">LIVE MARKET PRICES</div>
-            <div class="sec-title" style="font-size:16px">COMMODITIES</div>
+          <!-- ══════════════ FOREX & CRYPTO ══════════════ -->
+          <div id="imsub-forex-crypto" style="display:none">
+            <div style="margin-bottom:8px;font-family:'Space Mono';font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase">MCX Commodities (Live)</div>
             <div class="g4" style="margin-bottom:22px">
               <div class="ptile">
                 <div class="pt-icon">🥇</div>
@@ -2798,29 +2790,8 @@
                 <div class="pt-chg" id="m-gas-chg">--</div>
               </div>
             </div>
-            <div class="sec-title" style="font-size:16px">CRYPTO — INR PAIRS</div>
-            <div class="g3" style="margin-bottom:22px">
-              <div class="ptile">
-                <div class="pt-icon">₿</div>
-                <div class="pt-name">BTC / INR</div>
-                <div class="pt-price" id="m-btc">--</div>
-                <div class="pt-chg" id="m-btc-chg">--</div>
-              </div>
-              <div class="ptile">
-                <div class="pt-icon">Ξ</div>
-                <div class="pt-name">ETH / INR</div>
-                <div class="pt-price" id="m-eth">--</div>
-                <div class="pt-chg" id="m-eth-chg">--</div>
-              </div>
-              <div class="ptile">
-                <div class="pt-icon">◎</div>
-                <div class="pt-name">SOL / INR</div>
-                <div class="pt-price" id="m-sol">--</div>
-                <div class="pt-chg" id="m-sol-chg">--</div>
-              </div>
-            </div>
-            <div class="sec-title" style="font-size:16px">FOREX</div>
-            <div class="g4">
+            <div style="margin-bottom:8px;font-family:'Space Mono';font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase">Forex</div>
+            <div class="g4" style="margin-bottom:22px">
               <div class="ptile">
                 <div class="pt-icon">💱</div>
                 <div class="pt-name">USD / INR</div>
@@ -2828,10 +2799,59 @@
                 <div class="pt-chg" id="m-usd-chg">--</div>
               </div>
             </div>
+            <div style="margin-bottom:8px;font-family:'Space Mono';font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase">Crypto — INR Pairs</div>
+            <div class="g3" style="margin-bottom:22px">
+              <div class="crypto-card">
+                <div class="crypto-hdr">
+                  <div class="crypto-icon" style="background:rgba(255,153,0,.15)">₿</div>
+                  <div>
+                    <div style="font-weight:600;font-size:14px">Bitcoin</div>
+                    <div style="font-family:'Space Mono';font-size:10px;color:var(--muted)">BTC/INR</div>
+                  </div>
+                </div>
+                <div class="crypto-price" id="m-btc">--</div>
+                <div class="crypto-stats"><span>24h: <span id="m-btc-chg" class="flat">--</span></span></div>
+                <div class="crypto-insight">Above key level. FII interest in BTC ETFs rising. <strong style="color:var(--accent4)">Cautious Buy</strong> — accumulate on dips.</div>
+              </div>
+              <div class="crypto-card">
+                <div class="crypto-hdr">
+                  <div class="crypto-icon" style="background:rgba(77,166,255,.15)">Ξ</div>
+                  <div>
+                    <div style="font-weight:600;font-size:14px">Ethereum</div>
+                    <div style="font-family:'Space Mono';font-size:10px;color:var(--muted)">ETH/INR</div>
+                  </div>
+                </div>
+                <div class="crypto-price" id="m-eth">--</div>
+                <div class="crypto-stats"><span>24h: <span id="m-eth-chg" class="flat">--</span></span></div>
+                <div class="crypto-insight">ETF approvals + staking upgrade catalyst. <strong style="color:var(--accent4)">Watch</strong> — buy on confirmation above key levels.</div>
+              </div>
+              <div class="crypto-card">
+                <div class="crypto-hdr">
+                  <div class="crypto-icon" style="background:rgba(0,229,160,.15)">◎</div>
+                  <div>
+                    <div style="font-weight:600;font-size:14px">Solana</div>
+                    <div style="font-family:'Space Mono';font-size:10px;color:var(--muted)">SOL/INR</div>
+                  </div>
+                </div>
+                <div class="crypto-price" id="m-sol">--</div>
+                <div class="crypto-stats"><span>24h: <span id="m-sol-chg" class="flat">--</span></span></div>
+                <div class="crypto-insight">DeFi + meme coin activity high on Solana. <strong style="color:var(--accent4)">Speculative</strong> — small position only.</div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <div class="card-title">CRYPTO ↔ INDIA MARKET CORRELATION</div>
+                <div class="badge bb">MACRO LINK</div>
+              </div>
+              <div style="padding:16px 20px;font-size:13px;line-height:2;color:var(--muted)">
+                <p>📌 <strong style="color:var(--text)">BTC & Nifty IT:</strong> Strong positive correlation (~0.65) when global risk-on. Both fall when DXY rises.</p>
+                <p>📌 <strong style="color:var(--text)">USD/INR Impact:</strong> Weak Rupee = Crypto prices appear higher in INR. Watch USD/INR as lead indicator.</p>
+                <p>📌 <strong style="color:var(--text)">RBI & Crypto:</strong> India has 30% flat tax on crypto gains + 1% TDS. Factor this into profit calculations.</p>
+                <p>📌 <strong style="color:var(--text)">Best Indian Platforms:</strong> CoinDCX, WazirX, Mudrex for INR pairs. Always use 2FA.</p>
+              </div>
+            </div>
           </div>
-        </div>
 
-          </div>
         </div>
 
         <!-- ══════════════════ CRYPTO ══════════════════ -->
@@ -6295,9 +6315,15 @@
           document.getElementById(id + '-chg').className = 'stat-chg ' + chgClass(x.change_pct);
         }
         setPair('nifty', 'NIFTY 50'); setPair('sensex', 'SENSEX');
+        setPair('bn', 'BANK NIFTY');
         setPair('gold', 'GOLD MCX'); setPair('crude', 'CRUDE OIL');
         setPair('usd', 'USD/INR'); setPair('btc', 'BTC/INR');
-        setPair('bn', 'BANK NIFTY');
+        // Sector indices
+        setPair('finnifty', 'FINNIFTY'); setPair('midcap', 'MIDCAP NIFTY');
+        setPair('next50', 'NIFTY NEXT 50'); setPair('niftyit', 'NIFTY IT');
+        setPair('niftymetal', 'NIFTY METAL'); setPair('niftypharma', 'NIFTY PHARMA');
+        setPair('niftyauto', 'NIFTY AUTO'); setPair('niftyfmcg', 'NIFTY FMCG');
+        setPair('niftyrealty', 'NIFTY REALTY'); setPair('niftyenergy', 'NIFTY ENERGY');
         const vix = p['INDIA VIX'];
         if (vix) {
           document.getElementById('vix-val').textContent = fmt(vix.price);
@@ -6460,6 +6486,26 @@
     })();
 
     // ── TAB SWITCH ────────────────────────────────────────────
+    function showIMTab(name) {
+      const subs = ['overview', 'stocks', 'fno', 'commodities', 'forex-crypto'];
+      subs.forEach(s => {
+        const el = document.getElementById('imsub-' + s);
+        if (el) el.style.display = (s === name ? 'block' : 'none');
+        const pill = document.getElementById('impill-' + s);
+        if (pill) {
+          if (s === name) {
+            pill.style.background = 'rgba(0,229,160,.12)';
+            pill.style.color = 'var(--green)';
+            pill.style.borderColor = 'var(--green)';
+          } else {
+            pill.style.background = 'transparent';
+            pill.style.color = 'var(--muted)';
+            pill.style.borderColor = 'var(--border)';
+          }
+        }
+      });
+    }
+
     function showTab(id, btn) {
       document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));

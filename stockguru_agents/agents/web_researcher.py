@@ -81,7 +81,7 @@ def gemini_analyze(stock_name, search_results):
     try:
         import google.generativeai as genai
         genai.configure(api_key=GEMINI_API_KEY)
-        model   = genai.GenerativeModel("gemini-1.5-flash")
+        model   = genai.GenerativeModel("gemini-2.5-flash")
 
         content = "\n".join([
             f"- {r.get('title','')} {r.get('text','')[:150]}"

@@ -24,7 +24,8 @@ try:
     _SIO_AVAILABLE = True
 except ImportError:
     _SIO_AVAILABLE = False
-    logging.warning("flask-socketio not installed — WebSocket disabled (pip install flask-socketio gevent gevent-websocket)")
+    import warnings
+    warnings.warn("flask-socketio not installed — WebSocket disabled (pip install flask-socketio gevent gevent-websocket)")
 import requests
 import json
 import os
@@ -157,7 +158,7 @@ if _local_keys_path:
                 if os.path.isdir(_local_keys_path) else _local_keys_path)
     if os.path.isfile(_alt_env):
         load_dotenv(_alt_env, override=True)
-        log.info(f"🔑 Auto-loaded credentials from {_alt_env}")
+        print(f"[INFO] Auto-loaded credentials from {_alt_env}")
 
 # ── DATA FEED MANAGER (auto-selects best configured feed) ────────────────────
 try:
@@ -270,6 +271,17 @@ INSTRUMENTS = {
     "SENSEX":     {"yahoo": "^BSESN",       "shoonya": ("BSE", "SENSEX"),      "mcx": False},
     "BANK NIFTY": {"yahoo": "^NSEBANK",     "shoonya": ("NSE", "Nifty Bank"),  "mcx": False},
     "INDIA VIX":  {"yahoo": "^INDIAVIX",    "shoonya": ("NSE", "India VIX"),   "mcx": False},
+    # ── SECTOR INDICES ───────────────────────────────────────────────────────
+    "FINNIFTY":      {"yahoo": "^CNXFIN",      "shoonya": ("NSE", "Finnifty"),         "mcx": False},
+    "MIDCAP NIFTY":  {"yahoo": "^CNXMIDCAP",   "shoonya": ("NSE", "Midcpnifty"),       "mcx": False},
+    "NIFTY NEXT 50": {"yahoo": "^CNXJUNIOR",   "shoonya": ("NSE", "Nifty Next 50"),    "mcx": False},
+    "NIFTY IT":      {"yahoo": "^CNXIT",        "shoonya": ("NSE", "Nifty IT"),         "mcx": False},
+    "NIFTY METAL":   {"yahoo": "^CNXMETAL",     "shoonya": ("NSE", "Nifty Metal"),      "mcx": False},
+    "NIFTY PHARMA":  {"yahoo": "^CNXPHARMA",    "shoonya": ("NSE", "Nifty Pharma"),     "mcx": False},
+    "NIFTY AUTO":    {"yahoo": "^CNXAUTO",      "shoonya": ("NSE", "Nifty Auto"),       "mcx": False},
+    "NIFTY FMCG":    {"yahoo": "^CNXFMCG",      "shoonya": ("NSE", "Nifty FMCG"),       "mcx": False},
+    "NIFTY REALTY":  {"yahoo": "^CNXREALTY",    "shoonya": ("NSE", "Nifty Realty"),     "mcx": False},
+    "NIFTY ENERGY":  {"yahoo": "^CNXENERGY",    "shoonya": ("NSE", "Nifty Energy"),     "mcx": False},
     # ── NSE EQUITIES ─────────────────────────────────────────────────────────
     "AIRTEL":     {"yahoo": "BHARTIARTL.NS","shoonya": ("NSE", "BHARTIARTL-EQ"),"mcx": False},
     "HDFC BANK":  {"yahoo": "HDFCBANK.NS",  "shoonya": ("NSE", "HDFCBANK-EQ"),  "mcx": False},
@@ -428,6 +440,16 @@ def fetch_yahoo_price(symbol):
         "^BSESN":     (77000, 79000),   # SENSEX
         "^NSEBANK":   (50000, 52000),   # BANK NIFTY
         "^INDIAVIX":  (14, 18),         # INDIA VIX
+        "^CNXFIN":    (22500, 23500),   # FINNIFTY
+        "^CNXMIDCAP": (42000, 45000),   # MIDCAP NIFTY
+        "^CNXJUNIOR": (63000, 67000),   # NIFTY NEXT 50
+        "^CNXIT":     (38000, 42000),   # NIFTY IT
+        "^CNXMETAL":  (8500,  9500),    # NIFTY METAL
+        "^CNXPHARMA": (21000, 23000),   # NIFTY PHARMA
+        "^CNXAUTO":   (22000, 24000),   # NIFTY AUTO
+        "^CNXFMCG":   (57000, 62000),   # NIFTY FMCG
+        "^CNXREALTY": (800,   1100),    # NIFTY REALTY
+        "^CNXENERGY": (41000, 46000),   # NIFTY ENERGY
         "GC=F":       (2600, 2700),     # Gold USD/oz
         "SI=F":       (29, 32),         # Silver USD/oz
         "CL=F":       (68, 75),         # Crude WTI
@@ -502,7 +524,10 @@ def fetch_all_prices():
 
         if data:
             price_cache[name] = {**data, "symbol": symbol, "updated": datetime.now().strftime("%H:%M:%S")}
-            if name in ("NIFTY 50", "SENSEX", "BANK NIFTY", "INDIA VIX"):
+            if name in ("NIFTY 50", "SENSEX", "BANK NIFTY", "INDIA VIX",
+                        "FINNIFTY", "MIDCAP NIFTY", "NIFTY NEXT 50",
+                        "NIFTY IT", "NIFTY METAL", "NIFTY PHARMA",
+                        "NIFTY AUTO", "NIFTY FMCG", "NIFTY REALTY", "NIFTY ENERGY"):
                 shared_state["index_prices"][name] = data
 
             # --- REAL-TIME TICKER EMIT ---
@@ -565,10 +590,10 @@ def _ws_emit_agents():
         payload = {
             "event":            "agents_update",
             "scanner_count":    len(shared_state.get("scanner_results", [])),
-            "signal_count":     len(shared_state.get("signal_results", [])),
-            "top_signals":      shared_state.get("signal_results", [])[:5],
-            "alerts":           shared_state.get("ai_alerts", [])[:3],
-            "morning_brief":    shared_state.get("morning_brief", ""),
+            "signal_count":     len(shared_state.get("trade_signals", [])),
+            "top_signals":      shared_state.get("trade_signals", [])[:5],
+            "alerts":           shared_state.get("spike_alerts", [])[:3],
+            "morning_brief":    shared_state.get("morning_brief_text", ""),
             "market_mood":      shared_state.get("market_mood", {}),
             "paper_portfolio":  {
                 "capital":          port.get("capital", 0),
@@ -1087,7 +1112,7 @@ def run_all_agents():
                 agent_mod.run(shared_state); _st(agent_name, "done")
                 if agent_name == "risk":
                     _rev = shared_state.get("risk_reviewed_signals", [])
-                    _risk_mode = shared_state.get("risk_mode", "NORMAL")
+                    _risk_mode = shared_state.get("risk_summary", {}).get("vix_status", "NORMAL")
                     _emit("risk", "🛡️", f"Risk reviewed {len(_rev)} signals | Mode: {_risk_mode}",
                           _risk_mode,
                           f"Risk rules: Max 5 positions, 2% per trade, daily loss circuit at -3%, VIX>25 blocks new entries. "
@@ -1561,8 +1586,10 @@ def api_strategy_analysis():
                 "category": request.args.get("category", "all"),
             }
         # Inject India VIX if available from shared_state
+        # india_vix is stored as a dict by options_flow agent; extract numeric level
         if "vix" not in params:
-            params["vix"] = shared_state.get("india_vix", 18.0)
+            _vix_raw = shared_state.get("india_vix", 18.0)
+            params["vix"] = _vix_raw.get("level", 18.0) if isinstance(_vix_raw, dict) else _vix_raw
         result = run_strategy(shared_state, request_params=params)
         return jsonify(result)
     except ImportError as e:
@@ -1737,6 +1764,8 @@ def api_get_keys():
         "anthropic_configured": bool(ANTHROPIC_API_KEY),
         "gemini_configured": bool(GEMINI_API_KEY),
         "env_path": os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")),
+        # App API key returned so the frontend can authenticate protected trigger endpoints
+        "app_api_key": _STOCKGURU_API_KEY,
     })
 
 @app.route("/api/dashboard-data")
@@ -1759,10 +1788,10 @@ def api_dashboard_data():
         # Market intelligence
         "market_mood":          shared_state.get("market_mood", {}),
         "market_sentiment":     shared_state.get("market_sentiment_score", 0),
-        "top_signals":          shared_state.get("signal_results", [])[:5],
+        "top_signals":          shared_state.get("trade_signals", [])[:5],
         "scanner_count":        len(shared_state.get("scanner_results", [])),
         "signal_count":         len(shared_state.get("actionable_signals", [])),
-        "morning_brief":        shared_state.get("morning_brief", ""),
+        "morning_brief":        shared_state.get("morning_brief_text", ""),
         "claude_summary":       claude.get("summary", ""),
         # Portfolio snapshot
         "paper_trades":         portfolio.get("stats", {}).get("total_trades", 0),
@@ -2531,7 +2560,7 @@ def api_shamrock_simulate():
         agent_statuses = {}
         try:
             if AGENTS_AVAILABLE:
-                threading.Thread(target=lambda: _run_one_cycle(), daemon=True).start()
+                threading.Thread(target=run_all_agents, daemon=True).start()
                 agent_statuses = {a: "ok" for a in ["market_scanner","technical_analysis",
                                    "pattern_memory","news_sentiment","trade_signal","paper_trader"]}
         except Exception as e:
@@ -2863,7 +2892,7 @@ def api_chat():
             import google.generativeai as genai
             genai.configure(api_key=GEMINI_API_KEY)
             model = genai.GenerativeModel(
-                "gemini-1.5-flash",
+                "gemini-2.5-flash",
                 system_instruction=context,
             )
             # Reconstruct history for Gemini
@@ -3090,34 +3119,6 @@ def api_atlas_options_context():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
-# ── Auto-startup when loaded by gunicorn (Railway) ───────────────────────────
-# gunicorn imports this module as "app", not "__main__", so _startup() was
-# never called on Railway — prices stayed 0 forever. This fixes that.
-_started = False
-def _ensure_started():
-    global _started
-    if _started:
-        return
-    _started = True
-    _startup()
-
-# Gunicorn worker import path (Railway) — start in background thread
-if __name__ != "__main__":
-    import threading as _th
-    _th.Thread(target=_ensure_started, daemon=True).start()
-
-if __name__ == "__main__":
-    _ensure_started()
-    port = int(os.getenv("PORT", 5050))   # Railway injects PORT automatically
-    print(f"\n>>> StockGuru v2.0 starting on http://localhost:{port}")
-    print(">>> 14 Agents scheduled & price feed connected.")
-    if socketio:
-        # WebSocket-enabled: use socketio.run() with gevent server
-        socketio.run(app, host="0.0.0.0", port=port, debug=False, use_reloader=False)
-    else:
-        # Fallback to plain Flask (no WebSocket)
-        app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
 
 # ── TERMINAL ENDPOINTS ────────────────────────────────────────────────────────
 
@@ -3665,3 +3666,31 @@ def api_paper_trade():
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+# ── Auto-startup when loaded by gunicorn (Railway) ───────────────────────────
+# gunicorn imports this module as "app", not "__main__", so _startup() was
+# never called on Railway — prices stayed 0 forever. This fixes that.
+_started = False
+def _ensure_started():
+    global _started
+    if _started:
+        return
+    _started = True
+    _startup()
+
+# Gunicorn worker import path (Railway) — start in background thread
+if __name__ != "__main__":
+    import threading as _th
+    _th.Thread(target=_ensure_started, daemon=True).start()
+
+if __name__ == "__main__":
+    _ensure_started()
+    port = int(os.getenv("PORT", 5050))   # Railway injects PORT automatically
+    print(f"\n>>> StockGuru v2.0 starting on http://localhost:{port}")
+    print(">>> 14 Agents scheduled & price feed connected.")
+    if socketio:
+        # WebSocket-enabled: use socketio.run() with gevent server
+        socketio.run(app, host="0.0.0.0", port=port, debug=False, use_reloader=False)
+    else:
+        # Fallback to plain Flask (no WebSocket)
+        app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)

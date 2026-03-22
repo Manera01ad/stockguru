@@ -32,7 +32,7 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 GEMINI_API_KEY    = os.getenv("GEMINI_API_KEY", "")
 
 CLAUDE_MODEL      = "claude-haiku-4-5-20251001"   # cheapest, fast enough
-GEMINI_MODEL      = "gemini-1.5-flash"
+GEMINI_MODEL      = "gemini-2.5-flash"
 
 CACHE_SECONDS     = 600   # 10 min — avoid duplicate calls in same cycle
 

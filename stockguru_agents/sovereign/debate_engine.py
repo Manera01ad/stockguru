@@ -316,7 +316,7 @@ def _call_gemini(prompt: str, shared_state, fallback: dict = None) -> dict:
         if not key:
             return fallback or {}
         genai.configure(api_key=key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-2.5-flash")
         resp = model.generate_content(prompt)
         text = resp.text.strip()
         if "{" in text:
