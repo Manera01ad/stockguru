@@ -1,22 +1,22 @@
 {
     "_version": 1,
     "_note": "Auto-updated by Post-Mortem and Risk Master. Edit manually to override. No code changes needed for parameter tuning.",
-    "_last_modified": null,
+    "_last_modified": "2026-03-21T20:22:55.794314",
     "source_confidence": {
         "NSE India News": 0.95,
         "BSE India": 0.95,
         "SEBI": 0.98,
         "Economic Times Markets": 0.85,
         "Business Standard Markets": 0.83,
-        "Mint Markets": 0.80,
+        "Mint Markets": 0.8,
         "Moneycontrol": 0.75,
         "LiveMint": 0.72,
-        "NDTV Profit": 0.70,
+        "NDTV Profit": 0.7,
         "Reuters India": 0.88,
         "Bloomberg Quint": 0.87,
         "Financial Express": 0.75,
         "Zee Business": 0.65,
-        "default": 0.60
+        "default": 0.6
     },
     "conviction_thresholds": {
         "auto_execute_min": 85,
@@ -35,7 +35,7 @@
     },
     "veto_thresholds": {
         "hard_veto_vix": 25,
-        "soft_veto_vix": 20,
+        "soft_veto_vix": 16,
         "daily_loss_halt_pct": 3.0,
         "consecutive_sl_circuit": 3,
         "sector_concentration_soft": 20,
@@ -49,11 +49,11 @@
     "post_mortem_llm_hours": 24,
     "debate_max_per_cycle": 2,
     "conviction_weights": {
-        "gate_score": 0.30,
+        "gate_score": 0.3,
         "claude_score": 0.25,
-        "overreaction_score": 0.20,
+        "overreaction_score": 0.2,
         "technical_score": 0.15,
-        "news_confidence": 0.10
+        "news_confidence": 0.1
     },
     "self_correction": {
         "rsi_tighten_after_n_failures": 2,

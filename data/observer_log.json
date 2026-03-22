@@ -119,5 +119,31 @@
     "errors": [
       "52w_breakouts: Expecting value: line 1 column 1 (char 0)"
     ]
+  },
+  {
+    "timestamp": "2026-03-22T03:56:55.963329",
+    "last_run": "22 Mar 03:55:53",
+    "run_count": 1,
+    "pcr": null,
+    "max_pain": null,
+    "block_deals": 0,
+    "promoters_scraped": 7,
+    "52w_breakouts": [],
+    "errors": [
+      "52w_breakouts: Expecting value: line 1 column 1 (char 0)"
+    ]
+  },
+  {
+    "timestamp": "2026-03-22T07:57:32.696198",
+    "last_run": "22 Mar 07:57:07",
+    "run_count": 2,
+    "pcr": null,
+    "max_pain": null,
+    "block_deals": 0,
+    "promoters_scraped": 7,
+    "52w_breakouts": [],
+    "errors": [
+      "52w_breakouts: Expecting value: line 1 column 1 (char 0)"
+    ]
   }
 ]

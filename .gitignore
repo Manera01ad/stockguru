@@ -45,3 +45,24 @@ reports/LATEST_*.md
 .claude/
 ghp_*.pub
 ghp_*
+
+# ── Broker credential files ─────────────────────────────────
+FN194977_U.txt
+*.txt
+
+# ── Dev/debug/test scripts (not for production) ─────────────
+test_*.py
+check_*.py
+fix_*.py
+tmp_*.py
+test2.py
+merge_tabs.py
+restart_server.py
+app_log.txt
+88
+
+# ── Backup files ─────────────────────────────────────────────
+*.bak
+
+# ── CSV trade data ───────────────────────────────────────────
+All_Trades_Consolidated.csv

@@ -3395,6 +3395,421 @@ try:
 except Exception:
     pass
 
+# ═══════════════════════════════════════════════════════════════
+#  INDEX ANALYTICS — Pivots, PCR, Max Pain, ATM IV, IVP, Strikes
+# ═══════════════════════════════════════════════════════════════
+
+_NSE_SESSION  = None
+_NSE_CACHE    = {}       # sym → {ts, data}
+_NSE_CACHE_TTL = 60      # seconds
+
+_INDEX_META = {
+    "NIFTY":       {"yahoo": "^NSEI",      "step": 50,  "lot": 75,  "label": "NIFTY 50"},
+    "BANKNIFTY":   {"yahoo": "^NSEBANK",   "step": 100, "lot": 15,  "label": "BANK NIFTY"},
+    "FINNIFTY":    {"yahoo": "^CNXFIN",    "step": 50,  "lot": 40,  "label": "FIN NIFTY"},
+    "MIDCPNIFTY":  {"yahoo": "^CNXMIDCAP", "step": 25,  "lot": 75,  "label": "MIDCAP NIFTY"},
+    "SENSEX":      {"yahoo": "^BSESN",     "step": 100, "lot": 10,  "label": "SENSEX"},
+}
+
+def _get_nse_session():
+    global _NSE_SESSION
+    try:
+        if _NSE_SESSION:
+            return _NSE_SESSION
+        s = requests.Session()
+        s.headers.update({
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                          "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive",
+        })
+        s.get("https://www.nseindia.com", timeout=8)
+        _NSE_SESSION = s
+        return s
+    except Exception as e:
+        log.warning("NSE session init failed: %s", e)
+        return None
+
+def _fetch_nse_option_chain(symbol: str) -> dict | None:
+    """Fetch NSE option chain with in-memory cache (60s TTL)."""
+    global _NSE_SESSION
+    now = time.time()
+    cached = _NSE_CACHE.get(symbol)
+    if cached and (now - cached["ts"]) < _NSE_CACHE_TTL:
+        return cached["data"]
+
+    for attempt in range(2):
+        try:
+            session = _get_nse_session()
+            if not session:
+                return None
+            url = f"https://www.nseindia.com/api/option-chain-indices?symbol={symbol}"
+            r = session.get(url, timeout=10,
+                            headers={"Referer": "https://www.nseindia.com/option-chain"})
+            if r.status_code == 401:
+                _NSE_SESSION = None   # force re-init
+                continue
+            data = r.json()
+            _NSE_CACHE[symbol] = {"ts": now, "data": data}
+            return data
+        except Exception as e:
+            log.debug("NSE option chain attempt %d failed: %s", attempt + 1, e)
+            _NSE_SESSION = None
+    return None
+
+def _calc_pivots(high: float, low: float, close: float) -> dict:
+    """Standard floor-trader pivots."""
+    p  = round((high + low + close) / 3, 2)
+    r1 = round(2 * p - low, 2)
+    r2 = round(p + (high - low), 2)
+    r3 = round(high + 2 * (p - low), 2)
+    s1 = round(2 * p - high, 2)
+    s2 = round(p - (high - low), 2)
+    s3 = round(low - 2 * (high - p), 2)
+    return {"pivot": p, "r1": r1, "r2": r2, "r3": r3,
+            "s1": s1, "s2": s2, "s3": s3}
+
+def _calc_ivp(current_iv: float, yahoo_sym: str) -> int:
+    """
+    IVP = % of past 252 days where 30-day HV < current ATM IV.
+    Uses annualised 30-day rolling historical volatility from daily returns.
+    Returns 0-100.
+    """
+    try:
+        import yfinance as yf
+        import math
+        tk = yf.Ticker(yahoo_sym)
+        hist = tk.history(period="1y", interval="1d")
+        if len(hist) < 32:
+            return 50
+        closes = hist["Close"].dropna().tolist()
+        hvs = []
+        for i in range(30, len(closes)):
+            rets = [math.log(closes[j] / closes[j-1]) for j in range(i-29, i+1)]
+            mean = sum(rets) / len(rets)
+            var  = sum((r - mean)**2 for r in rets) / len(rets)
+            hvs.append(math.sqrt(var * 252) * 100)
+        if not hvs:
+            return 50
+        below = sum(1 for hv in hvs if hv < current_iv)
+        return int(below / len(hvs) * 100)
+    except Exception:
+        return 50
+
+def _process_nse_chain(nse_data: dict, spot: float, step: int, expiry_idx: int = 0):
+    """
+    From raw NSE option chain data extract:
+    - selected expiry's strikes
+    - PCR, Max Pain, ATM IV, nearby strikes with OI/IV/LTP
+    - futures price (synthetic from options ATM parity)
+    """
+    records = nse_data.get("records", {})
+    expiry_dates = records.get("expiryDates", [])
+    if not expiry_dates:
+        return {}
+
+    expiry = expiry_dates[min(expiry_idx, len(expiry_dates)-1)]
+    all_data = records.get("data", [])
+
+    # Filter to selected expiry
+    rows = [r for r in all_data if r.get("expiryDate") == expiry]
+
+    atm = round(spot / step) * step
+    total_call_oi = total_put_oi = 0
+    max_pain_min  = float("inf")
+    max_pain_lvl  = atm
+    atm_ce_iv = atm_pe_iv = 0.0
+    fut_price = 0.0
+
+    # Build strike table
+    strike_map = {}
+    for row in rows:
+        st = row.get("strikePrice", 0)
+        ce = row.get("CE", {}) or {}
+        pe = row.get("PE", {}) or {}
+        ce_oi  = ce.get("openInterest",      0) or 0
+        pe_oi  = pe.get("openInterest",      0) or 0
+        ce_chg = ce.get("changeinOpenInterest", 0) or 0
+        pe_chg = pe.get("changeinOpenInterest", 0) or 0
+        ce_iv  = ce.get("impliedVolatility",  0) or 0
+        pe_iv  = pe.get("impliedVolatility",  0) or 0
+        ce_ltp = ce.get("lastPrice",          0) or 0
+        pe_ltp = pe.get("lastPrice",          0) or 0
+
+        total_call_oi += ce_oi
+        total_put_oi  += pe_oi
+
+        if st == atm:
+            atm_ce_iv = ce_iv
+            atm_pe_iv = pe_iv
+            # Synthetic futures from put-call parity: F = K + (C - P)
+            if ce_ltp and pe_ltp:
+                fut_price = round(atm + ce_ltp - pe_ltp, 2)
+
+        strike_map[st] = {
+            "strike": st,
+            "call_oi":  ce_oi,  "put_oi":  pe_oi,
+            "call_chg": ce_chg, "put_chg": pe_chg,
+            "call_iv":  ce_iv,  "put_iv":  pe_iv,
+            "call_ltp": ce_ltp, "put_ltp": pe_ltp,
+            "pcr_strike": round(pe_oi / ce_oi, 2) if ce_oi else 0,
+        }
+
+    # PCR
+    pcr = round(total_put_oi / total_call_oi, 2) if total_call_oi else 0
+
+    # Max Pain — minimize total losses to option writers
+    strikes = sorted(strike_map.keys())
+    for test_price in strikes:
+        pain = 0
+        for st, row in strike_map.items():
+            pain += row["call_oi"] * max(0, st - test_price)
+            pain += row["put_oi"]  * max(0, test_price - st)
+        if pain < max_pain_min:
+            max_pain_min = pain
+            max_pain_lvl = test_price
+
+    # ATM IV (avg of ATM call + put IV)
+    atm_iv = round((atm_ce_iv + atm_pe_iv) / 2, 1) if (atm_ce_iv and atm_pe_iv) else 0
+
+    # Nearby strikes (5 below + ATM + 5 above)
+    all_strikes = sorted(strike_map.keys())
+    atm_idx = next((i for i, s in enumerate(all_strikes) if s >= atm), len(all_strikes)//2)
+    lo = max(0, atm_idx - 5)
+    hi = min(len(all_strikes), atm_idx + 6)
+    nearby = [strike_map[s] for s in all_strikes[lo:hi]]
+
+    # Mark ATM and high-OI (support/resistance) strikes
+    max_call_oi = max((r["call_oi"] for r in nearby), default=1) or 1
+    max_put_oi  = max((r["put_oi"]  for r in nearby), default=1) or 1
+    for row in nearby:
+        row["is_atm"] = row["strike"] == atm
+        row["call_bar"] = round(row["call_oi"] / max_call_oi * 100)
+        row["put_bar"]  = round(row["put_oi"]  / max_put_oi  * 100)
+        # Identify strong support/resistance via concentration
+        row["is_resistance"] = (row["call_oi"] / max_call_oi > 0.7)
+        row["is_support"]    = (row["put_oi"]  / max_put_oi  > 0.7)
+
+    if not fut_price:
+        fut_price = spot  # fallback
+
+    return {
+        "expiry":     expiry,
+        "expiries":   expiry_dates[:4],
+        "spot":       spot,
+        "atm":        atm,
+        "fut_price":  fut_price,
+        "atm_iv":     atm_iv,
+        "pcr":        pcr,
+        "max_pain":   max_pain_lvl,
+        "total_call_oi": total_call_oi,
+        "total_put_oi":  total_put_oi,
+        "nearby":     nearby,
+    }
+
+@app.route("/api/index-analytics")
+def api_index_analytics():
+    """
+    Full index analytics for the UI header bar:
+    - Spot price + change%
+    - Futures price (synthetic put-call parity)
+    - ATM IV, IVP (Historical Volatility Percentile)
+    - PCR (Put-Call Ratio)
+    - Max Pain level
+    - Daily + Weekly pivot levels (Pivot, R1-R3, S1-S3)
+    - Nearby strikes table (+/- 5 around ATM) with OI, IV, LTP
+    ?sym=NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY|SENSEX
+    ?expiry_idx=0  (0=nearest, 1=next, etc.)
+    """
+    sym = request.args.get("sym", "NIFTY").upper().strip()
+    expiry_idx = int(request.args.get("expiry_idx", 0))
+
+    meta = _INDEX_META.get(sym, _INDEX_META["NIFTY"])
+    yahoo_sym = meta["yahoo"]
+    step      = meta["step"]
+
+    # ── 1. Spot price from price_cache ────────────────────────────────────────
+    name_key = meta["label"]
+    spot = price_cache.get(name_key, {}).get("price", 0) or price_cache.get(sym, {}).get("price", 0)
+
+    # Fallback: fetch from Yahoo
+    if not spot:
+        try:
+            import yfinance as yf
+            tk = yf.Ticker(yahoo_sym)
+            info = tk.fast_info
+            spot = float(getattr(info, "last_price", 0) or getattr(info, "regularMarketPrice", 0) or 0)
+        except Exception:
+            spot = 0
+
+    # ── 2. Spot change % ──────────────────────────────────────────────────────
+    spot_chg = price_cache.get(name_key, {}).get("change_pct", 0) or 0
+
+    # ── 3. NSE Option Chain ───────────────────────────────────────────────────
+    chain_result = {}
+    try:
+        # SENSEX options use BSE — use simpler path
+        nse_sym = "NIFTY" if sym in ("NIFTY", "NIFTY 50") else \
+                  "BANKNIFTY" if sym == "BANKNIFTY" else \
+                  "FINNIFTY" if sym == "FINNIFTY" else \
+                  "MIDCPNIFTY" if sym == "MIDCPNIFTY" else sym
+        nse_data = _fetch_nse_option_chain(nse_sym)
+        if nse_data and spot:
+            chain_result = _process_nse_chain(nse_data, spot, step, expiry_idx)
+    except Exception as e:
+        log.warning("Index analytics chain error: %s", e)
+
+    # ── 4. Daily Pivot (yesterday's OHLC) ─────────────────────────────────────
+    daily_pivot = weekly_pivot = {}
+    try:
+        import yfinance as yf
+        tk = yf.Ticker(yahoo_sym)
+        hist_d = tk.history(period="5d", interval="1d")
+        if len(hist_d) >= 2:
+            y = hist_d.iloc[-2]   # yesterday
+            daily_pivot = _calc_pivots(float(y["High"]), float(y["Low"]), float(y["Close"]))
+        hist_w = tk.history(period="1mo", interval="1wk")
+        if len(hist_w) >= 2:
+            w = hist_w.iloc[-2]   # last completed week
+            weekly_pivot = _calc_pivots(float(w["High"]), float(w["Low"]), float(w["Close"]))
+    except Exception as e:
+        log.debug("Pivot fetch failed: %s", e)
+
+    # ── 5. Fallback: compute analytics from LIVE_OPTIONS_CACHE if NSE failed ──
+    if not chain_result.get("nearby"):
+        try:
+            cache_key = "NIFTY" if sym in ("NIFTY", "NIFTY 50") else \
+                        "BANKNIFTY" if sym == "BANKNIFTY" else "NIFTY"
+            cached_chain = LIVE_OPTIONS_CACHE.get(cache_key, {}).get("chain", [])
+            if cached_chain and spot:
+                atm = round(spot / step) * step
+                total_c = total_p = 0.0
+                max_pain_min_fb = float("inf")
+                max_pain_fb = atm
+                atm_iv_fb = 0.0
+                nearby_fb = []
+                max_c_oi = max(r.get("c_oi", 0) for r in cached_chain) or 1
+                max_p_oi = max(r.get("p_oi", 0) for r in cached_chain) or 1
+
+                for row in cached_chain:
+                    st  = row.get("strike", 0)
+                    c_oi = (row.get("c_oi", 0) or 0) * 100000   # convert lakhs → units
+                    p_oi = (row.get("p_oi", 0) or 0) * 100000
+                    total_c += c_oi; total_p += p_oi
+                    if st == atm:
+                        atm_iv_fb = row.get("iv", 0) or 0
+
+                # Max pain from cached chain
+                for test_st in [r.get("strike",0) for r in cached_chain]:
+                    pain = sum((r.get("c_oi",0)*100000) * max(0, r.get("strike",0) - test_st) +
+                               (r.get("p_oi",0)*100000) * max(0, test_st - r.get("strike",0))
+                               for r in cached_chain)
+                    if pain < max_pain_min_fb:
+                        max_pain_min_fb = pain; max_pain_fb = test_st
+
+                pcr_fb = round(total_p / total_c, 2) if total_c else 0
+
+                # Build nearby list
+                for row in cached_chain:
+                    st = row.get("strike", 0)
+                    is_atm = st == atm
+                    c_oi_raw = row.get("c_oi", 0) or 0
+                    p_oi_raw = row.get("p_oi", 0) or 0
+                    nearby_fb.append({
+                        "strike":    st,
+                        "call_oi":   round(c_oi_raw * 100000),
+                        "put_oi":    round(p_oi_raw * 100000),
+                        "call_chg":  0, "put_chg": 0,
+                        "call_iv":   row.get("iv", 0), "put_iv": row.get("iv", 0),
+                        "call_ltp":  row.get("c_ltp", 0), "put_ltp": row.get("p_ltp", 0),
+                        "pcr_strike":round(p_oi_raw / c_oi_raw, 2) if c_oi_raw else 0,
+                        "is_atm":    is_atm,
+                        "call_bar":  round(c_oi_raw / max_c_oi * 100),
+                        "put_bar":   round(p_oi_raw / max_p_oi * 100),
+                        "is_resistance": c_oi_raw / max_c_oi > 0.7,
+                        "is_support":    p_oi_raw / max_p_oi > 0.7,
+                    })
+
+                chain_result = {
+                    "atm": atm, "pcr": pcr_fb, "max_pain": max_pain_fb,
+                    "atm_iv": atm_iv_fb, "fut_price": round(spot, 2),
+                    "total_call_oi": round(total_c), "total_put_oi": round(total_p),
+                    "nearby": nearby_fb, "expiry": "Weekly", "expiries": ["Weekly", "Monthly"],
+                }
+        except Exception as e:
+            log.debug("Fallback chain analytics error: %s", e)
+
+    # ── 6. HV-based ATM IV if still missing ───────────────────────────────────
+    atm_iv = chain_result.get("atm_iv", 0)
+    if not atm_iv:
+        try:
+            import yfinance as yf, math
+            tk2 = yf.Ticker(yahoo_sym)
+            h2 = tk2.history(period="35d", interval="1d")
+            if len(h2) >= 22:
+                closes = h2["Close"].dropna().tolist()[-22:]
+                rets = [math.log(closes[i]/closes[i-1]) for i in range(1, len(closes))]
+                hv_30 = math.sqrt(sum(r**2 for r in rets)/len(rets) * 252) * 100
+                atm_iv = round(hv_30, 1)
+        except Exception:
+            atm_iv = 0
+
+    # ── 7. IVP ────────────────────────────────────────────────────────────────
+    ivp = _calc_ivp(atm_iv, yahoo_sym) if atm_iv else 50
+
+    # ── 6. Breakout analysis ──────────────────────────────────────────────────
+    breakout_zones = []
+    if daily_pivot and spot:
+        levels = [
+            ("R3", daily_pivot.get("r3"), "resistance"),
+            ("R2", daily_pivot.get("r2"), "resistance"),
+            ("R1", daily_pivot.get("r1"), "resistance"),
+            ("PP", daily_pivot.get("pivot"), "pivot"),
+            ("S1", daily_pivot.get("s1"), "support"),
+            ("S2", daily_pivot.get("s2"), "support"),
+            ("S3", daily_pivot.get("s3"), "support"),
+        ]
+        for name, lvl, kind in levels:
+            if not lvl:
+                continue
+            dist_pct = abs(spot - lvl) / spot * 100
+            if dist_pct < 1.5:      # within 1.5% of current price
+                action = "retest" if abs(spot - lvl) / spot < 0.005 else \
+                         ("near_break" if kind == "resistance" and spot > lvl * 0.995 else
+                          "near_break" if kind == "support"    and spot < lvl * 1.005 else "approaching")
+                breakout_zones.append({
+                    "label":  name,
+                    "level":  lvl,
+                    "type":   kind,
+                    "action": action,
+                    "dist_pct": round(dist_pct, 2),
+                })
+        breakout_zones.sort(key=lambda x: x["dist_pct"])
+
+    return jsonify({
+        "sym":        sym,
+        "label":      meta["label"],
+        "spot":       round(spot, 2),
+        "spot_chg":   round(spot_chg, 2),
+        "fut_price":  chain_result.get("fut_price", round(spot, 2)),
+        "atm":        chain_result.get("atm", round(spot / step) * step),
+        "atm_iv":     atm_iv,
+        "ivp":        ivp,
+        "pcr":        chain_result.get("pcr", 0),
+        "max_pain":   chain_result.get("max_pain", 0),
+        "expiry":     chain_result.get("expiry", ""),
+        "expiries":   chain_result.get("expiries", []),
+        "daily_pivot":  daily_pivot,
+        "weekly_pivot": weekly_pivot,
+        "nearby":     chain_result.get("nearby", []),
+        "breakout_zones": breakout_zones,
+        "total_call_oi":  chain_result.get("total_call_oi", 0),
+        "total_put_oi":   chain_result.get("total_put_oi", 0),
+    })
+
+
 @app.route("/api/option-chain")
 def api_option_chain():
     """Returns the LIVE cached Option Chain mirroring the WSS Daemon."""

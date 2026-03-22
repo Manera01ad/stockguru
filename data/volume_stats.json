@@ -4,14 +4,14 @@
     "count": 4,
     "avg_pnl": 5.3
   },
-  "ACCUMULATION": {
-    "win_rate": 1.0,
-    "count": 3,
-    "avg_pnl": 2.23
-  },
   "DISTRIBUTION": {
     "win_rate": 0.0,
     "count": 2,
     "avg_pnl": -1.95
+  },
+  "ACCUMULATION": {
+    "win_rate": 1.0,
+    "count": 2,
+    "avg_pnl": 2.6
   }
 }

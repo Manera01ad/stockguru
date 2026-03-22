@@ -1,0 +1,7 @@
+{
+  "projectId": "0eb15a82-025e-4796-91de-9d7eac76d42a",
+  "createdAt": 1774093804958,
+  "version": "1.0",
+  "startupCommands": ["python app.py"],
+  "templateId": "any"
+}
