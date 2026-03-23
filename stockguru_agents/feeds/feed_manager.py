@@ -78,6 +78,18 @@ class FeedManager:
             log.debug(f"Angel feed unavailable: {e}")
 
         try:
+            from .coingecko_feed import CoinGeckoFeed
+            feed_classes["coingecko"] = CoinGeckoFeed
+        except Exception as e:
+            log.debug(f"CoinGecko feed unavailable: {e}")
+
+        try:
+            from .frankfurter_feed import FrankfurterFeed
+            feed_classes["frankfurter"] = FrankfurterFeed
+        except Exception as e:
+            log.debug(f"Frankfurter feed unavailable: {e}")
+
+        try:
             from .yahoo_feed import YahooFeed
             feed_classes["yahoo"] = YahooFeed
         except Exception as e:
@@ -142,31 +154,42 @@ class FeedManager:
         return f.LABEL if f else "Unknown"
 
     # ── Public API (delegates to active feed) ─────────────────────────────
+    def _route_symbol(self, symbol: str):
+        sym = symbol.upper()
+        if "-USD" in sym or "-INR" in sym:
+            return self._feeds.get("coingecko") or self.active
+        if "=X" in sym:
+            return self._feeds.get("frankfurter") or self.active
+        return self.active
+
     def get_quote(self, symbol: str) -> dict:
+        feed = self._route_symbol(symbol)
         try:
-            return self.active.get_quote(symbol)
+            return feed.get_quote(symbol)
         except Exception as e:
-            log.error(f"get_quote failed ({self._active_name}): {e}")
+            log.error(f"get_quote failed ({feed.NAME}): {e}")
             return self._feeds["yahoo"].get_quote(symbol)
 
     def get_orderbook(self, symbol: str, depth: int = 15) -> dict:
+        feed = self._route_symbol(symbol)
         try:
-            return self.active.get_orderbook(symbol, depth)
+            return feed.get_orderbook(symbol, depth)
         except Exception as e:
-            log.error(f"get_orderbook failed ({self._active_name}): {e}")
+            log.error(f"get_orderbook failed ({feed.NAME}): {e}")
             return self._feeds["yahoo"].get_orderbook(symbol, depth)
 
     def get_candles(self, symbol: str, interval: str, range_: str) -> dict:
+        feed = self._route_symbol(symbol)
         try:
-            return self.active.get_candles(symbol, interval, range_)
+            return feed.get_candles(symbol, interval, range_)
         except Exception as e:
-            log.error(f"get_candles failed ({self._active_name}): {e}")
+            log.error(f"get_candles failed ({feed.NAME}): {e}")
             return self._feeds["yahoo"].get_candles(symbol, interval, range_)
 
     # ── Status (for /api/feed-status endpoint) ─────────────────────────────
     def status(self) -> dict:
         all_feeds = []
-        for name in self.FEED_PRIORITY:
+        for name in self.FEED_PRIORITY + ["coingecko", "frankfurter"]:
             feed = self._feeds.get(name)
             if feed:
                 s = feed.status()
