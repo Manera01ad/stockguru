@@ -2895,11 +2895,14 @@ def api_chat():
                 "gemini-2.5-flash",
                 system_instruction=context,
             )
-            # Reconstruct history for Gemini
+            # Reconstruct history for Gemini (must alternate user/model)
             gem_history = []
             for h in history[-8:]:
                 role = "user" if h.get("role") == "user" else "model"
-                gem_history.append({"role": role, "parts": [h.get("content","")]})
+                if gem_history and gem_history[-1]["role"] == role:
+                    gem_history[-1]["parts"][0] += "\n" + h.get("content", "")
+                else:
+                    gem_history.append({"role": role, "parts": [h.get("content","")]})
             chat = model.start_chat(history=gem_history)
             resp = chat.send_message(message)
             reply = resp.text
@@ -2913,13 +2916,14 @@ def api_chat():
     signals   = shared_state.get("trade_signals", [])
     portfolio = {}
     try:
-        portfolio = paper_trader._load_portfolio() if AGENTS_AVAILABLE else {}
+        if AGENTS_AVAILABLE:
+            portfolio = paper_trader._load_portfolio()
     except Exception:
         pass
 
     if any(w in msg_lower for w in ["position", "portfolio", "holding", "open"]):
         try:
-            pos = paper_trader.get_live_positions(shared_state.get("_price_cache", {}))
+            pos = paper_trader.get_live_positions(shared_state.get("_price_cache", {})) if AGENTS_AVAILABLE else []
             if pos:
                 parts = [f"{p['symbol']}: {p['shares']} shares @ ₹{p['entry_price']:,.2f}, "
                          f"Unrealised {'+'if p['unreal_pnl']>=0 else ''}₹{p['unreal_pnl']:,.0f} "
@@ -2939,9 +2943,10 @@ def api_chat():
             reply = "No active signals. Agents may still be scanning."
     elif any(w in msg_lower for w in ["market", "nifty", "sensex", "price"]):
         pc = shared_state.get("_price_cache", {})
-        nifty   = pc.get("^NSEI",   {}).get("price", "--")
-        sensex  = pc.get("^BSESN",  {}).get("price", "--")
-        reply   = f"NIFTY: ₹{nifty:,.2f}  |  SENSEX: ₹{sensex:,.2f}" if isinstance(nifty, float) else "Price data loading..."
+        nifty   = pc.get("^NSEI",   {}).get("price")
+        sensex  = pc.get("^BSESN",  {}).get("price")
+        reply = "NIFTY: " + (f"₹{nifty:,.2f}" if isinstance(nifty, float) else "--") + "  |  " + \
+                "SENSEX: " + (f"₹{sensex:,.2f}" if isinstance(sensex, float) else "--")
     else:
         reply = ("No AI key configured. Add ANTHROPIC_API_KEY or GEMINI_API_KEY in the Settings tab "
                  "to enable full AI chat. I can still answer questions about positions, signals, and prices.")

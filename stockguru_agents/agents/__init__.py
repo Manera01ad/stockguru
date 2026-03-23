@@ -1,5 +1,5 @@
 # StockGuru Agents Package — 14-Agent Intelligence System
-from agents import (
+from . import (
     # Tier 1: Data Agents (no LLM cost)
     market_scanner,
     news_sentiment,
@@ -7,6 +7,8 @@ from agents import (
     technical_analysis,
     institutional_flow,
     options_flow,
+    spike_detector,
+    market_session_agent,
     # Tier 2: LLM Brain
     claude_intelligence,
     web_researcher,
