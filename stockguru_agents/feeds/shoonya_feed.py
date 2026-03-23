@@ -61,6 +61,10 @@ class ShoonyaFeed(DataFeed):
         if yahoo_sym in self._SYM_MAP:
             return self._SYM_MAP[yahoo_sym]
 
+        # Explicitly reject Crypto pairs so they trigger Yahoo fallback instantly
+        if "-USD" in yahoo_sym or "-INR" in yahoo_sym:
+            raise ValueError(f"Crypto not supported by Shoonya: {yahoo_sym}")
+
         clean = self._strip_suffix(yahoo_sym)
 
         if self._is_bse(yahoo_sym):

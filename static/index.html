@@ -11296,7 +11296,17 @@ async function tpSell() {
 }
 
 // ── Order book & Paper Trades ────────────────────────────────────────────────
+let _obTickCount = 0;
 async function _refreshOB() {
+  _obTickCount++;
+  // Every 15 seconds (5 cycles), do a full chart and top-bar sync
+  // This powers the "real time experience" for candles and stats
+  if (_obTickCount % 5 === 0) {
+    _loadChartCandles(_currSym, _currSegment).then(d => {
+      if (d && d.price) _updateTopBar(d);
+    });
+  }
+
   // Each fetch is independent — one failure won't block the others
   const [obData, ptData, alertData] = await Promise.all([
     fetch(`/api/orderbook?sym=${encodeURIComponent(_currSym)}&depth=12`).then(r=>r.json()).catch(()=>({bids:[],asks:[],price:0})),
@@ -11403,6 +11413,23 @@ function _renderOB(d) {
   }
   const dec = _pDec(d.price || 1);
   const fmt = n => _fmt(n, dec);
+
+  // Real-time terminal price experience
+  if (d.price) {
+    const priceEl = document.getElementById('term-price');
+    if (priceEl && priceEl.textContent !== fmt(d.price)) {
+      priceEl.textContent = fmt(d.price);
+      priceEl.classList.remove('price-flash');
+      void priceEl.offsetWidth; // trigger reflow to restart animation
+      priceEl.classList.add('price-flash');
+      
+      // Update chart if it's the current active timeframe candle (simulated last tick)
+      if (typeof _lcSeries !== 'undefined' && _lcSeries && _lcSeries.data) {
+        // Just let LightweightChart know the last close price changed (makes chart "tick")
+        // Requires full candle object though, so we only update price text for now
+      }
+    }
+  }
   const maxQ = Math.max(...[...d.asks, ...d.bids].map(r => r.qty), 1);
 
   if (asksEl) asksEl.innerHTML = d.asks.slice().reverse().map(row => {
