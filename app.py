@@ -3200,10 +3200,14 @@ def api_segments():
 def api_feed_status():
     """Return active data feed and status of all configured connectors."""
     try:
+        import os
+        forced = os.getenv("ACTIVE_FEED", "")
         if _FEED_OK and _feed_mgr:
-            return jsonify(_feed_mgr.status())
+            status_data = _feed_mgr.status()
+            status_data["forced_feed"] = forced
+            return jsonify(status_data)
         return jsonify({"active_feed": "yahoo", "active_label": "Yahoo Finance",
-                        "is_realtime": False, "feeds": []})
+                        "is_realtime": False, "feeds": [], "forced_feed": forced})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

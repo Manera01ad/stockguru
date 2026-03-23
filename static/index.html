@@ -5871,6 +5871,17 @@
             <div class="term-stat-item"><div class="term-stat-lbl">Open</div><div class="term-stat-val" id="term-stat-open">--</div></div>
             <div class="term-stat-item"><div class="term-stat-lbl">Currency</div><div class="term-stat-val" id="term-stat-curr">--</div></div>
             <div style="margin-left:auto;display:flex;gap:10px;align-items:center">
+              <!-- Direct Flexible Feed Swizzle -->
+              <select id="direct-feed-switcher" onchange="setActiveFeed(this.value)" style="margin-right:4px;background:rgba(0,0,0,0.3);border:1px solid rgba(0,196,204,0.3);color:var(--accent);font-size:10px;padding:3px 8px;border-radius:20px;outline:none;cursor:pointer;font-weight:600;font-family:'Plus Jakarta Sans',sans-serif;box-shadow:0 0 10px rgba(0,196,204,0.1)" title="Swizzle Active Feed">
+                <option value="" style="color:#000">⚙️ Auto Select Feed</option>
+                <option value="shoonya" style="color:#000">⚡ Shoonya (Real-Time)</option>
+                <option value="yahoo" style="color:#000">🐢 Yahoo Finance (Delayed)</option>
+                <option value="truedata" style="color:#000">🔥 TrueData</option>
+                <option value="zerodha" style="color:#000">⚡ Zerodha</option>
+                <option value="upstox" style="color:#000">⚡ Upstox</option>
+                <option value="fyers" style="color:#000">⚡ Fyers</option>
+                <option value="angel" style="color:#000">⚡ Angel One</option>
+              </select>
               <!-- Feed status badge -->
               <div id="term-feed-badge" style="display:flex;align-items:center;gap:5px;
                    background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);
@@ -10870,6 +10881,17 @@ function _loadFeedStatus() {
     const isRT          = data.is_realtime;
     const ms            = data.latency_ms || 15000;
     latency.textContent = ms < 1000 ? `${ms}ms` : `${Math.round(ms/60000)}min`;
+
+    const feedSwitcher = document.getElementById('direct-feed-switcher');
+    if (feedSwitcher) {
+      if (data.forced_feed) {
+        feedSwitcher.value = data.forced_feed;
+        feedSwitcher.style.borderColor = 'rgba(0,255,127,0.6)'; // highlight when manually forced
+      } else {
+        feedSwitcher.value = ""; // Auto-Select Mode
+        feedSwitcher.style.borderColor = 'rgba(0,196,204,0.3)';
+      }
+    }
 
     if (isRT) {
       dot.style.background   = '#00e676';
