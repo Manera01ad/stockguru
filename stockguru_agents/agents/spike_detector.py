@@ -61,7 +61,7 @@ def _spike_threshold(sym: str) -> float:
     return SPIKE_PCT_THRESHOLD
 
 # ── PERSISTENT HISTORY (in-process — resets on server restart) ────────────────
-_price_history:   dict[str, deque]  = defaultdict(lambda: deque(maxlen=2))
+_price_history:   dict[str, deque]  = defaultdict(lambda: deque(maxlen=30))
 _volume_history:  dict[str, deque]  = defaultdict(lambda: deque(maxlen=VOLUME_WINDOW))
 _cooldown_counter: dict[str, int]   = defaultdict(int)
 
@@ -130,29 +130,104 @@ def _check_volume_surge(symbol: str, current_volume: float) -> dict | None:
     }
 
 
+def _check_v_shaped_reversal(symbol: str, current_price: float) -> dict | None:
+    """
+    Detects sudden V-shaped recoveries or inverted V crashes.
+    A V-shape requires a sharp drop > 0.8% followed closely by a sharp rebound > 0.4% from the absolute bottom.
+    Because history holds up to 30 recent ticks (approx 45-60 seconds depending on polling interval),
+    this catches very rapid algorithmic flushes and recoveries.
+    """
+    hist = _price_history[symbol]
+    if len(hist) < 10:
+        return None
+
+    prices = list(hist)
+    max_p = max(prices)
+    min_p = min(prices)
+    
+    if max_p == 0 or min_p == 0:
+        return None
+
+    drop_pct   = (max_p - min_p) / max_p * 100
+    rebound_pct= (current_price - min_p) / min_p * 100
+
+    # Strong V-Shape Recovery Trap (Bullish Reversal)
+    if drop_pct >= 0.8 and rebound_pct >= 0.4:
+        # Verify the timeline: High happened before Low, and Low happened before Current
+        idx_max = prices.index(max_p)
+        idx_min = prices.index(min_p)
+        if idx_max < idx_min and idx_min < len(prices) - 2:
+            return {
+                "type":        "V_REVERSAL_BULLISH",
+                "symbol":      symbol,
+                "sym_type":    _classify_symbol(symbol),
+                "drop_pct":    round(drop_pct, 2),
+                "rebound_pct": round(rebound_pct, 2),
+                "support_lvl": round(min_p, 2),
+                "severity":    "CRITICAL" if rebound_pct >= 0.8 else "HIGH"
+            }
+            
+    # Inverted V-Shape Trap (Bearish Rejection)
+    rally_pct = (max_p - min_p) / min_p * 100
+    crash_pct = (max_p - current_price) / max_p * 100
+    if rally_pct >= 0.8 and crash_pct >= 0.4:
+        idx_max = prices.index(max_p)
+        idx_min = prices.index(min_p)
+        if idx_min < idx_max and idx_max < len(prices) - 2:
+            return {
+                "type":        "V_REVERSAL_BEARISH",
+                "symbol":      symbol,
+                "sym_type":    _classify_symbol(symbol),
+                "rally_pct":   round(rally_pct, 2),
+                "crash_pct":   round(crash_pct, 2),
+                "resist_lvl":  round(max_p, 2),
+                "severity":    "CRITICAL" if crash_pct >= 0.8 else "HIGH"
+            }
+            
+    return None
+
+
 def _format_telegram_alert(spike: dict, volume: dict | None = None) -> str:
-    """Build Telegram message for a spike event."""
+    """Build Telegram message for a spike or reversal event."""
     s        = spike
     sym_type = s.get("sym_type", "equity")
     type_tag = {"options": "🎯 F&O OPTIONS", "futures": "📦 FUTURES", "equity": "📈 EQUITY"}.get(sym_type, "")
 
     lines = [
-        f"🚨 *SPIKE ALERT — {s['symbol']}*",
+        f"🚨 *ANOMALY ALERT — {s['symbol']}*",
         f"🏷 {type_tag} | ⏰ {datetime.now().strftime('%H:%M:%S')} IST",
         "",
     ]
+    
     if s["type"] == "PRICE_SPIKE":
-        arrow = "📈" if s["direction"] == "UP" else "📉"
+        arrow = "📈" if s.get("direction") == "UP" else "📉"
         lines += [
-            f"{arrow} *Price {s['direction']}: {s['delta_pct']:+.2f}% in one tick*",
-            f"   Prev: ₹{s['prev_price']:,.2f} → Now: ₹{s['curr_price']:,.2f}",
+            f"{arrow} *Price {s.get('direction')}: {s.get('delta_pct', 0):+.2f}% in one tick*",
+            f"   Prev: ₹{s.get('prev_price', 0):,.2f} → Now: ₹{s.get('curr_price', 0):,.2f}",
         ]
         if sym_type == "options":
             lines.append(f"   _(Options threshold: {OPTIONS_SPIKE_PCT_THRESHOLD}% — this is a major move)_")
+            
+    elif s["type"] == "V_REVERSAL_BULLISH":
+        lines += [
+            f"⚡ *V-SHAPE RECOVERY (BULLISH)*",
+            f"   Dropped {s.get('drop_pct', 0):.2f}% to hit Support: ₹{s.get('support_lvl', 0):,.2f}",
+            f"   Immediately Rebounded {s.get('rebound_pct', 0):.2f}%!",
+            f"   _(Aggressive algorithmic/institutional absorption at the bottom)_"
+        ]
+        
+    elif s["type"] == "V_REVERSAL_BEARISH":
+        lines += [
+            f"💥 *INVERTED V-SHAPE (BEARISH REJECTION)*",
+            f"   Rallied {s.get('rally_pct', 0):.2f}% to hit Resistance: ₹{s.get('resist_lvl', 0):,.2f}",
+            f"   Immediately Crashed {s.get('crash_pct', 0):.2f}%!",
+            f"   _(Violent supply zone rejection)_"
+        ]
+
     if volume:
         lines += [
-            f"📊 *Volume Surge: {volume['surge_factor']}× average*",
-            f"   Current: {volume['current_vol']:,} | Avg: {volume['avg_vol']:,}",
+            f"📊 *Volume Surge: {volume.get('surge_factor', 0)}× average*",
+            f"   Current: {volume.get('current_vol', 0):,} | Avg: {volume.get('avg_vol', 0):,}",
         ]
 
     severity = "CRITICAL" if (
@@ -221,17 +296,19 @@ def run(shared_state, send_telegram_fn=None) -> list:
         # ── Spike detection ───────────────────────────────────────────────────
         spike_alert  = _check_price_spike(symbol, curr_price)
         volume_alert = _check_volume_surge(symbol, curr_volume) if curr_volume else None
+        reversal_alert = _check_v_shaped_reversal(symbol, curr_price)
 
-        if spike_alert or volume_alert:
-            base = spike_alert or volume_alert
+        if spike_alert or volume_alert or reversal_alert:
+            base = reversal_alert or spike_alert or volume_alert
             event = {
                 **base,
                 "timestamp":    datetime.now().isoformat(),
                 "price_alert":  spike_alert,
                 "volume_alert": volume_alert,
-                "combined":     spike_alert is not None and volume_alert is not None,
+                "reversal_alert": reversal_alert,
+                "combined":     (spike_alert is not None) + (volume_alert is not None) + (reversal_alert is not None) >= 2,
             }
-            # Elevate severity if both fire
+            # Elevate severity if multiple conditions fire
             if event["combined"]:
                 event["severity"] = "CRITICAL"
 
@@ -242,16 +319,16 @@ def run(shared_state, send_telegram_fn=None) -> list:
             if send_telegram_fn:
                 try:
                     msg = _format_telegram_alert(
-                        spike_alert or volume_alert,
-                        volume_alert if spike_alert else None,
+                        reversal_alert or spike_alert or volume_alert,
+                        volume_alert if (spike_alert or reversal_alert) else None,
                     )
                     send_telegram_fn(msg)
                 except Exception as e:
                     log.warning("Spike Telegram alert failed for %s: %s", symbol, e)
 
-            log.warning("🚨 SPIKE ALERT [%s] %s | Δ=%.2f%% | Vol×=%.1f",
+            log.warning("🚨 SPIKE/REVERSAL ALERT [%s] %s | V-shape: %r | Vol×=%.1f",
                         event["severity"], symbol,
-                        (spike_alert or {}).get("delta_pct", 0),
+                        reversal_alert is not None,
                         (volume_alert or {}).get("surge_factor", 0))
 
         # ── Update history after detection (so history uses current tick) ─────
