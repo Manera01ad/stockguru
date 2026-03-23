@@ -92,7 +92,27 @@ class FeedManager:
 
     # ── Feed selection ─────────────────────────────────────────────────────
     def _select_active(self):
-        """Pick the highest-priority configured and enabled feed."""
+        """Pick the highest-priority configured and enabled feed, respecting ACTIVE_FEED override."""
+        import os
+        forced = os.getenv("ACTIVE_FEED")
+        
+        # 1. First respect manually forced override from the UI (Active Feed Switch)
+        if forced:
+            forced = forced.lower().strip()
+            if forced == "yahoo":
+                self._active_name = "yahoo"
+                log.info("📡 Active data feed: Yahoo Finance (forced via ACTIVE_FEED)")
+                return
+            elif forced in self._feeds:
+                feed = self._feeds[forced]
+                if feed.is_configured() and feed.is_enabled():
+                    self._active_name = forced
+                    log.info(f"✅ Active data feed: {feed.LABEL} ({forced}) [FORCED]")
+                    return
+                else:
+                    log.warning(f"⚠️ Forced ACTIVE_FEED '{forced}' is not fully configured. Falling back to priority.")
+
+        # 2. Otherwise fall through to priority-based selection
         for name in self.FEED_PRIORITY:
             feed = self._feeds.get(name)
             if feed and feed.is_configured() and feed.is_enabled():

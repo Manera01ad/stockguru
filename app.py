@@ -3224,6 +3224,32 @@ def api_feed_reload():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/set-active-feed", methods=["POST"])
+def api_set_active_feed():
+    try:
+        from dotenv import set_key
+        data = request.get_json() or {}
+        feed = data.get("feed", "").lower().strip()
+        
+        env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+        
+        if feed:
+            os.environ["ACTIVE_FEED"] = feed
+            set_key(env_path, "ACTIVE_FEED", feed)
+        else:
+            if "ACTIVE_FEED" in os.environ:
+                del os.environ["ACTIVE_FEED"]
+            # To actually remove it from .env would be harder, so we set to empty
+            set_key(env_path, "ACTIVE_FEED", "")
+            
+        if _FEED_OK and _feed_mgr:
+            _feed_mgr.reload()
+            return jsonify({"status": "ok", "active_feed": _feed_mgr.active_name, "active_label": _feed_mgr.active_label})
+            
+        return jsonify({"status": "ok", "active_feed": "yahoo"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route("/api/multi-strike")
 def api_multi_strike():

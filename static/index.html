@@ -10888,6 +10888,23 @@ function _loadFeedStatus() {
   }).catch(() => {});
 }
 
+function setActiveFeed(feed) {
+  fetch(`${API}/set-active-feed`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({feed: feed})
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.status === 'ok') {
+      location.reload(); // Reload immediately to take effect across UI and charts
+    } else {
+      alert('Error switching feed: ' + d.error);
+    }
+  })
+  .catch(e => alert('Connection error: ' + e));
+}
+
 function termShowFeedInfo() {
   const data = window._feedStatusData;
   if (!data) return;
@@ -10895,26 +10912,39 @@ function termShowFeedInfo() {
     const icon = f.active ? '🟢' : (f.configured ? '🟡' : '⚪');
     const rt   = f.realtime ? `${f.latency_ms}ms` : 'delayed';
     const ob   = f.ob_levels ? `${f.ob_levels}-level OB` : 'simulated OB';
+    let actionBtn = '';
+    if (f.active) {
+      actionBtn = `<span style="padding:4px 8px;font-size:9px;color:#00e676;background:rgba(0,230,118,0.1);border-radius:4px;font-weight:bold;">ACTIVE</span>`;
+    } else if (f.configured || f.name === 'yahoo') {
+      actionBtn = `<button onclick="setActiveFeed('${f.name}')" style="padding:4px 12px;font-size:9px;font-weight:bold;cursor:pointer;color:#c8cdd8;background:#2a3040;border:1px solid #4a5468;border-radius:4px;transition:0.2s">Switch</button>`;
+    } else {
+      actionBtn = `<span style="font-size:9px;color:#445;">Add keys to .env</span>`;
+    }
+
     return `<tr style="border-bottom:1px solid #1e2530">
       <td style="padding:6px 10px">${icon} <b style="color:${f.active?'#00e676':f.configured?'#fbbf24':'#445'}">${f.label}</b></td>
-      <td style="padding:6px 10px;color:#6b7280">${rt}</td>
-      <td style="padding:6px 10px;color:#6b7280">${ob}</td>
-      <td style="padding:6px 10px;color:#445;font-size:10px">${f.active?'ACTIVE':f.configured?'configured':'add keys to .env'}</td>
+      <td style="padding:6px 10px;color:#6b7280;font-size:11px">${rt}</td>
+      <td style="padding:6px 10px;color:#6b7280;font-size:11px">${ob}</td>
+      <td style="padding:6px 10px;text-align:right;">${actionBtn}</td>
     </tr>`;
   }).join('');
 
   const html = `<div onclick="this.remove()" style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center">
-    <div onclick="event.stopPropagation()" style="background:#12161e;border:1px solid #2a3040;border-radius:16px;padding:24px;min-width:480px;max-width:600px">
+    <div onclick="event.stopPropagation()" style="background:#12161e;border:1px solid #2a3040;border-radius:16px;padding:24px;min-width:540px;max-width:700px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
         <span style="font-size:14px;font-weight:700;color:#c8cdd8">📡 Data Feed Connectors</span>
         <button onclick="this.closest('[onclick]').click()" style="background:none;border:none;color:#556;cursor:pointer;font-size:18px">✕</button>
       </div>
       <p style="font-size:11px;color:#556;margin-bottom:16px">
-        Add credentials to <code style="color:#a78bfa">.env</code> to activate a feed.
-        System auto-selects the best available. 🟢 active &nbsp;🟡 configured &nbsp;⚪ not set
+        Click 'Switch' to manually override the active feed, or reload feeds to auto-select the best available.
+        🟢 active &nbsp;🟡 configured &nbsp;⚪ not set
       </p>
       <table style="width:100%;border-collapse:collapse;font-size:12px">${rows}</table>
       <div style="margin-top:16px;text-align:right">
+        <button onclick="setActiveFeed('')"
+          style="background:rgba(255,100,100,.1);border:1px solid #ff4444;color:#ff8888;padding:6px 16px;border-radius:8px;cursor:pointer;font-size:11px;margin-right:10px">
+          🔌 Reset to Auto
+        </button>
         <button onclick="fetch('${API}/feed-reload').then(()=>_loadFeedStatus()).then(()=>this.closest('[onclick]').click())"
           style="background:rgba(99,102,241,.2);border:1px solid #6366f1;color:#a5b4fc;padding:6px 16px;border-radius:8px;cursor:pointer;font-size:11px">
           🔄 Reload Feeds
@@ -10924,6 +10954,7 @@ function termShowFeedInfo() {
   </div>`;
   document.body.insertAdjacentHTML('beforeend', html);
 }
+
 
 
 let _tvWidget = null;
