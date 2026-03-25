@@ -193,8 +193,14 @@ logging.basicConfig(level=logging.INFO, handlers=[_file_handler, _console_handle
 log = logging.getLogger(__name__)
 
 # ── FLASK APP ─────────────────────────────────────────────────────────────────
-app = Flask(__name__, static_folder='static')
+# Post-reorg: static assets are in ../../static/ relative to src/core/app.py
+app = Flask(__name__, static_folder='../../static', static_url_path='')
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0   # disable static file caching during dev
+
+@app.route("/")
+def serve_index():
+    """Main dashboard entry point."""
+    return send_from_directory(app.static_folder, "index.html")
 
 # ── CORS: configurable origins (set ALLOWED_ORIGINS in .env for production) ───
 _raw_origins = os.getenv("ALLOWED_ORIGINS", "")
