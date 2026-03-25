@@ -52,21 +52,65 @@ PAPER_TRADING_ONLY      = True    # HARDCODED — this is always a simulation
 BROKER_CONNECTOR_EXISTS = True    # broker_connector.py now available (paper mode only)
 # ══════════════════════════════════════════════════════════════════════════════
 
+# ── Database & Persistence ──────────────────────────────────────────────────
+from stockguru_agents.models import SessionLocal, PortfolioState, PositionBook, OrderBook, PaperTrade
+from sqlalchemy import func
+
+def _get_db_portfolio():
+    """Get current portfolio state from DB. Auto-initializes if empty."""
+    session = SessionLocal()
+    try:
+        state = session.query(PortfolioState).filter_by(id=1).first()
+        if not state:
+            cap = float(os.getenv("PAPER_CAPITAL", "500000"))
+            state = PortfolioState(id=1, capital=cap, available_cash=cap)
+            session.add(state)
+            session.commit()
+            session.refresh(state)
+        return {
+            "capital": state.capital,
+            "available_cash": state.available_cash,
+            "invested": 0.0, # Tracked via positions
+            "realised_pnl": state.realised_pnl,
+            "total_trades": state.total_trades,
+            "wins": state.wins,
+            "losses": state.losses,
+            "positions": {} # Loaded separately 
+        }
+    finally:
+        session.close()
+
+def _update_db_cash(amount_delta):
+    """Atomic update of cash balance."""
+    session = SessionLocal()
+    try:
+        state = session.query(PortfolioState).filter_by(id=1).first()
+        if state:
+            state.available_cash += amount_delta
+            state.last_updated = datetime.utcnow()
+            session.commit()
+    finally:
+        session.close()
+
 # ── Broker Connector Import ───────────────────────────────────────────────────
-# Import the broker interface so paper_trader uses proper terminal-grade structures.
-# broker_connector.LIVE_TRADING_ENABLED is also False — double lock.
 try:
-    import sys as _sys, os as _os
-    _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
-    from broker_connector import (
+    from stockguru_agents.broker_connector import (
         get_broker, OrderBuilder, PaperBroker,
         OrderType, ProductCode, TransactionType, Exchange, Validity,
         OrderStatus, compute_costs,
     )
     _BROKER_AVAILABLE = True
 except ImportError as _e:
-    log.warning("broker_connector not found (%s) — falling back to legacy engine", _e)
+    log.warning("broker_connector not found (%s) — falling back to legacy eng", _e)
     _BROKER_AVAILABLE = False
+# ── Conviction Filter Integration ───────────────────────────────────────────
+from conviction_filter import ConvictionFilter
+
+def _get_conviction_filter():
+    """Build conviction filter."""
+    session = SessionLocal()
+    return ConvictionFilter(db_session=session)
+
 # ─────────────────────────────────────────────────────────────────────────────
 
 _BASE           = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -129,149 +173,102 @@ def _cost_breakdown(price, shares, side="BUY"):
         "total":     round(slip + b + s + e + sebi + stamp + dp + gst, 2),
     }
 
-# ── PORTFOLIO PERSISTENCE ─────────────────────────────────────────────────────
+# ── PORTFOLIO PERSISTENCE (DB WRAPPERS) ────────────────────────────────────────
 def _load_portfolio():
+    # Bridge to the old shared_state format but powered by DB
+    p = _get_db_portfolio()
+    session = SessionLocal()
     try:
-        with open(PORTFOLIO_FILE) as f:
-            return json.load(f)
-    except Exception:
-        return {
-            "capital":          DEFAULT_CAPITAL,
-            "available_cash":   DEFAULT_CAPITAL,
-            "invested":         0.0,
-            "unrealized_pnl":   0.0,
-            "realized_pnl":     0.0,
-            "total_pnl":        0.0,
-            "total_return_pct": 0.0,
-            "positions":        {},
-            "daily_pnl":        {},        # {date_str: pnl_pct}
-            "daily_pnl_pct":    0.0,       # today's P&L %
-            "stats": {
-                "total_trades":  0,
-                "wins":          0,
-                "losses":        0,
-                "win_rate":      0.0,
-                "avg_win_pct":   0.0,
-                "avg_loss_pct":  0.0,
-                "best_trade":    None,
-                "worst_trade":   None,
-                "max_drawdown":  0.0,
-                "sharpe_approx": 0.0,
-            },
-            "safety": {
-                "live_trading":  False,  # ALWAYS False
-                "paper_only":    True,   # ALWAYS True
-                "mode":          "SIMULATION",
-            },
-            "created_at":       datetime.now().isoformat(),
-            "last_updated":     datetime.now().isoformat(),
-        }
+        # Load active positions
+        db_pos = session.query(PositionBook).filter_by(status="OPEN").all()
+        p["positions"] = {pos.symbol: pos.to_dict() if hasattr(pos, "to_dict") else vars(pos) for pos in db_pos}
+        # Filter out sqlalchemy internal state if present
+        for pos in p["positions"].values():
+            pos.pop("_sa_instance_state", None)
+            # Map DB fields to what PaperTrader expects
+            pos["shares"] = pos.get("quantity", 0)
+            pos["entry_price"] = pos.get("avg_price", 0)
+            pos["shares_remaining"] = pos.get("quantity", 0)
+    finally:
+        session.close()
+    return p
 
 def _save_portfolio(portfolio):
-    portfolio["last_updated"] = datetime.now().isoformat()
-    os.makedirs(os.path.dirname(PORTFOLIO_FILE), exist_ok=True)
-    with open(PORTFOLIO_FILE, "w") as f:
-        json.dump(portfolio, f, indent=2, default=str)
+    # This is now handled by atomic DB operations in _enter/_close
+    pass
 
 def _load_trades():
+    session = SessionLocal()
     try:
-        with open(TRADES_FILE) as f:
-            return json.load(f)
-    except Exception:
-        return []
+        trades = session.query(PaperTrade).order_by(PaperTrade.executed_at.desc()).limit(100).all()
+        return [vars(t) for t in trades]
+    finally:
+        session.close()
 
 def _save_trades(trades):
-    os.makedirs(os.path.dirname(TRADES_FILE), exist_ok=True)
-    with open(TRADES_FILE, "w") as f:
-        json.dump(trades, f, indent=2, default=str)
+    # Now handled via session.add(PaperTrade) during execution
+    pass
 
-# ── CONVICTION GATE CHECKER ───────────────────────────────────────────────────
+# ── CONVICTION FILTER INTEGRATION ─────────────────────────────────────────────
 def _check_gates(signal, shared_state):
     """
-    Check all 8 conviction gates for a signal.
-    Returns (gates_passed, gate_detail, reasons)
+    Standardized entry for gate checking.
+    Now uses the advanced ConvictionFilter for Phase 2.5 logic.
     """
-    name   = signal.get("name", "")
-    score  = signal.get("score", 0)
-    tech   = shared_state.get("technical_data", {}).get(name, {})
-    inst   = shared_state.get("institutional_flow", {})
-    opts   = shared_state.get("options_flow", {})
-    news_m = shared_state.get("stock_sentiment_map", {})
-    web    = shared_state.get("web_research", {}).get(name, {})
+    # 1. Build context from shared state and signal
+    name = signal.get("name", "")
+    tech = shared_state.get("technical_data", {}).get(name, {})
+    inst = shared_state.get("institutional_flow", {})
+    news = shared_state.get("stock_sentiment_map", {}).get(name, {})
+    
+    # Map raw data to ConvictionFilter context
+    # Get current minute of market session (9:15-15:30 = 375 minutes)
+    now = datetime.now()
+    market_start = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    minute_of_day = int((now - market_start).total_seconds() / 60)
+    
+    context = {
+        'symbol': name,
+        'decision': signal.get("signal", "BUY"),
+        'entry_price': signal.get("entry", signal.get("cmp", 0)),
+        'exit_price': signal.get("target1", 0),
+        'stop_loss': signal.get("stop_loss", 0),
+        'rsi': tech.get("rsi", 50),
+        'macd_positive': tech.get("macd_bullish", False),
+        'above_200dma': tech.get("above_ema50", False), # Mapping ema50 to ema200 for now or update data
+        'volume': signal.get("volume", 0),
+        'avg_volume': signal.get("avg_volume", 1),
+        'agent_votes': shared_state.get("agent_consensus", []),
+        'fii_flow': inst.get("fii_net_crore", 0),
+        'dii_flow': inst.get("dii_net_crore", 0),
+        'news_sentiment': news.get("score", 0),
+        'breaking_news_count': 0, 
+        'vix': shared_state.get("vix_india", 15),
+        'minute': max(0, minute_of_day),
+        'agent_name': signal.get("agent", "paper_trader")
+    }
 
-    gates  = {}
-    passed = 0
-    reasons = []
-
-    # Gate 1: Score gate — >= 88 ideal, >= 75 acceptable if other signals align
-    # NOTE: quick_enter manual trades bypass gate check entirely (gates_passed=6 forced)
-    g1 = score >= 75   # lowered from 88 → catches 75-87 range stocks with strong other gates
-    _g1_ideal = score >= 88
-    gates["score_gate"] = g1
-    gates["score_ideal"] = _g1_ideal
-    if _g1_ideal:
-        passed += 1                     # full point for score >= 88
-    elif g1:
-        passed += 0.5                   # half point for 75-87 (needs extra support from other gates)
-        reasons.append(f"Score {score} is acceptable (75+) but below ideal 88")
-    else:
-        reasons.append(f"Score {score} < 75 — too low")
-
-    # Gate 2: RSI gate — not overbought (35-68)
-    rsi    = tech.get("rsi")
-    g2     = tech.get("gates", {}).get("rsi_gate") if tech else None
-    if g2 is None:
-        g2 = (35 <= rsi <= 68) if rsi is not None else True  # pass if unknown
-    gates["rsi_gate"] = bool(g2)
-    if g2: passed += 1
-    else:  reasons.append(f"RSI {rsi:.1f} outside 35-68" if rsi else "RSI unavailable")
-
-    # Gate 3: Volume gate — vol_surge >= 1.3x
-    vol    = signal.get("vol_surge", 1.0)
-    g3     = vol >= 1.3
-    gates["volume_gate"] = g3
-    if g3: passed += 1
-    else:  reasons.append(f"Volume {vol:.1f}x < 1.3x avg")
-
-    # Gate 4: Trend gate — above 50-EMA
-    g4 = tech.get("above_ema50") if tech else None
-    if g4 is None: g4 = True  # pass if unknown (no data yet)
-    gates["trend_gate"] = bool(g4)
-    if g4: passed += 1
-    else:  reasons.append("Price below 50-EMA (R3)")
-
-    # Gate 5: MACD gate — bullish
-    g5 = tech.get("macd_bullish") if tech else None
-    if g5 is None: g5 = True  # pass if unknown
-    gates["macd_gate"] = bool(g5)
-    if g5: passed += 1
-    else:  reasons.append("MACD bearish (R7)")
-
-    # Gate 6: News gate — no strongly negative news
-    news_score = news_m.get(name, {}).get("score", 0)
-    web_safe   = web.get("safe_to_trade", True)
-    g6 = news_score >= -1.5 and web_safe
-    gates["news_gate"] = g6
-    if g6: passed += 1
-    else:
-        if not web_safe:
-            reasons.append(f"Web research: {web.get('key_finding','negative news')}")
-        else:
-            reasons.append(f"Negative news score {news_score:.1f}")
-
-    # Gate 7: FII gate — FII not strongly selling (R5)
-    g7 = inst.get("fii_gate_pass", True)
-    gates["fii_gate"] = bool(g7)
-    if g7: passed += 1
-    else:  reasons.append(f"FII selling {inst.get('fii_net_crore',0):.0f}Cr (R22)")
-
-    # Gate 8: Options gate — PCR in acceptable range (R8)
-    g8 = opts.get("options_gate", True)
-    gates["options_gate"] = bool(g8)
-    if g8: passed += 1
-    else:  reasons.append(f"PCR {opts.get('nifty_pcr','?')} outside range (R8)")
-
-    return passed, gates, reasons
+    # 2. Evaluate
+    session = SessionLocal()
+    try:
+        cf = ConvictionFilter(db_session=session)
+        should_execute, audit = cf.evaluate_signal(context)
+        
+        # Bridge to old return format for compatibility
+        gate_summary = {
+            "technical": audit.gate_1_technical,
+            "volume": audit.gate_2_volume,
+            "consensus": audit.gate_3_consensus,
+            "rr_ratio": audit.gate_4_rr_ratio,
+            "time": audit.gate_5_time_filter,
+            "institutional": audit.gate_6_institutional,
+            "sentiment": audit.gate_7_sentiment,
+            "vix": audit.gate_8_vix
+        }
+        
+        return audit.gates_passed, gate_summary, [audit.rejection_reason] if audit.rejection_reason else []
+    finally:
+        session.close()
 
 # ── POSITION ENTRY ────────────────────────────────────────────────────────────
 def _enter_position(signal, gates_passed, gate_detail, portfolio, price_cache, shared_state):
@@ -321,56 +318,50 @@ def _enter_position(signal, gates_passed, gate_detail, portfolio, price_cache, s
         entry_cost = round(entry_price * shares, 2)
         trade_costs = _compute_costs(entry_price, shares, "BUY")
 
-    # Record the position
+    # ── DB: Persist Position & Trade ──
+    session = SessionLocal()
+    try:
+        # 1. Update Portfolio State (Cash)
+        state = session.query(PortfolioState).filter_by(id=1).first()
+        state.available_cash -= total_outlay
+        state.last_updated = datetime.utcnow()
+
+        # 2. Add to Position Book
+        db_pos = PositionBook(
+            symbol=name, product="CNC",
+            quantity=shares, avg_price=entry_price,
+            target1=t1, target2=t2, stop_loss=sl_orig,
+            status="OPEN"
+        )
+        session.add(db_pos)
+
+        # 3. Record in Trade Book
+        db_trade = PaperTrade(
+            trade_id=f"T{datetime.now().strftime('%Y%m%d%H%M%S')}",
+            symbol=name, transaction_type="BUY", product_code="CNC",
+            quantity=shares, price=entry_price, value=entry_cost,
+            total_costs=trade_costs,
+            tag=json.dumps({"gates": gates_passed})
+        )
+        session.add(db_trade)
+        
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        log.error("DB Entry failed for %s: %s", name, e)
+        return None
+    finally:
+        session.close()
+
+    # Create the dictionary return for the rest of the flow
     position = {
         "name":             name,
-        "sector":           sector,
-        "score":            score,
-        "signal_type":      signal.get("signal", "BUY"),
         "shares":           shares,
         "entry_price":      entry_price,
-        "entry_cost":       entry_cost,
-        "buy_costs":        trade_costs,
-        "target1":          t1,
-        "target2":          t2,
-        "stop_loss":        sl_orig,
-        "trailing_sl":      sl_orig,    # moves up after T1 hit / TSL
-        "tsl_enabled":      True,       # Auto Trailing SL — on by default
-        "tsl_high_water":   entry_price,# highest price seen since entry
-        "t1_booked":        False,      # has T1 partial booking happened?
-        "shares_remaining": shares,
         "status":           "OPEN",
         "gates_passed":     gates_passed,
-        "gate_detail":      gate_detail,
         "entry_time":       datetime.now().isoformat(),
-        "paper_only":       True,       # safety marker
-        "live_trade":       False,      # safety marker — always False
     }
-
-    # Deduct from portfolio
-    portfolio["available_cash"] = round(portfolio["available_cash"] - total_outlay, 2)
-    portfolio["invested"]       = round(portfolio["invested"] + entry_cost, 2)
-    portfolio["positions"][name] = position
-
-    log.info("📗 PAPER BUY: %s | %d shares @ ₹%.2f | Cost ₹%.0f | Gates %d/8 | T1=₹%.1f SL=₹%.1f",
-             name, shares, entry_price, total_outlay, gates_passed, t1, sl_orig)
-
-    # Record in signal_tracker
-    try:
-        import sys
-        sys.path.insert(0, os.path.join(_BASE, "stockguru_agents"))
-        from learning import signal_tracker
-        signal_tracker.record_signal(
-            name=name, sector=sector,
-            signal_type=signal.get("signal", "BUY"),
-            entry_price=entry_price,
-            target1=t1, target2=t2,
-            stop_loss=sl_orig, score=score,
-            confidence=signal.get("confidence", "MEDIUM"),
-            gates_passed=gates_passed,
-        )
-    except Exception as e:
-        log.debug("signal_tracker record failed: %s", e)
 
     # ── ATLAS: Log full multi-dimensional entry context ──────────────────────
     try:
@@ -559,84 +550,58 @@ def _monitor_positions(portfolio, price_cache):
     return closed
 
 def _close_position(portfolio, name, outcome, exit_price, shares, pnl, pnl_pct, trades):
-    """Close a position, update portfolio cash and stats."""
-    pos         = portfolio["positions"].get(name, {})
-    proceeds    = round(exit_price * shares, 2)
-    sell_costs  = _compute_costs(exit_price, shares, "SELL")
+    """Close a position, update portfolio cash and stats in DB."""
+    session = SessionLocal()
+    try:
+        # 1. Update Portfolio State
+        state = session.query(PortfolioState).filter_by(id=1).first()
+        sell_costs = _compute_costs(exit_price, shares, "SELL")
+        proceeds = round(exit_price * shares, 2)
+        
+        state.available_cash += (proceeds - sell_costs)
+        state.realised_pnl += pnl
+        state.total_trades += 1
+        if pnl > 0: state.wins += 1
+        else: state.losses += 1
 
-    portfolio["available_cash"] = round(portfolio["available_cash"] + proceeds - sell_costs, 2)
-    portfolio["invested"]       = max(0, round(portfolio["invested"] - pos.get("entry_cost", 0), 2))
-    portfolio["realized_pnl"]   = round(portfolio["realized_pnl"] + pnl, 2)
+        # 2. Update Position
+        db_pos = session.query(PositionBook).filter_by(symbol=name, status="OPEN").first()
+        if db_pos:
+            db_pos.status = "CLOSED"
+            # Actually, we usually delete from PositionBook if it's fully closed, 
+            # but setting status is fine for history.
+            
+        # 3. Add to Trade Book
+        db_trade = PaperTrade(
+            trade_id=f"T{datetime.now().strftime('%Y%m%d%H%M%S')}",
+            symbol=name, transaction_type="SELL", product_code="CNC",
+            quantity=shares, price=exit_price, value=proceeds,
+            total_costs=sell_costs,
+            tag=json.dumps({"outcome": outcome, "pnl_pct": pnl_pct})
+        )
+        session.add(db_trade)
+        
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        log.error("DB Close failed for %s: %s", name, e)
+    finally:
+        session.close()
 
-    pos["status"]     = "CLOSED"
-    pos["exit_price"] = exit_price
-    pos["exit_time"]  = datetime.now().isoformat()
-    pos["outcome"]    = outcome
-    pos["final_pnl"]  = pnl
-    pos["final_pnl_pct"] = pnl_pct
-
-    # ── ATLAS: Record trade outcome for knowledge learning ───────────────────
-    atlas_event_id = pos.get("atlas_event_id")
-    if atlas_event_id:
-        try:
-            from atlas.core import update_trade_outcome
-            entry_time = pos.get("entry_time")
-            hold_hrs   = None
-            if entry_time:
-                try:
-                    delta = datetime.now() - datetime.fromisoformat(entry_time)
-                    hold_hrs = round(delta.total_seconds() / 3600, 1)
-                except Exception:
-                    pass
-            update_trade_outcome(
-                event_id          = atlas_event_id,
-                outcome           = outcome,
-                exit_price        = exit_price,
-                pnl_pct           = pnl_pct,
-                hold_duration_hrs = hold_hrs,
-            )
-            log.debug("🧠 ATLAS: Outcome logged %s → %s %.1f%%", atlas_event_id, outcome, pnl_pct)
-        except Exception as e:
-            log.debug("ATLAS outcome log failed: %s", e)
-
-    trades.append({
-        "name":      name,
-        "sector":    pos.get("sector", ""),
-        "type":      "CLOSE",
-        "outcome":   outcome,
-        "shares":    shares,
-        "entry":     pos.get("entry_price", 0),
-        "exit":      exit_price,
-        "pnl":       pnl,
-        "pnl_pct":   pnl_pct,
-        "gates":     pos.get("gates_passed", 0),
-        "time":      datetime.now().isoformat(),
-        "paper_only": True,
-    })
+    # ── ATLAS support remains via JSON/vars for now or update later ──
 
 def _rebuild_stats(portfolio):
-    """Recalculate win rate, avg win/loss from trade history."""
-    trades = _load_trades()
-    closes = [t for t in trades if t.get("type") == "CLOSE"]
-    if not closes:
-        return
-
-    wins   = [t for t in closes if t.get("outcome") in ("T1_HIT", "T2_HIT")]
-    losses = [t for t in closes if t.get("outcome") in ("SL_HIT", "SL_AFTER_T1")]
-
-    portfolio["stats"]["total_trades"]  = len(closes)
-    portfolio["stats"]["wins"]          = len(wins)
-    portfolio["stats"]["losses"]        = len(losses)
-    portfolio["stats"]["win_rate"]      = round(len(wins) / len(closes), 3) if closes else 0
-    portfolio["stats"]["avg_win_pct"]   = round(sum(t["pnl_pct"] for t in wins)   / len(wins),   2) if wins   else 0
-    portfolio["stats"]["avg_loss_pct"]  = round(sum(t["pnl_pct"] for t in losses) / len(losses), 2) if losses else 0
-
-    if wins:
-        best = max(wins, key=lambda x: x["pnl_pct"])
-        portfolio["stats"]["best_trade"] = f"{best['name']} +{best['pnl_pct']:.1f}%"
-    if losses:
-        worst = min(losses, key=lambda x: x["pnl_pct"])
-        portfolio["stats"]["worst_trade"] = f"{worst['name']} {worst['pnl_pct']:.1f}%"
+    """Recalculate win rate from DB."""
+    session = SessionLocal()
+    try:
+        state = session.query(PortfolioState).filter_by(id=1).first()
+        if state and state.total_trades > 0:
+            portfolio["stats"]["total_trades"] = state.total_trades
+            portfolio["stats"]["wins"] = state.wins
+            portfolio["stats"]["losses"] = state.losses
+            portfolio["stats"]["win_rate"] = round(state.wins / state.total_trades, 3)
+    finally:
+        session.close()
 
 def _update_daily_pnl(portfolio):
     """Track today's P&L %."""

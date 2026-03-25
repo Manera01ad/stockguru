@@ -35,8 +35,12 @@ import time
 import schedule
 from datetime import datetime
 from dotenv import load_dotenv
+load_dotenv()
+if not os.getenv('ANTHROPIC_API_KEY'):
+    os.environ['ANTHROPIC_API_KEY'] = 'disabled'
 import logging
 from logging.handlers import RotatingFileHandler
+logging.getLogger('yfinance').setLevel(logging.CRITICAL)
 
 # ── AGENT IMPORTS ─────────────────────────────────────────────────────────────
 _agents_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stockguru_agents")
@@ -52,6 +56,7 @@ try:
         pattern_memory, paper_trader, earnings_calendar,
         spike_detector,
     )
+    from orchestrator import AgentOrchestrator
     AGENTS_AVAILABLE = True
 except ImportError as _e:
     AGENTS_AVAILABLE = False
@@ -147,7 +152,6 @@ except Exception as _conx:
     CONNECTORS_AVAILABLE = False
     logging.warning(f"Connectors not loaded: {_conx}")
 
-load_dotenv()
 
 # ── AUTO-LOAD keys from LOCAL_KEYS_PATH if set ───────────────────────────────
 # If the user has configured a custom folder path (saved as LOCAL_KEYS_PATH in
@@ -361,6 +365,38 @@ shared_state = {
     "builder_output":   {},
 }
 agent_is_running = False
+orchestrator = None
+
+if AGENTS_AVAILABLE:
+    orchestrator = AgentOrchestrator(shared_state)
+    orchestrator.register_agent("market_scanner", market_scanner, required=True)
+    orchestrator.register_agent("news_sentiment", news_sentiment, required=True)
+    orchestrator.register_agent("trade_signal", trade_signal, required=True)
+    orchestrator.register_agent("commodity_crypto", commodity_crypto)
+    orchestrator.register_agent("morning_brief", morning_brief)
+    orchestrator.register_agent("technical_analysis", technical_analysis)
+    orchestrator.register_agent("institutional_flow", institutional_flow)
+    orchestrator.register_agent("options_flow", options_flow)
+    orchestrator.register_agent("claude_intelligence", claude_intelligence)
+    orchestrator.register_agent("web_researcher", web_researcher)
+    orchestrator.register_agent("sector_rotation", sector_rotation)
+    orchestrator.register_agent("risk_manager", risk_manager, required=True)
+    orchestrator.register_agent("pattern_memory", pattern_memory)
+    orchestrator.register_agent("paper_trader", paper_trader, required=True)
+    orchestrator.register_agent("earnings_calendar", earnings_calendar)
+    orchestrator.register_agent("spike_detector", spike_detector)
+    # Sovereign Layer
+    orchestrator.register_agent("scryer", scryer)
+    orchestrator.register_agent("quant", quant)
+    orchestrator.register_agent("risk_master", risk_master)
+    orchestrator.register_agent("debate_engine", debate_engine)
+    orchestrator.register_agent("post_mortem", post_mortem)
+    # Sovereign Phase 2
+    if SOVEREIGN_PHASE2_AVAILABLE:
+        orchestrator.register_agent("observer", observer)
+        orchestrator.register_agent("builder_agent", builder_agent)
+        orchestrator.register_agent("synthetic_backtester", synthetic_backtester)
+
 
 # ── PRICE FETCHER ─────────────────────────────────────────────────────────────
 def fetch_yahoo_price(symbol):
@@ -911,7 +947,8 @@ def run_all_agents():
         # ── TIER 1: DATA AGENTS ───────────────────────────────────────────────
         log.info("─── TIER 1: Data Collection ──────────────────────────────────")
         _log("── TIER 1: Data Collection ──────────────────────────")
-        _st("commodity",  "running"); commodity_crypto.run(shared_state);       _st("commodity",  "done")
+        
+        orchestrator.execute_agent("commodity_crypto")
         _log(f"   Gold={shared_state.get('commodity_results',[{}])[0].get('price','?')} | Crude={shared_state.get('commodity_results',[{},{}])[1].get('price','?') if len(shared_state.get('commodity_results',[]))>1 else '?'}")
         _comms = shared_state.get("commodity_results", [])
         _gold  = next((c for c in _comms if "GOLD" in c.get("symbol","").upper()), {})
@@ -922,7 +959,8 @@ def run_all_agents():
               f"Commodity macro: Gold {'at ATH — safety bid active' if _gold.get('change_pct',0)>0.5 else 'stable — no panic'} | "
               f"Crude {'falling — margin tailwind for aviation/FMCG' if _crude.get('change_pct',0)<-0.5 else 'elevated — cost pressure on downstream'} | Sentiment={_comm_sent}",
               data={"gold_price": _gold.get("price"), "crude_price": _crude.get("price"), "sentiment": _comm_sent})
-        _st("news",       "running"); news_sentiment.run(shared_state);          _st("news",       "done")
+        
+        orchestrator.execute_agent("news_sentiment")
         _log(f"   News sentiment: {shared_state.get('market_sentiment_score',0):+.0f} | {len(shared_state.get('news_results',[]))} headlines | {'LLM+keyword' if any(n.get('scored_by')=='llm+keyword' for n in shared_state.get('news_results',[])) else 'keyword'}")
         _news_score = shared_state.get("market_sentiment_score", 0)
         _headlines  = [n.get("title","")[:60] for n in shared_state.get("news_results",[])[:3]]
@@ -933,7 +971,8 @@ def run_all_agents():
                "Strong negative flow — risk-off. Watch for downside pressure." if _news_score < -2 else
                "Mixed/neutral flow — no directional bias. Wait for confirmation."),
               level=_news_lvl, data={"score": _news_score, "headlines": _headlines})
-        _st("scanner",    "running"); market_scanner.run(shared_state);          _st("scanner",    "done")
+        
+        orchestrator.execute_agent("market_scanner")
         _log(f"   Scanner: {len(shared_state.get('scanner_results',[]))} stocks ranked")
         _scan_top = shared_state.get("scanner_results", [])[:5]
         _scan_names = [f"{s.get('name','?')}({s.get('score',0)})" for s in _scan_top]
@@ -944,50 +983,50 @@ def run_all_agents():
               f"Top pick: {_scan_top[0].get('name','?')} score={_scan_top[0].get('score',0)} sector={_scan_top[0].get('sector','?')}" if _scan_top else "No stocks passed screener filters.",
               data={"top_stocks": [{"name": s.get("name"), "score": s.get("score"), "sector": s.get("sector"), "change_pct": s.get("change_pct")} for s in _scan_top]})
         # Spike detection + Pre-Spike scan — runs after price_cache is populated
+        orchestrator.execute_agent("spike_detector", _send_tg)
+        # Pre-Spike Detector: catch conditions BEFORE the actual spike fires
         try:
-            spike_detector.run(shared_state, _send_tg)
-            # Pre-Spike Detector: catch conditions BEFORE the actual spike fires
-            try:
-                pre_spikes = spike_detector.scan_pre_spikes(shared_state, _send_tg)
-                if pre_spikes:
-                    _log(f"   ⚡ PreSpike: {len(pre_spikes)} setup(s) — {', '.join(p.get('symbol','?') for p in pre_spikes)}", "warn")
-                    for _psp in pre_spikes:
-                        _emit("scanner", "⚡", f"PRE-SPIKE: {_psp.get('symbol','?')} | Score {_psp.get('score',0)}/100",
-                              "PRE-SPIKE SETUP",
-                              f"Pre-spike forensics ({_psp.get('signals_count',0)} signals): {_psp.get('reason','')}. "
-                              "Theory: 4+ concurrent signals (OI velocity, vol surge, IV build, PCR flip, EMA reclaim) = explosive move likely within 15-45 min. "
-                              "Enter small position with tight SL BEFORE the spike, not after.",
-                              action="PRE_SPIKE", level="alert",
-                              data={"symbol": _psp.get("symbol"), "score": _psp.get("score"),
-                                    "signals": _psp.get("signals", [])[:3]})
-            except Exception as _pse:
-                log.debug("scan_pre_spikes: %s", _pse)
-            spikes = shared_state.get("spike_alerts", [])
-            if spikes:
-                _log(f"   🚨 SpikeDetector: {len(spikes)} alert(s) — {', '.join(s.get('symbol','?') for s in spikes)}", "warn")
-                for _sp in spikes:
-                    _emit("scanner", "🚨", f"SPIKE: {_sp.get('symbol','?')} | Score {_sp.get('spike_score',0)}",
-                          "SPIKE ALERT",
-                          f"Pre-spike signals: OI surge={_sp.get('oi_velocity','?')} | Vol={_sp.get('vol_ratio','?')}x avg | "
-                          f"PCR={_sp.get('pcr','?')} | Trigger: {_sp.get('trigger_reason','momentum break')}. "
-                          "When OI builds rapidly while price coils, explosive directional move is imminent — enter before breakout.",
-                          action="SPIKE_ALERT", level="alert",
-                          data={"symbol": _sp.get("symbol"), "score": _sp.get("spike_score"), "type": _sp.get("type","?")})
-            else:
-                _log("   ⚡ SpikeDetector: clean cycle")
-        except Exception as e:
-            log.warning("spike_detector failed: %s", e)
+            pre_spikes = spike_detector.scan_pre_spikes(shared_state, _send_tg)
+            if pre_spikes:
+                _log(f"   ⚡ PreSpike: {len(pre_spikes)} setup(s) — {', '.join(p.get('symbol','?') for p in pre_spikes)}", "warn")
+                for _psp in pre_spikes:
+                    _emit("scanner", "⚡", f"PRE-SPIKE: {_psp.get('symbol','?')} | Score {_psp.get('score',0)}/100",
+                          "PRE-SPIKE SETUP",
+                          f"Pre-spike forensics ({_psp.get('signals_count',0)} signals): {_psp.get('reason','')}. "
+                          "Theory: 4+ concurrent signals (OI velocity, vol surge, IV build, PCR flip, EMA reclaim) = explosive move likely within 15-45 min. "
+                          "Enter small position with tight SL BEFORE the spike, not after.",
+                          action="PRE_SPIKE", level="alert",
+                          data={"symbol": _psp.get("symbol"), "score": _psp.get("score"),
+                                "signals": _psp.get("signals", [])[:3]})
+        except Exception as _pse:
+            log.debug("scan_pre_spikes: %s", _pse)
+        spikes = shared_state.get("spike_alerts", [])
+        if spikes:
+            _log(f"   🚨 SpikeDetector: {len(spikes)} alert(s) — {', '.join(s.get('symbol','?') for s in spikes)}", "warn")
+            for _sp in spikes:
+                _emit("scanner", "🚨", f"SPIKE: {_sp.get('symbol','?')} | Score {_sp.get('spike_score',0)}",
+                    "SPIKE ALERT",
+                    f"Pre-spike signals: OI surge={_sp.get('oi_velocity','?')} | Vol={_sp.get('vol_ratio','?')}x avg | "
+                    f"PCR={_sp.get('pcr','?')} | Trigger: {_sp.get('trigger_reason','momentum break')}. "
+                    "When OI builds rapidly while price coils, explosive directional move is imminent — enter before breakout.",
+                    action="SPIKE_ALERT", level="alert",
+                    data={"symbol": _sp.get("symbol"), "score": _sp.get("spike_score"), "type": _sp.get("type","?")})
+        else:
+            _log("   ⚡ SpikeDetector: clean cycle")
         _st("calendar",   "running")
         try:    earnings_calendar.run(shared_state); _st("calendar", "done"); _log(f"   Events calendar: {shared_state.get('events_calendar',{}).get('total_events',0)} events | {len(shared_state.get('events_calendar',{}).get('watchlist_alerts',[]))} watchlist matches")
         except Exception as e: log.warning("earnings_calendar: %s", e); _st("calendar", "error")
 
-        for agent_name, agent_mod in [("technical",  technical_analysis),
-                                       ("institutional",  institutional_flow),
-                                       ("options",    options_flow),
-                                       ("sector", sector_rotation)]:
-            _st(agent_name, "running")
-            try:
-                agent_mod.run(shared_state); _st(agent_name, "done")
+        for agent_name in ["technical", "institutional", "options", "sector"]:
+            # Map agent names to registered names in orchestrator
+            reg_name = {
+                "technical": "technical_analysis",
+                "institutional": "institutional_flow",
+                "options": "options_flow",
+                "sector": "sector_rotation"
+            }.get(agent_name, agent_name)
+
+            if orchestrator.execute_agent(reg_name):
                 if agent_name == "technical":
                     _tech = shared_state.get("technical_data", {})
                     _tech_names = list(_tech.keys())[:4]
@@ -1031,8 +1070,6 @@ def run_all_agents():
                           "Banking+IT leading = broad recovery. Defence+Gold leading = risk-off. "
                           "Align stock picks with sector momentum for +10-15% alpha on top of stock selection.",
                           data={"top_sectors": _top_sec})
-            except Exception as e:
-                log.error("%s failed: %s", agent_name, e); _st(agent_name, "error")
 
         # ── OI WALL APPROACH TELEGRAM ALERTS ─────────────────────────────────
         for wall_alert in shared_state.get("oi_wall_alerts", []):
@@ -1054,22 +1091,17 @@ def run_all_agents():
         # ── TIER 2: LLM BRAIN ─────────────────────────────────────────────────
         log.info("─── TIER 2: LLM Intelligence ─────────────────────────────────")
         _log("── TIER 2: LLM Brain ────────────────────────────────")
-        _st("claude", "running")
-        try:
-            if routing.get("run_llm", True):
-                claude_intelligence.run(shared_state); _st("claude", "done")
+        if routing.get("run_llm", True):
+            if orchestrator.execute_agent("claude_intelligence"):
                 ca = shared_state.get("claude_analysis", {})
                 _log(f"   Market: {ca.get('market_condition','?')} | Stance: {ca.get('market_stance','?')} | Picks: {len(ca.get('conviction_picks',[]))}")
-            else:
-                _st("claude", "done")
-                _log(f"   ⏭ LLM skipped by AgentRouter (cycle saved)")
-                _emit("claude", "🤖", "LLM skipped this cycle (AgentRouter efficiency save)",
-                      "SKIPPED", "AgentRouter determined data confidence is high enough to reuse prior LLM analysis. "
-                      "LLM calls skipped when: last cycle <15min ago + sentiment unchanged + no high-impact news. "
-                      "Saves ~$0.003/cycle. Prior conviction picks still active.", action="skipped")
-        except Exception as e:
-            log.error("claude_intelligence: %s", e); _st("claude", "error")
-            _log(f"   ⚠ Claude error: {e}", "error")
+        else:
+            shared_state["agent_status"]["claude_intelligence"] = "done"
+            _log(f"   ⏭ LLM skipped by AgentRouter (cycle saved)")
+            _emit("claude", "🤖", "LLM skipped this cycle (AgentRouter efficiency save)",
+                  "SKIPPED", "AgentRouter determined data confidence is high enough to reuse prior LLM analysis. "
+                  "LLM calls skipped when: last cycle <15min ago + sentiment unchanged + no high-impact news. "
+                  "Saves ~$0.003/cycle. Prior conviction picks still active.", action="skipped")
         # ── EMIT: Claude reasoning ──
         ca = shared_state.get("claude_analysis", {})
         if ca and ca.get("market_condition"):
@@ -1088,7 +1120,7 @@ def run_all_agents():
         # ── TIER 3: STRATEGY ──────────────────────────────────────────────────
         log.info("─── TIER 3: Strategy & Risk ──────────────────────────────────")
         _log("── TIER 3: Strategy & Risk ──────────────────────────")
-        _st("signals", "running"); trade_signal.run(shared_state); _st("signals", "done")
+        orchestrator.execute_agent("trade_signal")
         _log(f"   Signals: {len(shared_state.get('actionable_signals',[]))} actionable")
         # ── EMIT: Trade signals reasoning ──
         _act_sigs = shared_state.get("actionable_signals", [])
@@ -1105,11 +1137,9 @@ def run_all_agents():
                   level="alert", data={"actionable": len(_act_sigs), "total": len(_all_sigs),
                     "top_signals": [{"name": s.get("name"), "score": s.get("score"), "rr": s.get("rr_t1"), "sector": s.get("sector")} for s in _act_sigs[:5]]})
 
-        for agent_name, agent_mod in [("risk",         risk_manager),
-                                       ("web_researcher", web_researcher)]:
-            _st(agent_name, "running")
-            try:
-                agent_mod.run(shared_state); _st(agent_name, "done")
+        for agent_name in ["risk", "web_researcher"]:
+            reg_name = "risk_manager" if agent_name == "risk" else agent_name
+            if orchestrator.execute_agent(reg_name):
                 if agent_name == "risk":
                     _rev = shared_state.get("risk_reviewed_signals", [])
                     _risk_mode = shared_state.get("risk_summary", {}).get("vix_status", "NORMAL")
@@ -1127,15 +1157,12 @@ def run_all_agents():
                           "Detects: regulatory headwinds, order wins, capacity expansions, management changes. "
                           "Adds qualitative layer that pure technical/quant scoring misses.",
                           data={"researched": len(_web_r) if isinstance(_web_r, dict) else 0})
-            except Exception as e:
-                log.error("%s failed: %s", agent_name, e); _st(agent_name, "error")
 
         # ── TIER 4: PAPER TRADING + LEARNING ─────────────────────────────────
         log.info("─── TIER 4: Paper Trading & Learning ────────────────────────")
         _log("── TIER 4: Paper Trading & Learning ─────────────────")
         _st("paper", "running")
-        try:
-            paper_trader.run(shared_state, price_cache); _st("paper", "done")
+        if orchestrator.execute_agent("paper_trader", price_cache):
             port = shared_state.get("paper_portfolio", {})
             open_pos = len([p for p in port.get("positions",{}).values() if p.get("status")=="OPEN"])
             _log(f"   Paper: {open_pos} open positions | Win rate: {port.get('stats',{}).get('win_rate',0)*100:.0f}%")
@@ -1155,11 +1182,8 @@ def run_all_agents():
                   data={"open_positions": open_pos, "win_rate": _win_rate, "realized_pnl": _realized,
                         "recent_decisions": [{"symbol": d.get("symbol"), "result": d.get("result"),
                                               "gates": d.get("gates_passed")} for d in (_new_trades[-5:] if _new_trades else [])]})
-        except Exception as e: log.error("paper_trader: %s", e); _st("paper", "error"); _log(f"   ⚠ Paper trader error: {e}", "error")
-
-        _st("patterns", "running")
-        try:    pattern_memory.run(shared_state); _st("patterns", "done")
-        except Exception as e: log.error("pattern_memory: %s", e); _st("patterns", "error")
+        
+        orchestrator.execute_agent("pattern_memory")
 
         # ── CONNECTORS: chart patterns + risk analytics ───────────────────────
         if _patterns:
@@ -1187,7 +1211,7 @@ def run_all_agents():
             try: weight_adjuster.adjust_weights()
             except Exception as e: log.debug("weight_adjuster: %s", e)
 
-        _st("brief", "running"); morning_brief.run(shared_state, _send_tg, _send_n8n); _st("brief", "done")
+        orchestrator.execute_agent("morning_brief", _send_tg, _send_n8n)
 
         # Alert on high-conviction AI picks
         claude_a  = shared_state.get("claude_analysis", {})
@@ -1205,9 +1229,9 @@ def run_all_agents():
         if SOVEREIGN_AVAILABLE:
             try:
                 _log("── TIER 5: Sovereign Layer ──────────────────────────────────────")
-                _st("scryer",      "running"); scryer.run(shared_state);      _st("scryer",      "done")
-                _st("quant",       "running"); quant.run(shared_state);       _st("quant",       "done")
-                _st("risk_master", "running"); risk_master.run(shared_state, _send_tg); _st("risk_master", "done")
+                orchestrator.execute_agent("scryer")
+                orchestrator.execute_agent("quant")
+                orchestrator.execute_agent("risk_master", _send_tg)
 
                 q_out  = shared_state.get("quant_output", {})
                 rm_out = shared_state.get("risk_master_output", {})
@@ -1246,19 +1270,14 @@ def run_all_agents():
                             try: paper_trader._enter_position(_sig, 7, {}, shared_state.get("paper_portfolio",{}), shared_state.get("_price_cache",{}), shared_state)
                             except Exception as _pe: log.debug("Sovereign auto-exec cleared %s: %s", _s, _pe)
 
-                _st("post_mortem", "running"); post_mortem.run(shared_state); _st("post_mortem", "done")
+                orchestrator.execute_agent("post_mortem")
                 hitl_controller.check_queue_expiry(shared_state, _send_tg)
 
                 # Phase 2: inline synthetic backtest when positions are open
                 if SOVEREIGN_PHASE2_AVAILABLE:
                     _port = shared_state.get("paper_portfolio", {})
                     if _port.get("positions"):
-                        _st("backtester", "running")
-                        try:
-                            synthetic_backtester.run(shared_state)
-                        except Exception as _bte:
-                            log.warning("Backtester inline error: %s", _bte)
-                        _st("backtester", "done")
+                        orchestrator.execute_agent("backtester")
 
                 _log(f"✅ Sovereign: auto={len(rm_out.get('cleared_auto',[]))} | HITL={len(q_out.get('hitl_candidates',[]))} | debate={len(q_out.get('debate_candidates',[]))}", "done")
             except Exception as _sov_e:
