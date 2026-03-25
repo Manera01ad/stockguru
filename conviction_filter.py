@@ -121,15 +121,27 @@ class ConvictionFilter:
         'minimum_gates_to_execute': 6,     # Minimum gates to pass
     }
 
-    def __init__(self, db_session=None):
+    def __init__(self, db_session=None, shared_state=None):
         """
         Initialize conviction filter
 
         Args:
             db_session: SQLAlchemy session for logging to ConvictionAudit table
+            shared_state: Global shared state for dynamic threshold access (Phase 5)
         """
         self.db_session = db_session
+        self.shared_state = shared_state
         self.gate_results: List[GateEvaluation] = []
+        
+        # Phase 5: Dynamic Threshold Override
+        # Use a copy of the static THRESHOLDS as a baseline for instance-specific overrides
+        self.active_thresholds = self.THRESHOLDS.copy()
+        
+        if self.shared_state and self.shared_state.get("active_gate_thresholds"):
+            overrides = self.shared_state["active_gate_thresholds"]
+            if isinstance(overrides, dict):
+                logger.info("ConvictionFilter: Applying %d dynamic threshold overrides", len(overrides))
+                self.active_thresholds.update(overrides)
 
     def evaluate_signal(self, signal_context: Dict) -> Tuple[bool, ConvictionAuditRecord]:
         """
@@ -197,7 +209,7 @@ class ConvictionFilter:
             conviction_level = ConvictionLevel.LOW.value
 
         # Determine if trade should execute
-        should_execute = gates_passed >= self.THRESHOLDS['minimum_gates_to_execute']
+        should_execute = gates_passed >= self.active_thresholds['minimum_gates_to_execute']
         decision = signal_context['decision'] if should_execute else "REJECTED"
         rejection_reason = None
 
@@ -255,7 +267,7 @@ class ConvictionFilter:
         above_200dma = signal_context.get('above_200dma', False)
 
         passed = (
-            self.THRESHOLDS['gate_1_rsi_min'] <= rsi <= self.THRESHOLDS['gate_1_rsi_max'] and
+            self.active_thresholds['gate_1_rsi_min'] <= rsi <= self.active_thresholds['gate_1_rsi_max'] and
             macd_positive and
             above_200dma
         )
@@ -270,7 +282,7 @@ class ConvictionFilter:
             gate_name="Technical Setup",
             passed=passed,
             value=rsi,
-            threshold=f"{self.THRESHOLDS['gate_1_rsi_min']}-{self.THRESHOLDS['gate_1_rsi_max']}",
+            threshold=f"{self.active_thresholds['gate_1_rsi_min']}-{self.active_thresholds['gate_1_rsi_max']}",
             reason=reason
         ))
 
@@ -288,16 +300,16 @@ class ConvictionFilter:
         avg_volume = signal_context.get('avg_volume', 1)
 
         volume_ratio = volume / avg_volume if avg_volume > 0 else 0
-        passed = volume_ratio >= self.THRESHOLDS['gate_2_volume_multiplier']
+        passed = volume_ratio >= self.active_thresholds['gate_2_volume_multiplier']
 
-        reason = f"Volume ratio: {volume_ratio:.2f}x (threshold: {self.THRESHOLDS['gate_2_volume_multiplier']}x)"
+        reason = f"Volume ratio: {volume_ratio:.2f}x (threshold: {self.active_thresholds['gate_2_volume_multiplier']}x)"
 
         self.gate_results.append(GateEvaluation(
             gate_number=2,
             gate_name="Volume Confirmation",
             passed=passed,
             value=volume_ratio,
-            threshold=self.THRESHOLDS['gate_2_volume_multiplier'],
+            threshold=self.active_thresholds['gate_2_volume_multiplier'],
             reason=reason
         ))
 
@@ -316,16 +328,16 @@ class ConvictionFilter:
         target_decision = signal_context.get('decision', 'BUY')
 
         matching_votes = sum(1 for vote in agent_votes if vote == target_decision)
-        passed = matching_votes >= self.THRESHOLDS['gate_3_consensus_min']
+        passed = matching_votes >= self.active_thresholds['gate_3_consensus_min']
 
-        reason = f"{matching_votes}/{len(agent_votes)} agents agree (threshold: {self.THRESHOLDS['gate_3_consensus_min']})"
+        reason = f"{matching_votes}/{len(agent_votes)} agents agree (threshold: {self.active_thresholds['gate_3_consensus_min']})"
 
         self.gate_results.append(GateEvaluation(
             gate_number=3,
             gate_name="Multi-Agent Consensus",
             passed=passed,
             value=matching_votes,
-            threshold=self.THRESHOLDS['gate_3_consensus_min'],
+            threshold=self.active_thresholds['gate_3_consensus_min'],
             reason=reason
         ))
 
@@ -352,16 +364,16 @@ class ConvictionFilter:
             risk = abs(entry_price - stop_loss)
 
             rr_ratio = reward / risk if risk > 0 else 0
-            passed = rr_ratio >= self.THRESHOLDS['gate_4_rr_ratio_min']
+            passed = rr_ratio >= self.active_thresholds['gate_4_rr_ratio_min']
 
-            reason = f"R:R ratio: {rr_ratio:.2f}:{1} (threshold: {self.THRESHOLDS['gate_4_rr_ratio_min']}:1)"
+            reason = f"R:R ratio: {rr_ratio:.2f}:{1} (threshold: {self.active_thresholds['gate_4_rr_ratio_min']}:1)"
 
         self.gate_results.append(GateEvaluation(
             gate_number=4,
             gate_name="Risk/Reward Ratio",
             passed=passed,
             value=rr_ratio if entry_price > 0 else 0,
-            threshold=self.THRESHOLDS['gate_4_rr_ratio_min'],
+            threshold=self.active_thresholds['gate_4_rr_ratio_min'],
             reason=reason
         ))
 
@@ -385,8 +397,8 @@ class ConvictionFilter:
 
         # Skip open (0-4), lunch (180-184), close (355-359)
         passed = not (
-            (minute <= self.THRESHOLDS['gate_5_time_open_min'] or
-             minute >= 355 - self.THRESHOLDS['gate_5_time_close_min'])
+            (minute <= self.active_thresholds['gate_5_time_open_min'] or
+             minute >= 355 - self.active_thresholds['gate_5_time_close_min'])
         )
 
         time_period = self._minute_to_time(minute)
@@ -415,8 +427,8 @@ class ConvictionFilter:
         dii_flow = signal_context.get('dii_flow', 0)
 
         passed = (
-            fii_flow > self.THRESHOLDS['gate_6_fii_threshold'] and
-            dii_flow > self.THRESHOLDS['gate_6_dii_threshold']
+            fii_flow > self.active_thresholds['gate_6_fii_threshold'] and
+            dii_flow > self.active_thresholds['gate_6_dii_threshold']
         )
 
         reason = f"FII: {fii_flow:+.0f}Cr, DII: {dii_flow:+.0f}Cr - Both positive: {'✓' if passed else '✗'}"
@@ -444,13 +456,13 @@ class ConvictionFilter:
         breaking_news_count = signal_context.get('breaking_news_count', 0)
 
         passed = (
-            news_sentiment >= self.THRESHOLDS['gate_7_sentiment_min'] and
+            news_sentiment >= self.active_thresholds['gate_7_sentiment_min'] and
             breaking_news_count == 0
         )
 
         reason = (
             f"Sentiment: {news_sentiment:.2f} "
-            f"(threshold: {self.THRESHOLDS['gate_7_sentiment_min']}), "
+            f"(threshold: {self.active_thresholds['gate_7_sentiment_min']}), "
             f"Breaking news: {breaking_news_count}"
         )
 
@@ -459,7 +471,7 @@ class ConvictionFilter:
             gate_name="News Sentiment",
             passed=passed,
             value=news_sentiment,
-            threshold=self.THRESHOLDS['gate_7_sentiment_min'],
+            threshold=self.active_thresholds['gate_7_sentiment_min'],
             reason=reason
         ))
 
@@ -476,16 +488,16 @@ class ConvictionFilter:
         """
         vix = signal_context.get('vix', 20)
 
-        passed = vix < self.THRESHOLDS['gate_8_vix_max']
+        passed = vix < self.active_thresholds['gate_8_vix_max']
 
-        reason = f"VIX: {vix:.1f} (threshold: < {self.THRESHOLDS['gate_8_vix_max']})"
+        reason = f"VIX: {vix:.1f} (threshold: < {self.active_thresholds['gate_8_vix_max']})"
 
         self.gate_results.append(GateEvaluation(
             gate_number=8,
             gate_name="VIX Check",
             passed=passed,
             value=vix,
-            threshold=self.THRESHOLDS['gate_8_vix_max'],
+            threshold=self.active_thresholds['gate_8_vix_max'],
             reason=reason
         ))
 

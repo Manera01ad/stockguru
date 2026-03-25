@@ -134,6 +134,62 @@ class PortfolioHistory(Base):
     open_pnl = Column(Float)
     realised_pnl = Column(Float)
 
+# ── PHASE 5: SELF-HEALING & ADAPTIVE STRATEGY ──────────────────────────────────
+
+class SelfHealingSession(Base):
+    """Logs each optimization cycle run by the Learning Engine."""
+    __tablename__ = 'learning_sessions'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    trades_analyzed = Column(Integer)
+    regime_detected = Column(String)  # TRENDING, RANGING, VOLATILE
+    avg_win_rate = Column(Float)
+    expected_improvement = Column(Float)
+    status = Column(String) # COMPLETED, ERROR
+
+class GatePerformance(Base):
+    """Statistically derived effectiveness of each conviction gate."""
+    __tablename__ = 'gate_performance'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    session_id = Column(Integer, index=True)
+    gate_name = Column(String) # gate_1_technical, etc.
+    true_positive_rate = Column(Float) # Gate passed + Trade Won
+    false_positive_rate = Column(Float) # Gate passed + Trade Lost
+    predictive_power = Column(Float) # Weighted score 0.0 - 1.0
+    last_updated = Column(DateTime, default=datetime.utcnow)
+
+class DynamicThreshold(Base):
+    """Current 'Self-Healed' optimal threshold values for the core engine."""
+    __tablename__ = 'dynamic_thresholds'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    param_name = Column(String, unique=True) # MIN_RR, MIN_VOLUME_Z, etc.
+    current_value = Column(Float)
+    previous_value = Column(Float)
+    confidence_score = Column(Float) # 0.0 - 1.0 based on sample size
+    applied_at = Column(DateTime, default=datetime.utcnow)
+    is_active = Column(Integer, default=1)
+
+class RiskOptimization(Base):
+    """Suggested risk-parameter deviations based on recent performance."""
+    __tablename__ = 'risk_optimizations'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    market_regime = Column(String)
+    suggested_sl_mult = Column(Float) # e.g. 1.2x usual ATR
+    suggested_tp_mult = Column(Float)
+    max_drawdown_limit = Column(Float)
+    notes = Column(Text)
+
+class MarketRegimeHistory(Base):
+    """Historical record of changing market conditions."""
+    __tablename__ = 'regime_history'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    regime = Column(String)
+    vix_level = Column(Float)
+    breadth_ratio = Column(Float)
+    dominance = Column(String) # BULLS, BEARS, TUG_OF_WAR
+
 # Database Engine Setup
 DB_PATH = "sqlite:///stockguru.db"
 engine = create_engine(DB_PATH, echo=False)

@@ -251,7 +251,7 @@ def _check_gates(signal, shared_state):
     # 2. Evaluate
     session = SessionLocal()
     try:
-        cf = ConvictionFilter(db_session=session)
+        cf = ConvictionFilter(db_session=session, shared_state=shared_state)
         should_execute, audit = cf.evaluate_signal(context)
         
         # Bridge to old return format for compatibility

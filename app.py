@@ -17,6 +17,7 @@ from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from functools import wraps
+from dataclasses import asdict
 
 # ── WEBSOCKET (Flask-SocketIO + gevent) ───────────────────────────────────────
 try:
@@ -98,6 +99,21 @@ except ImportError as _se:
 try:
     from sovereign import observer, synthetic_backtester, builder_agent
     SOVEREIGN_PHASE2_AVAILABLE = True
+except ImportError:
+    SOVEREIGN_PHASE2_AVAILABLE = False
+
+# ── PHASE 5: SELF-HEALING SYSTEM (Adaptive Strategy) ──────────────────────────
+_self_healing_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "phase5_self_healing")
+if _self_healing_dir not in sys.path:
+    sys.path.insert(0, _self_healing_dir)
+
+try:
+    from phase5_self_healing.learning_engine import LearningEngine
+    SELF_HEALING_AVAILABLE = True
+    logging.info("✅ Phase 5 Self-Healing Layer loaded — Adaptive Strategy active")
+except ImportError as _she:
+    SELF_HEALING_AVAILABLE = False
+    logging.warning(f"⚠️ Phase 5 Self-Healing layer not loaded: {_she}")
     logging.info("✅ Sovereign Phase 2 loaded — Observer, Backtester, Builder active")
 except ImportError as _se2:
     SOVEREIGN_PHASE2_AVAILABLE = False
@@ -1458,6 +1474,87 @@ def api_options_flow():
     payload["india_vix"]      = shared_state.get("india_vix", {})
     payload["oi_wall_alerts"] = shared_state.get("oi_wall_alerts", [])
     return jsonify(payload)
+
+@app.route("/api/paper-portfolio")
+def api_paper_portfolio():
+    p = shared_state.get("paper_portfolio", {})
+    capital = p.get("capital", 500000)
+    return jsonify({
+        "portfolio":    p.get("positions", []),
+        "stats":        p.get("stats", {}),
+        "capital":      capital,
+        "available":    p.get("available_cash", capital),
+        "realised_pnl": p.get("realised_pnl", 0),
+        "last_updated": p.get("last_run", "--"),
+    })
+
+# ── PHASE 5: SELF-HEALING & STRATEGY OPTIMIZATION ──────────────────────────────
+
+@app.route("/api/self-healing/run", methods=["POST"])
+def api_self_healing_run():
+    """Trigger the full self-healing analysis cycle."""
+    if not SELF_HEALING_AVAILABLE:
+        return jsonify({"error": "Self-healing module not loaded"}), 501
+    try:
+        days = int(request.json.get("days", 30)) if request.is_json else 30
+        engine = LearningEngine()
+        results = engine.run_full_analysis(days=days)
+        # Store latest results in shared state for other API calls
+        shared_state["last_self_healing_results"] = results
+        return jsonify(results)
+    except Exception as e:
+        logging.error(f"Self-healing run error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/self-healing/stats")
+def api_self_healing_stats():
+    """Return the latest self-healing performance stats."""
+    res = shared_state.get("last_self_healing_results", {})
+    if not res:
+        return jsonify({"message": "No analysis run yet. Call /api/self-healing/run first."})
+    return jsonify(res.get("stats", {}))
+
+@app.route("/api/self-healing/recommendations")
+def api_self_healing_recommendations():
+    """Show the currently suggested strategy optimizations."""
+    res = shared_state.get("last_self_healing_results", {})
+    if not res:
+        return jsonify({"message": "No optimizations found."})
+    return jsonify(res.get("optimizations", {}))
+
+@app.route("/api/self-healing/apply", methods=["POST"])
+def api_self_healing_apply():
+    """Manually approve and apply the recommended thresholds."""
+    if not SELF_HEALING_AVAILABLE:
+        return jsonify({"error": "Module unavailable"}), 501
+    try:
+        res = shared_state.get("last_self_healing_results", {})
+        if not res:
+            return jsonify({"error": "Run analysis first"}), 400
+        
+        # In a real system, we'd persist these to DB or shared_state flags
+        # conviction_filter.py would then read from these.
+        opts = res.get("optimizations", {})
+        shared_state["active_gate_thresholds"] = opts.get("thresholds", {})
+        shared_state["active_risk_params"]     = opts.get("risk", {})
+        
+        return jsonify({"status": "SUCCESS", "applied": opts})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/self-healing/history")
+def api_self_healing_history():
+    """Return the history of all self-healing sessions."""
+    if not SELF_HEALING_AVAILABLE:
+        return jsonify({"error": "Self-healing module not loaded"}), 501
+    try:
+        engine = LearningEngine()
+        history = engine.get_analysis_history(limit=20)
+        # Convert to JSON serializable list
+        history_list = [asdict(h) for h in history] if history else []
+        return jsonify({"history": history_list, "count": len(history_list)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/api/spike-alerts")
 def api_spike_alerts():
