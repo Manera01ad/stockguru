@@ -145,5 +145,18 @@
     "errors": [
       "52w_breakouts: Expecting value: line 1 column 1 (char 0)"
     ]
+  },
+  {
+    "timestamp": "2026-03-25T22:02:34.232612",
+    "last_run": "25 Mar 22:02:13",
+    "run_count": 1,
+    "pcr": null,
+    "max_pain": null,
+    "block_deals": 0,
+    "promoters_scraped": 7,
+    "52w_breakouts": [],
+    "errors": [
+      "52w_breakouts: Expecting value: line 1 column 1 (char 0)"
+    ]
   }
 ]

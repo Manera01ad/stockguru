@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "gunicorn src.core.app:app --config gunicorn.conf.py",
+    "startCommand": "gunicorn app:app --config gunicorn.conf.py",
     "healthcheckPath": "/api/health",
     "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE",

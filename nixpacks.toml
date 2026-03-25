@@ -12,4 +12,4 @@ cmds = [
 ]
 
 [start]
-cmd = "/opt/venv/bin/gunicorn app:app --config gunicorn.conf.py"
+cmd = "gunicorn src.core.app:app --config gunicorn.conf.py"

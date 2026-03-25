@@ -1,0 +1,35 @@
+{
+  "timestamp": "2026-03-25T18:42:28.830317",
+  "issues": [],
+  "warnings": [
+    "n8n not running - orchestration disabled (run: n8n start)",
+    "Database will be created on first agent execution",
+    "Report directories will be created on first report generation"
+  ],
+  "results": {
+    "flask": "running",
+    "agent_endpoints": {
+      "working": 8,
+      "failing": 0,
+      "total": 8
+    },
+    "websocket": "available",
+    "data_persistence": {
+      "found": 4,
+      "missing": 0,
+      "status": "complete"
+    },
+    "n8n": "offline",
+    "agent_imports": {
+      "available": 16,
+      "missing": 0,
+      "status": "complete"
+    },
+    "database": "not_created",
+    "reports": {
+      "existing": 1,
+      "missing": 2,
+      "status": "partial"
+    }
+  }
+}
