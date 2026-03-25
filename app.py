@@ -618,19 +618,40 @@ def _ws_emit_prices():
 
 
 def _ws_emit_agents():
-    """Push agent cycle completion to all connected clients (compact payload)."""
+    """Push agent cycle completion to all connected clients (enriched with conviction data)."""
     if not socketio:
         return
     try:
         port = shared_state.get("paper_portfolio", {})
+        
+        # Phase 3/4 Enhancements: Conviction & Consensus
+        top_sigs = shared_state.get("trade_signals", [])[:5]
+        consensus = shared_state.get("agent_consensus", [])
+        claude_analysis = shared_state.get("claude_analysis", {})
+        consensus_stats = claude_analysis.get("consensus_verdict", {})
+        agreed_picks = set(consensus_stats.get("agreed_picks", [])) if isinstance(consensus_stats, dict) else set()
+        
+        # Enrich signals with consensus count
+        for sig in top_sigs:
+            name = sig.get("name", "")
+            match_count = sum(1 for vote in consensus if vote == sig.get("signal"))
+            sig["consensus_count"] = match_count
+            sig["ai_confirmed"]    = name in agreed_picks
+            
+        # VIX Regime logic
+        vix_data = shared_state.get("india_vix", {})
+        vix = vix_data.get("level", 15)
+        vix_regime = vix_data.get("regime", "NORMAL")
+        
         payload = {
             "event":            "agents_update",
             "scanner_count":    len(shared_state.get("scanner_results", [])),
             "signal_count":     len(shared_state.get("trade_signals", [])),
-            "top_signals":      shared_state.get("trade_signals", [])[:5],
+            "top_signals":      top_sigs,
             "alerts":           shared_state.get("spike_alerts", [])[:3],
             "morning_brief":    shared_state.get("morning_brief_text", ""),
             "market_mood":      shared_state.get("market_mood", {}),
+            "vix_regime":       vix_regime,
             "paper_portfolio":  {
                 "capital":          port.get("capital", 0),
                 "available_cash":   port.get("available_cash", 0),
@@ -643,7 +664,7 @@ def _ws_emit_agents():
             "agent_cycle_ts":   datetime.now().strftime("%H:%M:%S"),
         }
         socketio.emit("agents_update", payload)
-        log.info("WS: emitted agents_update")
+        log.info("WS: emitted agents_update (Phase 3 Enriched)")
     except Exception as _we:
         log.debug("WS emit agents_update failed: %s", _we)
 

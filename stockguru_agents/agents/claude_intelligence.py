@@ -339,34 +339,57 @@ def _call_gemini(data_summary):
         log.debug("Gemini API error: %s", e)
     return None
 
-# ── RECONCILE VIEWS ───────────────────────────────────────────────────────────
+# ── RECONCILE VIEWS (Multi-Model Voting) ──────────────────────────────────────
 def _reconcile(claude_r, gemini_r):
-    """Merge Claude + Gemini views. Flag disagreements."""
+    """
+    Merge Claude + Gemini views into a formal Multi-Model Vote.
+    Returns the enriched Claude result with consensus metadata.
+    """
     if not gemini_r:
+        claude_r["consensus_verdict"] = "SINGLE_MODEL"
+        claude_r["gemini_brief"]      = "Gemini analysis unavailable — single model mode."
         return claude_r
 
     g_picks = set(gemini_r.get("top_2_picks", []))
     g_bias  = gemini_r.get("market_bias", "NEUTRAL")
     c_cond  = claude_r.get("market_condition", "NEUTRAL")
+    
+    # Analyze Bias Alignment
+    c_bull = any(x in c_cond.upper() for x in ["BULLISH", "POSITIVE", "LONG"])
+    g_bull = g_bias.upper() == "BULLISH"
+    c_bear = any(x in c_cond.upper() for x in ["BEARISH", "NEGATIVE", "SHORT"])
+    g_bear = g_bias.upper() == "BEARISH"
 
-    # Flag divergence
-    c_bull = "BULLISH" in c_cond
-    g_bull = g_bias == "BULLISH"
-    if c_bull != g_bull:
-        claude_r["gemini_disagrees"] = f"Gemini={g_bias} vs Claude={c_cond} — reduce size"
-        if claude_r.get("market_stance") == "AGGRESSIVE":
-            claude_r["market_stance"] = "MODERATE"
+    consensus_level = "NEUTRAL"
+    if (c_bull and g_bull) or (c_bear and g_bear):
+        consensus_level = "FULL_ALIGNMENT"
+    elif (c_bull and g_bear) or (c_bear and g_bull):
+        consensus_level = "DIVERGENT"
+    else:
+        consensus_level = "PARTIAL"
 
-    # Boost picks both agree on
+    # Identify Agreed Picks
+    agreed_picks = []
     for pick in claude_r.get("conviction_picks", []):
         if pick["name"] in g_picks:
             pick["gemini_confirmed"] = True
-            gates = pick.get("gates_passed", 0)
-            pick["gates_passed"] = min(8, gates + 1)  # Gemini confirmation counts as +1 gate
+            agreed_picks.append(pick["name"])
+            # Bonus: confirmation adds an extra virtual 'gate' for conviction
+            pick["gates_passed"] = min(8, pick.get("gates_passed", 0) + 1)
 
+    # Formal Verdict Brief
+    verdict = {
+        "level":          consensus_level,
+        "agreed_picks":   agreed_picks,
+        "clash_note":     "⚠️ DIVERGENT VIEWS! Claude vs Gemini conflict — reduce position sizing." if consensus_level == "DIVERGENT" else "",
+        "alignment_pct":  100 if consensus_level == "FULL_ALIGNMENT" else 50 if consensus_level == "PARTIAL" else 0
+    }
+
+    claude_r["consensus_verdict"] = verdict
     claude_r["gemini_bias"]      = g_bias
-    claude_r["gemini_confidence"] = gemini_r.get("confidence", "MEDIUM")
-    claude_r["gemini_risk"]      = gemini_r.get("biggest_risk", "")
+    claude_r["gemini_brief"]     = f"Gemini sees {g_bias} bias with {gemini_r.get('confidence','?')} confidence. Risk: {gemini_r.get('biggest_risk','?')}"
+    claude_r["gemini_used"]      = True
+    
     return claude_r
 
 # ── APPLY ADJUSTMENTS ────────────────────────────────────────────────────────

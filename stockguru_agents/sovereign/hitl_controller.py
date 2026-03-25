@@ -226,32 +226,35 @@ def _format_hitl_message(item: dict) -> str:
     gates   = item["gates_passed"]
     risk_pct= item["risk_pct"]
     risk_amt= item["risk_amount"]
-    thesis  = item["quant_thesis"][:80] if item["quant_thesis"] else "Conviction threshold met"
-    memory  = item["memory_context"]
-    debate  = item.get("debate_summary", "")
-    flags   = item.get("soft_veto_flags", [])
-    expiry  = item.get("hitl_expiry_minutes", 60)
+    def _sanitize(txt: str) -> str:
+        return str(txt).replace("_", " ").replace("*", "").replace("`", "").replace("[", "").replace("]", "")
+
+    thesis_san = _sanitize(thesis)
+    memory_san = _sanitize(memory)
+    debate_san = _sanitize(debate)
+    sector_san = _sanitize(sector)
 
     lines = [
-        f"🤖 *TRADE PROPOSAL \\#{num}*",
+        f"🤖 *TRADE PROPOSAL {num}*",
         "━━━━━━━━━━━━━━━━━━━━",
-        f"📊 *{stock}* ({sector}) | Conviction: *{conv:.0f}%*",
+        f"📊 *{stock}* ({sector_san}) | Conviction: *{conv:.0f}%*",
         f"Gates: {gates}/8 | R:R = {rr:.1f}x",
         "",
         f"Entry: ₹{entry:,.0f} | T1: ₹{t1:,.0f} | T2: ₹{t2:,.0f} | SL: ₹{sl:,.0f}",
         f"Risk: {risk_pct:.1f}% of capital (~₹{risk_amt:,})",
         "",
-        f"🧠 Quant: _{thesis}_",
+        f"🧠 Quant: _{thesis_san}_",
     ]
 
     if flags:
-        lines.append(f"⚠️  Flag: {flags[0]}" if isinstance(flags[0], str) else f"⚠️  Flag: {flags[0]}")
+        flag_san = _sanitize(flags[0])
+        lines.append(f"⚠️  Flag: {flag_san}")
 
-    if debate:
-        lines.append(f"🎭 Debate: _{debate[:60]}_")
+    if debate_san:
+        lines.append(f"🎭 Debate: _{debate_san[:60]}_")
 
     lines += [
-        f"💭 Memory: _{memory}_",
+        f"💭 Memory: _{memory_san}_",
         "",
         f"⏰ Expires in {expiry} min",
         "_Paper simulation only — not SEBI advice._"

@@ -4601,6 +4601,9 @@
                     <th>Stock</th>
                     <th>Signal</th>
                     <th>CMP</th>
+                    <th title="Risk/Reward Ratio (T1 vs SL)">R:R</th>
+                    <th title="8-Gate Conviction Score">Conviction</th>
+                    <th title="Number of agents confirming this direction">Consensus</th>
                     <th>Target</th>
                     <th>Stop Loss</th>
                     <th>Score</th>
@@ -4609,9 +4612,7 @@
                 </thead>
                 <tbody id="signals-table">
                   <tr>
-                    <td colspan="7" style="text-align:center;color:var(--muted);padding:24px">No signals yet — run
-                      agents
-                      first</td>
+                    <td colspan="10" style="text-align:center;color:var(--muted);padding:24px">No signals yet — run agents first</td>
                   </tr>
                 </tbody>
               </table>
@@ -4687,14 +4688,14 @@
                 <div class="stat-chg flat">Execute Paper Trade</div>
               </div>
               <div class="stat y">
-                <div class="stat-label">GEMINI ALIGNMENT</div>
-                <div class="stat-val" id="intel-alignment" style="font-size:18px">--</div>
-                <div class="stat-chg flat">Claude vs Gemini</div>
+                <div class="stat-label">AI CONSENSUS</div>
+                <div class="stat-val" id="intel-alignment" style="font-size:16px">--</div>
+                <div class="stat-chg flat" id="intel-alignment-note">--</div>
               </div>
               <div class="stat o">
-                <div class="stat-label">OVERALL BIAS</div>
-                <div class="stat-val" id="intel-bias" style="font-size:18px">--</div>
-                <div class="stat-chg flat" id="intel-risk-note">--</div>
+                <div class="stat-label">GEMINI STANCE</div>
+                <div class="stat-val" id="intel-gemini-bias" style="font-size:18px">--</div>
+                <div class="stat-chg flat" id="intel-gemini-note">--</div>
               </div>
             </div>
 
@@ -7099,25 +7100,49 @@
     async function fetchSignals() {
       try {
         const d = await fetch(`${API}/signals`).then(r => r.json());
-        const signals = d.actionable && d.actionable.length ? d.actionable : (d.signals || []);
+        const rawSignals = d.actionable && d.actionable.length ? d.actionable : (d.signals || []);
         const meta = document.getElementById('signals-meta');
-        if (meta) meta.textContent = `${signals.length} actionable | ${d.last_run || '--'}`;
-        const tbody = document.getElementById('signals-table');
-        if (!tbody) return;
-        if (!signals.length) {
-          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">No signals yet — run agents first</td></tr>';
-          return;
-        }
-        tbody.innerHTML = signals.map(s => `<tr>
-          <td><div class="sname">${s.name || '--'}</div></td>
+        if (meta) meta.textContent = `${rawSignals.length} actionable | ${d.last_run || '--'}`;
+        _renderSignals(rawSignals, d.last_run);
+      } catch (e) { console.warn('fetchSignals', e); }
+    }
+
+    function _renderSignals(signals, lastRun) {
+      const tbody = document.getElementById('signals-table');
+      if (!tbody) return;
+      if (!signals || !signals.length) {
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">No signals yet — run agents first</td></tr>';
+        return;
+      }
+      tbody.innerHTML = signals.map(s => {
+        const rr = s.rr_t1 || s.rr || 0;
+        const rrColor = rr >= 2 ? 'var(--green)' : rr >= 1.2 ? 'var(--accent)' : 'var(--muted)';
+        const gates = s.gates_passed || s.gates || 0;
+        const consensus = s.consensus_count != null ? s.consensus_count : '--';
+        const aiConfirmed = s.ai_confirmed ? '<span style="color:var(--green);font-size:8px;margin-left:4px" title="Claude + Gemini Aligned">✦AI✦</span>' : '';
+        
+        return `<tr>
+          <td><div class="sname">${s.name || '--'}${aiConfirmed}</div><div style="font-size:9px;color:rgba(0,196,204,.5)">${s.sector || ''}</div></td>
           <td><span class="${sigClass(s.signal)}">${s.signal || '--'}</span></td>
           <td style="font-family:'Space Mono';font-size:12px">₹${fmt(s.cmp || s.price || 0)}</td>
+          <td style="color:${rrColor};font-family:'Space Mono';font-weight:700">${rr.toFixed(1)}x</td>
+          <td>
+            <div style="display:flex;gap:2px">
+              ${Array.from({length:8}, (_,i) => `<div style="width:6px;height:6px;border-radius:1px;background:${i < gates ? 'var(--green)' : 'rgba(255,255,255,.1)'}"></div>`).join('')}
+              <span style="font-size:9px;margin-left:4px;color:var(--muted)">${gates}/8</span>
+            </div>
+          </td>
+          <td style="text-align:center">
+             <div style="display:inline-flex;align-items:center;padding:1px 8px;border-radius:10px;background:rgba(0,196,204,.08);border:1px solid rgba(0,196,204,.2)">
+               <span style="font-size:9px;color:var(--accent)">🤖 ${consensus}</span>
+             </div>
+          </td>
           <td style="color:var(--green);font-family:'Space Mono';font-size:11px">₹${s.target1 || s.target || '--'}</td>
           <td style="color:var(--red);font-family:'Space Mono';font-size:11px">₹${s.sl || '--'}</td>
           <td><div class="score-wrap"><div class="sbar"><div class="sbar-fill" style="width:${s.score || 0}%;background:${scoreColor(s.score || 0)}"></div></div><span class="snum" style="color:${scoreColor(s.score || 0)}">${s.score || 0}</span></div></td>
           <td style="font-size:11px;color:var(--muted);max-width:180px">${s.reason || '--'}</td>
-        </tr>`).join('');
-      } catch (e) { console.warn('fetchSignals', e); }
+        </tr>`;
+      }).join('');
     }
 
     async function fetchAgentNews() {
@@ -7179,13 +7204,20 @@
         if (el('intel-risk-note')) el('intel-risk-note').textContent = (intel.key_risks || [])[0] || intel.risk_note || '--';
         if (el('intel-model-badge')) el('intel-model-badge').textContent = d.claude_model || 'rule-based';
 
-        const picks = intel.conviction_picks || [];
-        if (el('intel-picks-count')) el('intel-picks-count').textContent = picks.filter(p => p.execute_paper_trade).length;
+        // Consensus logic (Phase 4)
+        const v = intel.consensus_verdict;
+        if (v && el('intel-alignment')) {
+          const level = v.level || 'SINGLE';
+          const labels = { FULL_ALIGNMENT: '✅ ALIGNED', DIVERGENT: '⚠️ CLASH', PARTIAL: '🆗 PARTIAL', SINGLE_MODEL: 'SINGLE' };
+          const colors = { FULL_ALIGNMENT: 'var(--green)', DIVERGENT: '#FF3D71', PARTIAL: '#F2C94C', SINGLE_MODEL: 'var(--muted)' };
+          el('intel-alignment').textContent = labels[level] || level;
+          el('intel-alignment').style.color = colors[level] || 'var(--text)';
+          if (el('intel-alignment-note')) el('intel-alignment-note').textContent = v.agreed_picks && v.agreed_picks.length ? `${v.agreed_picks.length} common picks` : v.clash_note || 'No consensus data';
+        }
 
-        const alignment = intel.gemini_alignment;
-        if (el('intel-alignment')) {
-          el('intel-alignment').textContent = alignment === undefined ? 'N/A' : (alignment ? '✅ Agree' : '⚠️ Diverge');
-          el('intel-alignment').style.color = alignment ? 'var(--green)' : alignment === false ? 'var(--accent4)' : 'var(--muted)';
+        if (el('intel-gemini-bias')) {
+           el('intel-gemini-bias').textContent = intel.gemini_bias || 'N/A';
+           if (el('intel-gemini-note')) el('intel-gemini-note').textContent = intel.gemini_brief || '--';
         }
 
         if (el('intel-narrative')) {
@@ -7223,14 +7255,16 @@
         }
 
         if (el('intel-gemini')) {
-          const g = intel.gemini_view;
-          if (g && g.overall_bias) {
+          const brief = intel.gemini_brief;
+          if (brief) {
             el('intel-gemini').innerHTML = `
-              <div style="display:flex;gap:16px;flex-wrap:wrap">
-                <div><span style="color:var(--muted)">Bias: </span><strong>${g.overall_bias}</strong></div>
-                <div><span style="color:var(--muted)">Condition: </span><strong>${g.market_condition || '--'}</strong></div>
+              <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px">
+                <div style="background:rgba(66,133,244,.1);padding:4px 10px;border-radius:6px;border:1px solid rgba(66,133,244,.3)">
+                  <span style="color:#4285f4;font-size:11px;font-weight:700">GOOGLE AI VERDICT: </span>
+                  <span style="color:#fff;font-weight:700">${intel.gemini_bias || 'NEUTRAL'}</span>
+                </div>
               </div>
-              <p style="margin-top:10px;color:var(--muted)">${g.market_narrative || ''}</p>`;
+              <p style="color:var(--text);line-height:1.6">${brief}</p>`;
           }
         }
 
@@ -9147,13 +9181,28 @@
       // ── Agent cycle complete: refresh all intelligence panels ────────────
       socket.on('agents_update', (data) => {
         console.log('[WS] agents_update received — refreshing intelligence');
-        // Efficient partial refresh — only panels that agents update
+        
+        // Immediate UI updates from broadcast data (Phase 3 Optimization)
+        if (data.top_signals) {
+          _renderSignals(data.top_signals, data.agent_cycle_ts);
+        }
+        if (data.vix_regime) {
+          const regEl = document.getElementById('mi-vix-regime');
+          if (regEl) {
+             regEl.textContent = data.vix_regime;
+             const regColors = { PANIC: '#FF3D71', CAUTION: '#FFD700', NORMAL: '#00E676' };
+             regEl.style.color = regColors[data.vix_regime] || 'var(--muted)';
+          }
+        }
+        
+        // Background full refresh
         Promise.all([
-          fetchScanner(), fetchSignals(), fetchAgentNews(), fetchAgentStatus(),
+          fetchScanner(), fetchAgentNews(), fetchAgentStatus(),
           fetchClaudeAnalysis(), fetchMarketIntelligence(), fetchPaperPortfolio(),
           fetchLearningStats(), fetchOptionsAndFii(), fetchTechnical(), fetchAgentLog(),
           fetchOptionChain(), fetchSovereignStatus(), fetchBuilderProposals()
         ]).then(triggerHeartbeat).catch(() => { });
+        
         // If Builder Agent produced a new proposal, flash a badge
         if (data && data.builder_output && data.builder_output.status === 'proposed') {
           const badge = document.getElementById('builder-badge');

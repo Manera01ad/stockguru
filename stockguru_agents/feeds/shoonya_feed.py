@@ -119,7 +119,7 @@ class ShoonyaFeed(DataFeed):
 
         # Last resort: pass tsym as token — Shoonya will return an error which
         # triggers Yahoo fallback in fetch_all_prices()
-        log.warning(f"Could not resolve Shoonya token for {exchange}:{tsym}, using name as-is")
+        log.debug(f"Could not resolve Shoonya token for {exchange}:{tsym}, using name as-is")
         return tsym
 
     # ── Session / HTTP ────────────────────────────────────────────────────────
