@@ -6385,8 +6385,12 @@
         // Header
         document.getElementById('tg-status').textContent = d.telegram_configured ? 'OK' : 'Not set';
         document.getElementById('tg-status').className = d.telegram_configured ? 's-ok' : 's-warn';
-        document.getElementById('price-count').textContent = d.prices_loaded;
-        document.getElementById('price-count').className = d.prices_loaded > 0 ? 's-ok' : 's-warn';
+        const livePrices = d.prices_loaded || 0;
+        const totalPrices = d.prices_total || d.prices_loaded || 30;
+        document.getElementById('price-count').textContent = livePrices > 0 ? livePrices : `${totalPrices}*`;
+        document.getElementById('price-count').className = livePrices > 0 ? 's-ok' : 's-warn';
+        document.getElementById('price-count').title = livePrices > 0
+          ? `${livePrices} live prices fetched` : `${totalPrices} symbols seeded (live fetch in progress)`;
         // API Keys tab
         const tgOk = d.telegram_configured;
         setStatus('sys-tg', tgOk, tgOk ? '✅ Configured' : '⏳ Not configured');
@@ -6397,7 +6401,9 @@
         setStatus('sys-gemini', geminiOk, geminiOk ? '✅ Gemini Flash ready' : '⏳ Add API key (free)');
         setStatus('anthropic-key-status', claudeOk, claudeOk ? '✅ Configured' : '⏳ Not configured');
         setStatus('gemini-key-status', geminiOk, geminiOk ? '✅ Configured' : '⏳ Not configured');
-        document.getElementById('sys-prices').textContent = `✅ ${d.prices_loaded} symbols`;
+        document.getElementById('sys-prices').textContent = livePrices > 0
+          ? `✅ ${livePrices} live / ${totalPrices} symbols`
+          : `⏳ ${totalPrices} seeded, fetching live…`;
         // Update live price feed name
         const feedEl = document.getElementById('sys-price-feed');
         if (feedEl && d.price_feed) {

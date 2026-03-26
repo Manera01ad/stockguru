@@ -34,6 +34,8 @@ import sys
 import threading
 import time
 import schedule
+import random as _random
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from dotenv import load_dotenv
 load_dotenv()
@@ -335,7 +337,30 @@ WATCHLIST = [
     {"name":"INDIGO",    "symbol":"INDIGO.NS",     "sector":"Aviation",  "pe":14, "roe":82, "de":1.2, "base_score":84},
 ]
 
-price_cache  = {name: {"price": 0.0, "change": 0.0, "change_pct": 0.0, "symbol": sym, "updated": "Initializing..."} for name, sym in YAHOO_SYMBOLS.items()}
+# ── Seed price_cache with realistic values immediately (UI never shows 0/--) ──
+_SEED_PRICES = {
+    "NIFTY 50":       23650, "SENSEX":        78000, "BANK NIFTY":    51200,
+    "INDIA VIX":         15, "FINNIFTY":      23000, "MIDCAP NIFTY":  43500,
+    "NIFTY NEXT 50":  65000, "NIFTY IT":      39000, "NIFTY METAL":    9000,
+    "NIFTY PHARMA":   22000, "NIFTY AUTO":    23000, "NIFTY FMCG":    59000,
+    "NIFTY REALTY":     950, "NIFTY ENERGY":  43000,
+    "AIRTEL":          1540, "HDFC BANK":     1690,  "ICICI BANK":    1240,
+    "BAJAJ FIN":       7000, "BEL":            275,  "MUTHOOT":       1970,
+    "ZOMATO":           225, "INDIGO":        3950,
+    "GOLD MCX":        2640, "SILVER MCX":      30,  "CRUDE OIL":       71,
+    "NAT GAS":          3.5, "USD/INR":        83.9,
+    "BTC/INR":      7500000, "ETH/INR":      250000, "SOL/INR":       14000,
+}
+price_cache = {}
+for _name, _sym in YAHOO_SYMBOLS.items():
+    _sp = _SEED_PRICES.get(_name, 100)
+    _prev = round(_sp * _random.uniform(0.997, 1.003), 2)
+    _chg  = round(_sp - _prev, 2)
+    _pct  = round((_chg / _prev) * 100, 2) if _prev else 0
+    price_cache[_name] = {
+        "price": _sp, "change": _chg, "change_pct": _pct,
+        "prev": _prev, "symbol": _sym, "updated": "Seeded",
+    }
 alert_log    = []
 last_update  = "Initializing..."
 shared_state = {
@@ -434,11 +459,13 @@ def fetch_yahoo_price(symbol):
         try:
             url = f"https://{host}/v8/finance/chart/{symbol}?interval=1m&range=1d"
             hdrs = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                "Accept": "application/json",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                "Accept": "application/json, text/plain, */*",
+                "Accept-Language": "en-US,en;q=0.9",
                 "Referer": "https://finance.yahoo.com",
+                "Origin": "https://finance.yahoo.com",
             }
-            r    = requests.get(url, headers=hdrs, timeout=10)
+            r    = requests.get(url, headers=hdrs, timeout=4)
             if r.status_code == 200:
                 meta = r.json()["chart"]["result"][0]["meta"]
                 result = _parse_meta(meta)
@@ -535,61 +562,75 @@ def fetch_yahoo_price(symbol):
     log.info(f"[SEED] {symbol} → ₹{price} (all live sources failed)")
     return {"price": price, "change": change, "change_pct": change_pct, "prev": prev}
 
+def _fetch_one(name, info, use_feed_mgr, feed_label):
+    """Fetch price for a single instrument — runs in its own thread."""
+    yahoo_sym   = info["yahoo"]
+    shoonya_sym = info.get("shoonya")
+    symbol      = yahoo_sym
+    data        = None
+
+    # ── Route through feed manager (Shoonya, Angel, etc.) if configured ──
+    if use_feed_mgr and shoonya_sym is not None:
+        try:
+            raw = _feed_mgr.get_quote(yahoo_sym)
+            if raw and raw.get("price", 0) > 0 and "error" not in raw:
+                data = {
+                    "price":      raw.get("price", 0),
+                    "change":     round(raw.get("price", 0) - raw.get("prev_close", raw.get("price", 0)), 2),
+                    "change_pct": raw.get("change_pct", 0),
+                    "prev":       raw.get("prev_close", 0),
+                    "volume":     raw.get("volume", 0),
+                    "day_high":   raw.get("day_high", 0),
+                    "day_low":    raw.get("day_low", 0),
+                    "feed":       _feed_mgr.active_name,
+                }
+        except Exception as fe:
+            log.debug(f"Feed manager quote failed for {symbol}: {fe}")
+
+    # ── Fallback to Yahoo Finance ──
+    if not data:
+        data = fetch_yahoo_price(symbol)
+        if data:
+            data["feed"] = "yahoo"
+
+    return name, symbol, data
+
+
 def fetch_all_prices():
     global last_update
     active_feed  = _feed_mgr.active_name if (_FEED_OK and _feed_mgr) else "yahoo"
     use_feed_mgr = active_feed != "yahoo"
     feed_label   = (_feed_mgr.active_label if use_feed_mgr else "Yahoo Finance")
-    log.info(f"🔄 Fetching live prices via {feed_label}...")
-    for name, info in INSTRUMENTS.items():
-        yahoo_sym  = info["yahoo"]
-        shoonya_sym= info.get("shoonya")          # (exchange, tsym) or None
-        # Use native symbol for active feed; Yahoo symbol as key for fallback
-        symbol     = yahoo_sym                     # used for fallback + cache key
-        data = None
-        # ── Route through feed manager (Shoonya, Angel, etc.) if configured ──
-        if use_feed_mgr and shoonya_sym is not None:
+    log.info(f"🔄 Fetching live prices via {feed_label} (parallel)...")
+
+    INDEX_NAMES = {"NIFTY 50", "SENSEX", "BANK NIFTY", "INDIA VIX",
+                   "FINNIFTY", "MIDCAP NIFTY", "NIFTY NEXT 50",
+                   "NIFTY IT", "NIFTY METAL", "NIFTY PHARMA",
+                   "NIFTY AUTO", "NIFTY FMCG", "NIFTY REALTY", "NIFTY ENERGY"}
+
+    # Fetch all 30 symbols concurrently (max 10 workers keeps network polite)
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        futures = {
+            pool.submit(_fetch_one, name, info, use_feed_mgr, feed_label): name
+            for name, info in INSTRUMENTS.items()
+        }
+        for future in as_completed(futures):
             try:
-                raw = _feed_mgr.get_quote(yahoo_sym)  # feed manager maps internally
-                if raw and raw.get("price", 0) > 0 and "error" not in raw:
-                    data = {
-                        "price":      raw.get("price", 0),
-                        "change":     round(raw.get("price", 0) - raw.get("prev_close", raw.get("price", 0)), 2),
-                        "change_pct": raw.get("change_pct", 0),
-                        "prev":       raw.get("prev_close", 0),
-                        "volume":     raw.get("volume", 0),
-                        "day_high":   raw.get("day_high", 0),
-                        "day_low":    raw.get("day_low", 0),
-                        "feed":       _feed_mgr.active_name,
-                    }
+                name, symbol, data = future.result()
+                if data:
+                    price_cache[name] = {**data, "symbol": symbol, "updated": datetime.now().strftime("%H:%M:%S")}
+                    if name in INDEX_NAMES:
+                        shared_state["index_prices"][name] = data
+                    # Emit each symbol as it arrives — live ticker feels instant
+                    if socketio:
+                        socketio.emit("price_update", {
+                            "prices": {name: price_cache[name]},
+                            "last_update": datetime.now().strftime("%H:%M:%S"),
+                            "feed": data.get("feed", "yahoo"),
+                            "event": "tick_update",
+                        })
             except Exception as fe:
-                log.debug(f"Feed manager quote failed for {symbol}: {fe}")
-
-        # ── Fallback to Yahoo Finance ──
-        if not data:
-            data = fetch_yahoo_price(symbol)
-            if data:
-                data["feed"] = "yahoo"
-
-        if data:
-            price_cache[name] = {**data, "symbol": symbol, "updated": datetime.now().strftime("%H:%M:%S")}
-            if name in ("NIFTY 50", "SENSEX", "BANK NIFTY", "INDIA VIX",
-                        "FINNIFTY", "MIDCAP NIFTY", "NIFTY NEXT 50",
-                        "NIFTY IT", "NIFTY METAL", "NIFTY PHARMA",
-                        "NIFTY AUTO", "NIFTY FMCG", "NIFTY REALTY", "NIFTY ENERGY"):
-                shared_state["index_prices"][name] = data
-
-            # --- REAL-TIME TICKER EMIT ---
-            if socketio:
-                socketio.emit("price_update", {
-                    "prices": {name: price_cache[name]},
-                    "last_update": datetime.now().strftime("%H:%M:%S"),
-                    "feed": data.get("feed", "yahoo"),
-                    "event": "tick_update"
-                })
-
-        if last_update != "Initializing...":
-            time.sleep(0.15)
+                log.debug(f"fetch_one future error: {fe}")
 
     last_update = datetime.now().strftime("%d %b %Y %H:%M:%S IST")
     shared_state["_price_cache"] = price_cache
@@ -1913,7 +1954,9 @@ def api_dashboard_data():
         "telegram_configured":  bool(TELEGRAM_TOKEN and TELEGRAM_CHAT_ID),
         "anthropic_configured": bool(ANTHROPIC_API_KEY),
         "gemini_configured":    bool(GEMINI_API_KEY),
-        "prices_loaded":        len(price_cache),
+        "prices_loaded":        sum(1 for v in price_cache.values() if v.get("updated", "Seeded") not in ("Seeded", "Initializing...")),
+        "prices_seeded":        sum(1 for v in price_cache.values() if v.get("updated") in ("Seeded",)),
+        "prices_total":         len(price_cache),
         "last_update":          last_update,
         "price_feed":           shared_state.get("_active_feed", "Yahoo Finance"),
         "agents_available":     AGENTS_AVAILABLE,
@@ -1943,7 +1986,9 @@ def api_status():
         "telegram_configured": bool(TELEGRAM_TOKEN and TELEGRAM_CHAT_ID),
         "anthropic_configured": bool(ANTHROPIC_API_KEY),
         "gemini_configured": bool(GEMINI_API_KEY),
-        "prices_loaded": len(price_cache), "last_update": last_update,
+        "prices_loaded": sum(1 for v in price_cache.values() if v.get("updated") not in ("Seeded", "Initializing...")),
+        "prices_total": len(price_cache),
+        "last_update": last_update,
         "price_feed": shared_state.get("_active_feed", _feed_mgr.active_label if (_FEED_OK and _feed_mgr) else "Yahoo Finance"),
         "watchlist_count": len(WATCHLIST), "alerts_sent": len(alert_log),
         "paper_trades": portfolio.get("stats", {}).get("total_trades", 0),
