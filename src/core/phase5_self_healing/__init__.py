@@ -18,32 +18,32 @@ Components:
 __version__ = "1.0.0"
 __author__ = "StockGuru Development Team"
 
-from phase5_self_healing.data_models import (
+from .data_models import (
     GateEffectivenessRecord,
     MarketRegimeState,
     ThresholdRecommendation,
     RiskParameterProfile,
     OptimizationMetrics,
 )
-from phase5_self_healing.historical_analyzer import HistoricalAnalyzer
-from phase5_self_healing.gate_effectiveness import GateEffectivenessCalculator
-from phase5_self_healing.market_regime_detector import MarketRegimeDetector
-from phase5_self_healing.dynamic_optimizer import DynamicThresholdOptimizer
-from phase5_self_healing.risk_tuner import RiskParameterTuner
-from phase5_self_healing.learning_engine import LearningEngine
-from phase5_self_healing.statistical_utils import StatisticalUtils
+from .historical_analyzer import HistoricalAnalyzer
+from .gate_effectiveness import GateEffectivenessCalculator
+from .market_regime_detector import MarketRegimeDetector
+from .dynamic_optimizer import DynamicThresholdOptimizer
+from .risk_tuner import RiskParameterTuner
+from .learning_engine import LearningEngine
+from .statistical_utils import StatisticalUtils
 
 __all__ = [
-    "GateEffectivenessRecord",
-    "MarketRegimeState",
-    "ThresholdRecommendation",
-    "RiskParameterProfile",
-    "OptimizationMetrics",
-    "HistoricalAnalyzer",
-    "GateEffectivenessCalculator",
-    "MarketRegimeDetector",
-    "DynamicThresholdOptimizer",
-    "RiskParameterTuner",
-    "LearningEngine",
-    "StatisticalUtils",
+        "GateEffectivenessRecord",
+        "MarketRegimeState",
+        "ThresholdRecommendation",
+        "RiskParameterProfile",
+        "OptimizationMetrics",
+        "HistoricalAnalyzer",
+        "GateEffectivenessCalculator",
+        "MarketRegimeDetector",
+        "DynamicThresholdOptimizer",
+        "RiskParameterTuner",
+        "LearningEngine",
+        "StatisticalUtils",
 ]
