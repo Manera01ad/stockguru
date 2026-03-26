@@ -17,3 +17,4 @@ gevent-websocket>=0.10.1
 # Broker SDKs (M4 — Shoonya/Finvasia live feed)
 NorenRestApiPy==0.0.22
 pyotp>=2.9.0
+sqlalchemy>=2.0.0
