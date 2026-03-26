@@ -181,7 +181,7 @@ However, the market moved against this thesis. Possible reasons:
 ### Risk Management Assessment
 - **Stop Loss Hit?**: {'Yes' if losing_trade.pl_percent < -2 else 'No'}
 - **Position Size**: {'Optimal' if abs(losing_trade.pl_percent) < 3 else 'Should be reduced'}
-- **Agent Confidence Used?**: {'Yes, high confidence trade lost' if losing_trade.confidence > 70 else 'Low confidence, expected}
+- **Agent Confidence Used?**: {'Yes, high confidence trade lost' if losing_trade.confidence > 70 else 'Low confidence, expected'}
 
 ### Action Items
 1. ✅ Review agent weighting - reduce confidence of {losing_trade.agent_name} in similar conditions

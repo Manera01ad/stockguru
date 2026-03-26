@@ -204,3 +204,7 @@ class FeedManager:
             "ob_levels":    self.active.OB_LEVELS    if self.active else 0,
             "feeds":        all_feeds,
         }
+
+
+# ── Module-level singleton ─────────────────────────────────────────────────────
+feed_manager = FeedManager()

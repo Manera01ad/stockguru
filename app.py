@@ -44,12 +44,14 @@ from logging.handlers import RotatingFileHandler
 logging.getLogger('yfinance').setLevel(logging.CRITICAL)
 
 # ── AGENT IMPORTS ─────────────────────────────────────────────────────────────
-_agents_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stockguru_agents")
+# Single source of truth: src/agents/ provides general, atlas, sovereign,
+# channels, backtesting, connectors, learning, feeds subpackages.
+_agents_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "src", "agents")
 if _agents_dir not in sys.path:
     sys.path.insert(0, _agents_dir)
 
 try:
-    from agents import (
+    from general import (
         market_scanner, news_sentiment, trade_signal, commodity_crypto, morning_brief,
         technical_analysis, institutional_flow, options_flow,
         claude_intelligence, web_researcher,
@@ -65,7 +67,7 @@ except ImportError as _e:
 
 # ── MARKET SESSION AGENT ───────────────────────────────────────────────────────
 try:
-    from agents.market_session_agent import session_agent, SEGMENTS, STATE_OPEN, STATE_CLOSED
+    from general.market_session_agent import session_agent, SEGMENTS, STATE_OPEN, STATE_CLOSED
     SESSION_AGENT_AVAILABLE = True
 except ImportError as _se:
     SESSION_AGENT_AVAILABLE = False
@@ -80,12 +82,8 @@ except ImportError:
     LEARNING_AVAILABLE = False
 
 # ── SOVEREIGN TRADER LAYER (Phase 1) ──────────────────────────────────────────
-_sovereign_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stockguru_agents", "sovereign")
-if _sovereign_dir not in sys.path:
-    sys.path.insert(0, _sovereign_dir)
-_sovereign_parent = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stockguru_agents")
-if _sovereign_parent not in sys.path:
-    sys.path.insert(0, _sovereign_parent)
+# src/agents is already on sys.path from _agents_dir above — sovereign lives at
+# src/agents/sovereign/ so no extra path manipulation needed.
 
 try:
     from sovereign import scryer, quant, risk_master, debate_engine, hitl_controller, post_mortem, memory_engine
@@ -103,7 +101,7 @@ except ImportError:
     SOVEREIGN_PHASE2_AVAILABLE = False
 
 # ── PHASE 5: SELF-HEALING SYSTEM (Adaptive Strategy) ──────────────────────────
-_self_healing_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "phase5_self_healing")
+_self_healing_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "src", "core")
 if _self_healing_dir not in sys.path:
     sys.path.insert(0, _self_healing_dir)
 
@@ -121,8 +119,7 @@ except ImportError as _se2:
 
 # ── ATLAS — SELF-LEARNING KNOWLEDGE ENGINE ────────────────────────────────────
 try:
-    import sys as _sys_atlas, os as _os_atlas
-    _sys_atlas.path.insert(0, _os_atlas.path.join(_os_atlas.path.dirname(__file__), "stockguru_agents"))
+    # src/agents is already on sys.path; atlas lives at src/agents/atlas/
     from atlas.core import ATLASCore, get_knowledge_stats, get_best_patterns, get_active_rules
     from atlas.self_upgrader import run_upgrade, get_upgrade_status, run_quick_context_refresh
     from atlas.options_flow_memory import record_options_snapshot, get_options_context
@@ -182,7 +179,7 @@ if _local_keys_path:
 
 # ── DATA FEED MANAGER (auto-selects best configured feed) ────────────────────
 try:
-    from stockguru_agents.feeds import feed_manager as _feed_mgr
+    from feeds import feed_manager as _feed_mgr
     _FEED_OK = True
 except Exception as _fe:
     import logging as _fl; _fl.getLogger(__name__).warning(f"FeedManager init failed: {_fe}")

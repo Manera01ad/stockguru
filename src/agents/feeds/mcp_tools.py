@@ -219,9 +219,4 @@ def process_claude_response(response, messages: list, client, model: str,
             tools=MARKET_TOOLS,
             messages=messages,
         )
-
-    # Extract final text
-    for block in response.content:
-        if hasattr(block, "text"):
-            return block.text
-    return ""
+    return response

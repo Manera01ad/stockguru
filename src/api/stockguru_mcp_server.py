@@ -441,12 +441,9 @@ if __name__ == "__main__":
     if not _FEED_OK:
         print("⚠️  Feed manager not loaded — data will be unavailable", file=sys.stderr)
 
-    if args.http or not _MCP_AVAILABLE:
-        _run_http_fallback(args.port)
-    elif _MCP_AVAILABLE:
-        if args.sse:
-            print(f"📡 StockGuru MCP Server (SSE) on port {args.port}")
-            mcp.run(transport="sse")
-        else:
-            # Default: stdio for Claude Desktop
-            mcp.run(transport="stdio")
+    if args.sse:
+        run_sse_server(port=args.port)
+    elif args.http:
+        run_http_server(port=args.port)
+    else:
+        run_stdio_server()

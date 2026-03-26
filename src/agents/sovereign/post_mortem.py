@@ -492,17 +492,9 @@ def _get_last_run_ts(pm_log: list) -> str | None:
 
 
 def _get_new_failures(history: list, since_ts: str | None) -> list:
-    """Return SL_HIT trades that haven't been post-mortemed yet."""
-    failures = [t for t in history if t.get("outcome") == "SL_HIT"]
+    """Return SL_HIT trades that haven't been post-mortemed yet (since since_ts)."""
     if not since_ts:
-        return failures[-10:]  # bootstrap: analyze last 10 on first run
-    return [t for t in failures
-            if (t.get("exit_at") or t.get("issued_at", "")) > since_ts]
-
-
-def _can_use_llm(pm_hours: int) -> bool:
-    """Returns True if enough time has passed since last LLM call."""
-    last = _last_llm_call_ts[0]
-    if last is None:
-        return True
-    return (datetime.now() - last).total_seconds() > pm_hours * 3600
+        return [r for r in history if r.get("outcome") in ("SL_HIT", "LOSS")]
+    return [r for r in history
+            if r.get("outcome") in ("SL_HIT", "LOSS")
+            and r.get("analyzed_at", "") < since_ts]

@@ -275,12 +275,5 @@ def get_volume_context(volume_class: str) -> dict:
             f"(n={data['count']})"
         )
     else:
-        insight = f"Volume class {volume_class}: insufficient history yet"
-
-    return {
-        "volume_class": volume_class,
-        "win_rate":     data.get("win_rate"),
-        "avg_pnl":      data.get("avg_pnl"),
-        "count":        data.get("count", 0),
-        "insight":      insight,
-    }
+        insight = f"Volume class {volume_class}: insufficient data (n<5)"
+    return insight

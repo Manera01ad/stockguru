@@ -498,17 +498,8 @@ def run_quick_context_refresh(shared_state: dict) -> dict:
 
         atlas_context = {
             "time":         time_ctx,
-            "time_win_rate": time_wr,
-            "options":      opts_ctx,
-            "stats":        stats,
-            "gold_patterns": gold_patterns,
-            "active_rules": active_rules,
-            "refreshed_at": datetime.now().isoformat(),
         }
-
-        shared_state["atlas_context"] = atlas_context
         return atlas_context
-
     except Exception as e:
-        log.error("ATLAS quick refresh error: %s", e)
+        log.warning(f"get_atlas_context failed: {e}")
         return {}

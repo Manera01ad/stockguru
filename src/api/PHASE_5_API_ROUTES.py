@@ -419,14 +419,5 @@ from PHASE_5_API_ROUTES import init_phase5_api
 
 app = Flask(__name__)
 db = SQLAlchemy(app)
-
-# Initialize Phase 5 API
-init_phase5_api(app, db.session)
-
-# Now your app has these endpoints:
-# POST   /api/self-healing/run              - Trigger analysis
-# GET    /api/self-healing/stats            - Get metrics
-# GET    /api/self-healing/recommendations  - List suggestions
-# POST   /api/self-healing/apply            - Approve & apply
-# GET    /api/self-healing/report           - Download report
+init_phase5_api(app, db)
 """

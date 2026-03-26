@@ -1,2 +1,2 @@
 # StockGuru Learning Module
-from src.agents.learning import signal_tracker, weight_adjuster
+from . import signal_tracker, weight_adjuster

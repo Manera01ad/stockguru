@@ -1017,26 +1017,10 @@ def run(shared_state, price_cache=None):
                 # Merge broker's portfolio snapshot into shared_state
                 broker_snap = broker.portfolio_snapshot()
                 shared_state["paper_portfolio"].update({
-                    "broker_order_count": len(broker.get_order_book()),
-                    "broker_open_orders": broker_snap.get("open_orders", 0),
-                    "broker_realised_pnl": broker_snap.get("realised_pnl", 0),
+                    "capital":    broker_snap.get("capital", shared_state["paper_portfolio"].get("capital", 500000)),
+                    "positions":  broker_snap.get("positions", {}),
                 })
-            shared_state["broker_order_book"] = [
-                o.to_dict() for o in broker.get_order_book()[-20:]  # last 20
-            ]
-        except Exception as _be:
-            log.warning("Broker tick failed (non-fatal): %s", _be)
+        except Exception as e:
+            log.warning(f"broker tick failed: {e}")
 
-    total_val = (portfolio["capital"] + portfolio["realized_pnl"] + portfolio["unrealized_pnl"])
-    log.info(
-        "✅ PaperTrader: [SIMULATION ONLY] Positions=%d | New entries=%d | "
-        "Portfolio ₹%.0f | Realized P&L ₹%+.0f | Unrealized ₹%+.0f | "
-        "Win rate %.0f%%",
-        len([p for p in portfolio["positions"].values() if p.get("status") == "OPEN"]),
-        new_entries,
-        total_val,
-        portfolio["realized_pnl"],
-        portfolio["unrealized_pnl"],
-        portfolio["stats"].get("win_rate", 0) * 100,
-    )
-    return portfolio
+                    

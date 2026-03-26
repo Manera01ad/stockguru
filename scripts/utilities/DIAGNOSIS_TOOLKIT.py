@@ -444,11 +444,5 @@ def main():
         sys.exit(exit_code)
 
     except KeyboardInterrupt:
-        print(f"\n{Colors.WARNING}Diagnostic cancelled by user{Colors.ENDC}")
-        sys.exit(130)
-    except Exception as e:
-        print(f"\n{Colors.FAIL}Unexpected error: {str(e)}{Colors.ENDC}")
-        sys.exit(1)
-
-if __name__ == '__main__':
-    main()
+        print(f"\n{Colors.WARNING}Diagnostic cancelled by user{Colors.RESET}")
+        sys.exit(0)

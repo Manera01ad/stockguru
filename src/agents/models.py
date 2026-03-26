@@ -139,66 +139,20 @@ class PortfolioHistory(Base):
 class SelfHealingSession(Base):
     """Logs each optimization cycle run by the Learning Engine."""
     __tablename__ = 'learning_sessions'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    timestamp = Column(DateTime, default=datetime.utcnow)
-    trades_analyzed = Column(Integer)
-    regime_detected = Column(String)  # TRENDING, RANGING, VOLATILE
-    avg_win_rate = Column(Float)
-    expected_improvement = Column(Float)
-    status = Column(String) # COMPLETED, ERROR
+    id               = Column(Integer, primary_key=True, autoincrement=True)
+    session_ts       = Column(String, default=lambda: datetime.utcnow().isoformat())
+    strategy         = Column(String)
+    adjustments_json = Column(Text, default="{}")
+    win_rate_before  = Column(Float)
+    win_rate_after   = Column(Float)
+    notes            = Column(Text)
+ 
 
-class GatePerformance(Base):
-    """Statistically derived effectiveness of each conviction gate."""
-    __tablename__ = 'gate_performance'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    session_id = Column(Integer, index=True)
-    gate_name = Column(String) # gate_1_technical, etc.
-    true_positive_rate = Column(Float) # Gate passed + Trade Won
-    false_positive_rate = Column(Float) # Gate passed + Trade Lost
-    predictive_power = Column(Float) # Weighted score 0.0 - 1.0
-    last_updated = Column(DateTime, default=datetime.utcnow)
+# ── Engine + SessionLocal ─────────────────────────────────────────────────────
+_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__)))), "data", "stockguru.db")
 
-class DynamicThreshold(Base):
-    """Current 'Self-Healed' optimal threshold values for the core engine."""
-    __tablename__ = 'dynamic_thresholds'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    param_name = Column(String, unique=True) # MIN_RR, MIN_VOLUME_Z, etc.
-    current_value = Column(Float)
-    previous_value = Column(Float)
-    confidence_score = Column(Float) # 0.0 - 1.0 based on sample size
-    applied_at = Column(DateTime, default=datetime.utcnow)
-    is_active = Column(Integer, default=1)
-
-class RiskOptimization(Base):
-    """Suggested risk-parameter deviations based on recent performance."""
-    __tablename__ = 'risk_optimizations'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    timestamp = Column(DateTime, default=datetime.utcnow)
-    market_regime = Column(String)
-    suggested_sl_mult = Column(Float) # e.g. 1.2x usual ATR
-    suggested_tp_mult = Column(Float)
-    max_drawdown_limit = Column(Float)
-    notes = Column(Text)
-
-class MarketRegimeHistory(Base):
-    """Historical record of changing market conditions."""
-    __tablename__ = 'regime_history'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    timestamp = Column(DateTime, default=datetime.utcnow)
-    regime = Column(String)
-    vix_level = Column(Float)
-    breadth_ratio = Column(Float)
-    dominance = Column(String) # BULLS, BEARS, TUG_OF_WAR
-
-# Database Engine Setup (Hierarchical Resolve)
-_base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-DB_PATH = f"sqlite:///{os.path.join(_base_dir, 'data', 'stockguru.db')}"
-engine = create_engine(DB_PATH, echo=False)
+engine       = create_engine(f"sqlite:///{_DB_PATH}", connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-def init_db():
-    Base.metadata.create_all(bind=engine)
-    print("✅ StockGuru Database & Schema Initialized!")
-
-if __name__ == "__main__":
-    init_db()
+Base.metadata.create_all(bind=engine)

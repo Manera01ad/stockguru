@@ -370,12 +370,6 @@ def get_causal_context(primary_cause: str = None, failure_reason: str = None) ->
     if primary_cause:
         data = stats.get("by_cause", {}).get(primary_cause, {})
         if data.get("count", 0) >= 5:
-            return (f"{primary_cause}: {data['win_rate']*100:.0f}% win rate "
-                    f"(avg P&L {data['avg_pnl']:+.1f}%, n={data['count']})")
-
-    if failure_reason:
-        data = stats.get("by_failure", {}).get(failure_reason, {})
-        if data.get("count", 0) >= 3:
-            return f"Most common failure: {failure_reason} ({data['count']} times, avg {data['avg_pnl']:.1f}%)"
-
+            return (f"{primary_cause}: {data.get('win_rate', 0)*100:.0f}% win rate "
+                    f"(n={data.get('count', 0)})")
     return ""
