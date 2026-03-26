@@ -223,6 +223,6 @@ def run(shared_state):
         "active_positions": active_count,
         "daily_pnl_pct":  daily_loss,
         "daily_halt":     daily_halt,
-        "last_run":       datetime.now().strftime("%d %b %H:%M:%S"),
+        "last_run":       datetime.now().strftime("%H:%M:%S"),
     }
     return reviewed_signals

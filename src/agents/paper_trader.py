@@ -1023,6 +1023,141 @@ def run(shared_state, price_cache=None):
                     "positions":  broker_snap.get("positions", {}),
                 })
         except Exception as e:
-            log.warning(f"broker tick failed: {e}")
+            pass
 
-                    
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PHASE 5 INTEGRATION: Adaptive Risk Manager
+# Uses Phase 5 RiskOptimization DB table + RiskParameterTuner to dynamically
+# size positions, set stops, and target R:R based on current market regime.
+# Falls back gracefully to the static sizing logic already in paper_trader.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class Phase5RiskManager:
+    """
+    Adaptive position-sizing and risk-parameter manager driven by Phase 5.
+
+    Drop-in replacement for the hardcoded risk values in _enter_position().
+    Usage:
+        risk_mgr = Phase5RiskManager(db_session=SessionLocal(), shared_state=shared_state)
+        risk_mgr.update_regime(vix=18.0, trend_strength=0.6, momentum=0.3)
+        qty  = risk_mgr.position_size(entry=2500, stop=2450, equity=500_000)
+        sl   = risk_mgr.stop_loss(entry=2500, atr=25.0)
+        tgt  = risk_mgr.target_price(entry=2500, stop=sl)
+    """
+
+    # Regime-specific defaults (used when Phase 5 DB has no approved profile yet)
+    _DEFAULTS = {
+        "TRENDING":  {"pos_pct": 0.02, "sl_atr": 1.5, "rr": 2.5},
+        "RANGING":   {"pos_pct": 0.015, "sl_atr": 1.2, "rr": 1.8},
+        "VOLATILE":  {"pos_pct": 0.01,  "sl_atr": 2.0, "rr": 2.0},
+        "DEFAULT":   {"pos_pct": 0.02,  "sl_atr": 1.5, "rr": 2.0},
+    }
+
+    def __init__(self, db_session=None, shared_state: dict = None, initial_equity: float = 500_000):
+        self.db = db_session
+        self.shared_state = shared_state if shared_state is not None else {}
+        self.equity = initial_equity
+        self.peak_equity = initial_equity
+        self._regime: str = "DEFAULT"
+        self._profile: dict = self._DEFAULTS["DEFAULT"].copy()
+        self._cache: dict = {}
+
+    # ------------------------------------------------------------------
+    def update_regime(self, vix: float = 20.0, trend_strength: float = 0.5,
+                      momentum: float = 0.0) -> str:
+        """
+        Classify current market regime and load the matching Phase 5 profile.
+
+        Simple heuristic (Phase 5 market_regime_detector runs async;
+        this gives an instant sync estimate for every trade cycle).
+        """
+        if vix > 25:
+            regime = "VOLATILE"
+        elif trend_strength > 0.6:
+            regime = "TRENDING"
+        else:
+            regime = "RANGING"
+
+        self._regime = regime
+        self.shared_state["market_regime"] = regime
+        self._profile = self._load_profile(regime)
+        log.info("Phase5RiskManager: regime=%s | pos_pct=%.1f%% | sl_atr=%.1f | rr=%.1f",
+                 regime, self._profile["pos_pct"] * 100,
+                 self._profile["sl_atr"], self._profile["rr"])
+        return regime
+
+    def _load_profile(self, regime: str) -> dict:
+        """Try DB first, fall back to hardcoded defaults."""
+        if not self.db:
+            return self._DEFAULTS.get(regime, self._DEFAULTS["DEFAULT"]).copy()
+        try:
+            from src.agents.models import RiskOptimization
+            row = (
+                self.db.query(RiskOptimization)
+                .filter(
+                    RiskOptimization.market_regime == regime,
+                    RiskOptimization.is_active == True,   # noqa: E712
+                    RiskOptimization.approved == True,    # noqa: E712
+                )
+                .order_by(RiskOptimization.activated_at.desc())
+                .first()
+            )
+            if row:
+                return {
+                    "pos_pct": row.position_size_percent or self._DEFAULTS[regime]["pos_pct"],
+                    "sl_atr":  row.stop_loss_atr_multiple or self._DEFAULTS[regime]["sl_atr"],
+                    "rr":      row.target_rr_ratio or self._DEFAULTS[regime]["rr"],
+                }
+        except Exception as exc:
+            log.debug("Phase5RiskManager: DB load failed (%s) — using defaults", exc)
+        return self._DEFAULTS.get(regime, self._DEFAULTS["DEFAULT"]).copy()
+
+    # ------------------------------------------------------------------
+    def position_size(self, entry: float, stop: float, equity: float = None) -> int:
+        """
+        Calculate share quantity using Phase 5 position sizing.
+
+        Risk = equity * pos_pct
+        Qty  = floor(Risk / |entry - stop|)
+        Also scales down during drawdown (same as Phase5 spec).
+        """
+        equity = equity or self.equity
+        risk_amount = equity * self._profile["pos_pct"]
+
+        # Drawdown scaling: reduce by 20% per 1% excess over historical max DD
+        dd = 1.0 - (equity / self.peak_equity) if self.peak_equity > 0 else 0.0
+        if dd > 0.15:
+            risk_amount *= max(0.5, 1.0 - (dd - 0.15) * 20)
+
+        risk_per_share = abs(entry - stop) if stop and abs(entry - stop) > 0 else entry * 0.05
+        qty = max(1, int(risk_amount / risk_per_share))
+        return qty
+
+    def stop_loss(self, entry: float, atr: float = None, direction: str = "long") -> float:
+        """ATR-based stop loss using Phase 5 optimized multiple."""
+        if not atr or atr <= 0:
+            atr = entry * 0.02   # 2% fallback
+        dist = atr * self._profile["sl_atr"]
+        return round(entry - dist if direction == "long" else entry + dist, 2)
+
+    def target_price(self, entry: float, stop: float, direction: str = "long") -> float:
+        """R:R based target using Phase 5 optimized ratio."""
+        risk = abs(entry - stop)
+        reward = risk * self._profile["rr"]
+        return round(entry + reward if direction == "long" else entry - reward, 2)
+
+    def update_equity(self, new_equity: float):
+        self.equity = new_equity
+        if new_equity > self.peak_equity:
+            self.peak_equity = new_equity
+
+    def summary(self) -> dict:
+        return {
+            "regime": self._regime,
+            "pos_pct": self._profile["pos_pct"],
+            "sl_atr_multiple": self._profile["sl_atr"],
+            "target_rr": self._profile["rr"],
+            "current_equity": self.equity,
+            "drawdown_pct": round((1 - self.equity / self.peak_equity) * 100, 2) if self.peak_equity else 0,
+        }

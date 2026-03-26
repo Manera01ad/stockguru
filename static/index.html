@@ -1841,6 +1841,8 @@
         <button class="tab-btn" data-label="ATLAS" onclick="showTab('atlas',this);loadAtlas()"> <span
             class="tab-icon">🧠</span><span class="tab-label">ATLAS</span><span id="atlas-badge"
             style="display:none;margin-left:5px;background:#06b6d4;color:#000;font-size:8px;padding:1px 5px;border-radius:8px;font-weight:700">LIVE</span></button>
+        <button class="tab-btn" data-label="Docs" onclick="showTab('docs',this);loadDocsTab()"> <span
+            class="tab-icon">📚</span><span class="tab-label">Docs</span></button>
       </div>
 
     </aside>
@@ -12504,8 +12506,127 @@ TOP 3 PLAYS FOR THIS WEEK:
     const result = await _origFetch(...args);
     return result;
   };
-  
+
 })();
+</script>
+
+<!-- ══════════════════ DOCS TAB ══════════════════ -->
+<style>
+  #tab-docs, #tab-docs.active { padding:0 !important; height:calc(100vh - 64px); overflow:hidden; }
+  .docs-status-bar {
+    display:flex; align-items:center; gap:12px; padding:8px 20px;
+    background:rgba(0,0,0,0.35); border-bottom:1px solid rgba(0,196,204,0.2);
+    font-family:'JetBrains Mono',monospace; font-size:11px; flex-wrap:wrap;
+  }
+  .docs-status-bar .ds-label { color:rgba(180,200,190,0.55); text-transform:uppercase; letter-spacing:.06em; }
+  .docs-status-bar .ds-val { color:#00C4CC; font-weight:600; }
+  .docs-status-bar .ds-ok  { color:#00E676; }
+  .docs-status-bar .ds-warn{ color:#f59e0b; }
+  .docs-status-bar .ds-err { color:#FF3D71; }
+  .docs-status-bar .ds-sep { color:rgba(255,255,255,0.15); margin:0 4px; }
+  .docs-status-bar .ds-badge {
+    padding:2px 8px; border-radius:10px; font-size:10px; font-weight:700;
+    letter-spacing:.04em; text-transform:uppercase;
+  }
+  .docs-status-bar .ds-badge.ok   { background:rgba(0,230,118,.15); color:#00E676; border:1px solid rgba(0,230,118,.3); }
+  .docs-status-bar .ds-badge.warn { background:rgba(245,158,11,.12); color:#f59e0b; border:1px solid rgba(245,158,11,.3); }
+  .docs-status-bar .ds-badge.err  { background:rgba(255,61,113,.12); color:#FF3D71;  border:1px solid rgba(255,61,113,.3); }
+  .docs-status-bar .ds-refresh {
+    margin-left:auto; cursor:pointer; color:rgba(0,196,204,0.7); font-size:13px;
+    background:none; border:none; padding:2px 6px; border-radius:4px;
+    transition:color .2s;
+  }
+  .docs-status-bar .ds-refresh:hover { color:#00C4CC; }
+  #docs-iframe-wrap { height:calc(100% - 38px); }
+  #docs-iframe { width:100%; height:100%; border:none; }
+</style>
+
+<div class="section" id="tab-docs">
+  <!-- Live System Status Bar -->
+  <div class="docs-status-bar" id="docs-status-bar">
+    <span class="ds-label">System</span>
+    <span id="ds-health" class="ds-badge warn">Checking…</span>
+    <span class="ds-sep">|</span>
+    <span class="ds-label">Flask</span>
+    <span id="ds-flask" class="ds-val">localhost:5050</span>
+    <span class="ds-sep">|</span>
+    <span class="ds-label">Agents</span>
+    <span id="ds-agents" class="ds-val">—</span>
+    <span class="ds-sep">|</span>
+    <span class="ds-label">DB</span>
+    <span id="ds-db" class="ds-val">—</span>
+    <span class="ds-sep">|</span>
+    <span class="ds-label">Phase 5</span>
+    <span id="ds-phase5" class="ds-badge warn">—</span>
+    <span class="ds-sep">|</span>
+    <span class="ds-label">Last Cycle</span>
+    <span id="ds-cycle" class="ds-val">—</span>
+    <button class="ds-refresh" onclick="refreshDocsStatus()" title="Refresh status">⟳</button>
+  </div>
+  <!-- Embedded Documentation -->
+  <div id="docs-iframe-wrap">
+    <iframe id="docs-iframe" src="/docs" title="StockGuru Documentation"></iframe>
+  </div>
+</div>
+
+<script>
+  let _docsTabLoaded = false;
+
+  function loadDocsTab() {
+    // Iframe src is already set; just refresh the live status bar
+    refreshDocsStatus();
+    _docsTabLoaded = true;
+  }
+
+  async function refreshDocsStatus() {
+    // ── Health endpoint
+    try {
+      const r = await fetch('/api/health');
+      const d = await r.json();
+      const hel = document.getElementById('ds-health');
+      const status = (d.status || '').toLowerCase();
+      if (status === 'ok' || status === 'healthy') {
+        hel.textContent = 'HEALTHY'; hel.className = 'ds-badge ok';
+      } else if (status === 'degraded') {
+        hel.textContent = 'DEGRADED'; hel.className = 'ds-badge warn';
+      } else {
+        hel.textContent = status.toUpperCase() || 'UNKNOWN'; hel.className = 'ds-badge warn';
+      }
+      // Agent count
+      if (d.agents && d.agents.total !== undefined) {
+        const failed = (d.agents.failed || []).length;
+        document.getElementById('ds-agents').textContent =
+          d.agents.total + ' loaded' + (failed ? ` (${failed} err)` : '');
+      }
+      // DB — health endpoint doesn't return DB info directly; show static label
+      document.getElementById('ds-db').textContent = 'SQLite · 11 tables';
+      // Last cycle
+      if (d.last_cycle) {
+        const lc = d.last_cycle === 'never' ? 'never' : d.last_cycle.replace('T',' ').slice(0,19);
+        document.getElementById('ds-cycle').textContent = lc;
+      }
+    } catch(e) {
+      const hel = document.getElementById('ds-health');
+      hel.textContent = 'OFFLINE'; hel.className = 'ds-badge err';
+    }
+
+    // ── Phase 5 status
+    try {
+      const r2 = await fetch('/api/self-healing/stats');
+      const d2 = await r2.json();
+      const p5el = document.getElementById('ds-phase5');
+      if (d2 && (d2.sessions_completed > 0 || d2.last_run)) {
+        p5el.textContent = 'ACTIVE'; p5el.className = 'ds-badge ok';
+      } else if (d2 && d2.status === 'ready') {
+        p5el.textContent = 'READY'; p5el.className = 'ds-badge warn';
+      } else {
+        p5el.textContent = 'STANDBY'; p5el.className = 'ds-badge warn';
+      }
+    } catch(e) {
+      document.getElementById('ds-phase5').textContent = 'N/A';
+      document.getElementById('ds-phase5').className = 'ds-badge warn';
+    }
+  }
 </script>
 
 </body>

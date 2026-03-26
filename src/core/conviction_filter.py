@@ -589,6 +589,113 @@ class ConvictionFilter:
         return f"{hours:02d}:{mins:02d}"
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# PHASE 5 INTEGRATION: Dynamic Threshold Manager
+# Loads Phase 5 optimized thresholds and pushes them into ConvictionFilter via
+# shared_state["active_gate_thresholds"] so the existing gate logic picks them
+# up automatically without any changes to the core evaluation flow.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class Phase5ThresholdManager:
+    """
+    Bridges Phase 5 Self-Healing engine to ConvictionFilter.
+
+    On each call to `refresh_thresholds()` it:
+      1. Queries DynamicThreshold table for active, approved rows
+      2. Detects current market regime (from shared_state or fallback)
+      3. Merges regime-specific overrides on top of 'all' defaults
+      4. Writes the merged dict to shared_state["active_gate_thresholds"]
+
+    ConvictionFilter.__init__() already reads that key — so every new
+    filter instance automatically picks up the latest Phase 5 values.
+    """
+
+    # Gate name → ConvictionFilter.THRESHOLDS key mapping
+    GATE_KEY_MAP = {
+        'technical_setup':     'gate_1_rsi_min',
+        'volume_confirmation': 'gate_2_volume_multiplier',
+        'agent_consensus':     'gate_3_consensus_min',
+        'risk_reward':         'gate_4_rr_ratio_min',
+        'time_of_day':         'gate_5_time_open_min',
+        'institutional_flow':  'gate_6_fii_threshold',
+        'news_sentiment':      'gate_7_sentiment_min',
+        'vix_check':           'gate_8_vix_max',
+        'minimum_gates':       'minimum_gates_to_execute',
+    }
+
+    def __init__(self, db_session=None, shared_state: Optional[dict] = None):
+        self.db = db_session
+        self.shared_state = shared_state if shared_state is not None else {}
+        self._cache: dict = {}
+        self._last_refresh: Optional[datetime] = None
+        self._cache_ttl_seconds = 3600   # 1 hour
+
+    def refresh_thresholds(self, force: bool = False) -> dict:
+        """
+        Load active Phase 5 thresholds from DB and write into shared_state.
+
+        Returns the merged threshold dict (or {} on failure / no DB).
+        """
+        now = datetime.utcnow()
+        if (not force
+                and self._last_refresh
+                and (now - self._last_refresh).total_seconds() < self._cache_ttl_seconds):
+            return self._cache
+
+        if not self.db:
+            return {}
+
+        try:
+            from src.agents.models import DynamicThreshold
+
+            regime = (self.shared_state.get("market_regime") or "all").upper()
+
+            rows = (
+                self.db.query(DynamicThreshold)
+                .filter(
+                    DynamicThreshold.is_active == True,  # noqa: E712
+                    DynamicThreshold.approved == True,   # noqa: E712
+                )
+                .all()
+            )
+
+            merged: dict = {}
+            # Pass 1: apply 'all' baselines
+            for row in rows:
+                cf_key = self.GATE_KEY_MAP.get(row.gate_name)
+                if cf_key and (row.market_regime or "all").upper() == "ALL":
+                    merged[cf_key] = row.current_value
+            # Pass 2: overlay regime-specific values
+            for row in rows:
+                cf_key = self.GATE_KEY_MAP.get(row.gate_name)
+                if cf_key and (row.market_regime or "all").upper() == regime:
+                    merged[cf_key] = row.current_value
+
+            if merged:
+                self.shared_state["active_gate_thresholds"] = merged
+                logger.info(
+                    "Phase5ThresholdManager: loaded %d threshold overrides for regime=%s",
+                    len(merged), regime,
+                )
+
+            self._cache = merged
+            self._last_refresh = now
+            return merged
+
+        except Exception as exc:
+            logger.warning("Phase5ThresholdManager: failed to load thresholds — %s", exc)
+            return {}
+
+    def get_regime_summary(self) -> dict:
+        """Return a summary dict suitable for the /api/self-healing/stats endpoint."""
+        return {
+            "active_overrides": len(self._cache),
+            "last_refresh": self._last_refresh.isoformat() if self._last_refresh else None,
+            "current_regime": self.shared_state.get("market_regime", "unknown"),
+            "thresholds": self._cache,
+        }
+
+
 # Example usage
 if __name__ == "__main__":
     import logging
@@ -627,37 +734,4 @@ if __name__ == "__main__":
     print("\n" + "="*70)
     print("STRONG SIGNAL TEST (Should Execute)")
     print("="*70)
-    should_execute, audit = conviction_filter.evaluate_signal(strong_signal)
-    print(f"Decision: {'EXECUTE' if should_execute else 'REJECT'}")
-    print(f"Audit Record JSON:\n{audit.to_json()}")
-
-    # Example signal that should FAIL some gates
-    weak_signal = {
-        'symbol': 'TCS',
-        'decision': 'BUY',
-        'signal_type': 'Entry',
-        'entry_price': 3000.0,
-        'exit_price': 3100.0,  # Bad R:R ratio
-        'stop_loss': 2900.0,
-
-        'rsi': 75.0,                      # Gate 1: Overbought
-        'macd_positive': False,           # Gate 1: MACD negative
-        'above_200dma': True,             # Gate 1: Above 200 DMA
-        'volume': 500000,                 # Gate 2: Only 0.5x volume
-        'avg_volume': 1000000,            # Gate 2: Average
-        'agent_votes': ['BUY', 'SELL', 'SELL'],  # Gate 3: Only 1 agrees
-        'fii_flow': -200.0,               # Gate 6: Negative FII
-        'dii_flow': 100.0,                # Gate 6: Mixed
-        'news_sentiment': 0.1,            # Gate 7: Low
-        'breaking_news_count': 1,         # Gate 7: Has breaking news
-        'vix': 28.0,                      # Gate 8: High VIX
-        'minute': 2,                      # Gate 5: Near open
-        'agent_name': 'NewsAnalyzer',
-    }
-
-    print("\n" + "="*70)
-    print("WEAK SIGNAL TEST (Should Reject)")
-    print("="*70)
-    should_execute, audit = conviction_filter.evaluate_signal(weak_signal)
-    print(f"Decision: {'EXECUTE' if should_execute else 'REJECT'}")
-    print(f"Audit Record JSON:\n{audit.to_json()}")
+    should_execute, audit = conviction_filter.evaluat
