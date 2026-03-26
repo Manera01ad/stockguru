@@ -96,7 +96,10 @@ try:
 except ImportError:
     SOVEREIGN_PHASE2_AVAILABLE = False
 
-# ── PHASE 5: SELF-HEALING SYSTEM (Adaptive Strategy) ──────────────────────────
+_core_dir = os.path.dirname(os.path.abspath(__file__))
+if _core_dir not in sys.path:
+        sys.path.insert(0, _core_dir)
+    # ── PHASE 5: SELF-HEALING SYSTEM (Adaptive Strategy) ──────────────────────────
 try:
     from src.core.phase5_self_healing.learning_engine import LearningEngine
     SELF_HEALING_AVAILABLE = True
