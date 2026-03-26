@@ -224,7 +224,7 @@ def build_intraday_alert(shared_state):
     lines.append(f"\n_⚠️ Paper trade only._")
     return "\n".join(lines)
 
-def run(shared_state, send_telegram_fn, send_n8n_fn=None, force=False):
+def run(shared_state, send_telegram_fn=None, send_n8n_fn=None, force=False):
     """Main agent — send morning brief at 8 AM or on demand."""
     now  = datetime.now()
     hour = now.hour

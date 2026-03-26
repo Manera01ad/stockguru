@@ -69,11 +69,12 @@ def check_rr_ratio(entry, target1, stop_loss, min_rr=2.5):
 def check_concentration(sector, positions_map, capital, new_position_value, max_pct=0.25):
     """Check if adding new position exceeds sector concentration limit (R12)."""
     sector_value = sum(
-        pos["position_value"]
+        pos.get("position_value", 0)
         for pos in positions_map.values()
         if pos.get("sector") == sector
     )
     new_total = sector_value + new_position_value
+    capital   = capital if capital else 500000 
     new_pct   = new_total / capital
     return new_pct <= max_pct, round(new_pct * 100, 1)
 

@@ -612,6 +612,8 @@ def _update_daily_pnl(portfolio):
     daily_pnl_pct = round(((current_val - start_val) / start_val) * 100, 2) if start_val else 0
 
     portfolio["daily_pnl_pct"]         = daily_pnl_pct
+    if "daily_pnl" not in portfolio:
+        portfolio["daily_pnl"] = {}
     portfolio["daily_pnl"][today]      = daily_pnl_pct
     portfolio["total_pnl"]             = round(portfolio.get("realized_pnl", 0), 2)
     portfolio["total_return_pct"]      = round((portfolio["total_pnl"] / capital) * 100, 2)

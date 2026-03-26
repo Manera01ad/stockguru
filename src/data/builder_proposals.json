@@ -1,0 +1,15 @@
+[
+  {
+    "id": "BLD_20260326_102858_B52F",
+    "template": "promoter_holding_table",
+    "title": "Promoter Holding Tracker",
+    "why": "Screener.in data shows promoter holding trends \u2014 key insider signal missing from watchlist",
+    "data_source": "/api/observer-data",
+    "html_code": "<div class='card' style='margin-top:1rem'>\n  <div class='card-head'>\n    <div class='card-title'>Promoter Holding Tracker</div>\n  </div>\n  <div id='promoter-holding-container' style='padding:1.5rem;color:var(--muted)'>Loading...</div>\n</div>\n\n<script>\nasync function fetchBuilderPanel_promoter_holding_table() {\n  const container = document.getElementById('promoter-holding-container');\n  try {\n    const response = await fetch('/api/observer-data');\n    const data = await response.json();\n    const holdings = data.observer?.promoter_holdings || [];\n    \n    if (!holdings.length) {\n      container.innerHTML = '<p style=\"color:var(--muted)\">No promoter holdings data available</p>';\n      return;\n    }\n\n    let html = '<table style=\"width:100%;border-collapse:collapse;font-size:0.9rem\">';\n    html += '<thead><tr style=\"background:var(--bg-card);border-bottom:1px solid var(--border)\">';\n    html += '<th style=\"padding:0.75rem;text-align:left;font-weight:600\">Company</th>';\n    html += '<th style=\"padding:0.75rem;text-align:right;font-weight:600\">Holdings %</th>';\n    html += '<th style=\"padding:0.75rem;text-align:right;font-weight:600\">Change</th>';\n    html += '<th style=\"padding:0.75rem;text-align:center;font-weight:600\">Status</th>';\n    html += '</tr></thead><tbody>';\n\n    holdings.forEach((holding, idx) => {\n      const isPositive = holding.change >= 0;\n      const changeColor = isPositive ? 'var(--green)' : 'var(--red)';\n      const changeSign = isPositive ? '+' : '';\n      const bgRow = idx % 2 === 0 ? 'transparent' : 'var(--bg-card)';\n      \n      html += `<tr style=\"background:${bgRow};border-bottom:1px solid var(--border)\">`;\n      html += `<td style=\"padding:0.75rem;font-weight:500\">${holding.company || 'N/A'}</td>`;\n      html += `<td style=\"padding:0.75rem;text-align:",
+    "status": "PENDING",
+    "created_at": "2026-03-26T10:28:58.980234",
+    "expires_at": "2026-03-27T10:28:58.980234",
+    "applied_at": null,
+    "lines": 37
+  }
+]

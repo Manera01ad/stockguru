@@ -1,0 +1,31 @@
+[
+  {
+    "run_id": "BACKTEST_20260326_0740",
+    "portfolio_snapshot": {
+      "capital": 100000.0,
+      "positions_count": 0,
+      "invested": 0
+    },
+    "scenarios": {
+      "FLASH_CRASH": {
+        "positions_hit": [],
+        "drawdown_pct": 0.0,
+        "narrative": "No open positions."
+      },
+      "SECTOR_SELLOFF": {
+        "positions_hit": [],
+        "drawdown_pct": 0.0,
+        "narrative": "No open positions."
+      },
+      "BLACK_SWAN": {
+        "positions_hit": [],
+        "drawdown_pct": 0.0,
+        "narrative": "No open positions."
+      }
+    },
+    "black_swan_probability": "LOW",
+    "max_drawdown_scenario": "N/A",
+    "recommended_hedge": "No positions to hedge.",
+    "last_run": "26 Mar 07:40:28"
+  }
+]

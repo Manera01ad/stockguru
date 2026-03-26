@@ -1,0 +1,7 @@
+{
+    "veto_thresholds": {
+        "soft_veto_vix": 16
+    },
+    "self_correction": {},
+    "_last_modified": "2026-03-26T02:28:31.902175"
+}

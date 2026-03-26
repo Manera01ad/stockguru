@@ -97,9 +97,13 @@ except ImportError:
     SOVEREIGN_PHASE2_AVAILABLE = False
 
 _core_dir = os.path.dirname(os.path.abspath(__file__))
+_proj_root = os.path.abspath(os.path.join(_core_dir, "..", ".."))
+if _proj_root not in sys.path:
+    sys.path.insert(0, _proj_root)
 if _core_dir not in sys.path:
-        sys.path.insert(0, _core_dir)
-    # ── PHASE 5: SELF-HEALING SYSTEM (Adaptive Strategy) ──────────────────────────
+    sys.path.insert(0, _core_dir)
+
+# ── PHASE 5: SELF-HEALING SYSTEM (Adaptive Strategy) ──────────────────────────
 try:
     from src.core.phase5_self_healing.learning_engine import LearningEngine
     SELF_HEALING_AVAILABLE = True
@@ -4156,9 +4160,114 @@ def api_ai_tutor():
                 "You are StockGuru Chart Analyst — you specialise in technical analysis of Indian F&O charts. "
                 "Identify candlestick patterns, volume confirmation, trend lines, momentum divergences, and breakout levels. "
                 "Give a structured report: Pattern | Trend | Key Levels | Signal | Confidence %."
-            ),
-        }
-        return PERSONA.get(mode, PERSONA["tutor"])
+            )
+        }.get(mode, "tutor")
+
+        # ── Build context snippet from live data ────────────────────
+        ctx_text = ""
+        if context:
+            spot   = context.get("spot", "N/A")
+            alerts = context.get("alerts", [])
+            ctx_text = f"\n\n[LIVE MARKET CONTEXT]\nNIFTY Spot: {spot}\n"
+            if alerts:
+                for a in alerts[:2]:
+                    ctx_text += f"⚠️ {a.get('title','')}: {a.get('message','')}\n"
+
+        full_prompt = f"{PERSONA}\n\n[USER QUERY]\n{user_message}{ctx_text}"
+
+        # ── Choose model: Flash (text) or Pro Vision (image) ───────
+        if image_b64:
+            model = genai.GenerativeModel("gemini-2.0-flash")
+            import base64
+            img_bytes = base64.b64decode(image_b64)
+            response = model.generate_content([
+                full_prompt,
+                {"mime_type": "image/png", "data": img_bytes}
+            ])
+        else:
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            response = model.generate_content(full_prompt)
+
+        reply_text = response.text if hasattr(response, "text") else str(response)
+
+        return jsonify({
+            "reply":   reply_text,
+            "mode":    mode,
+            "has_image": bool(image_b64),
+            "model": "gemini-2.0-flash"
+        })
+
     except Exception as e:
-        log.warning(f"_get_persona failed: {e}")
-        return ""
+        log.error("AI Tutor error: %s", e)
+        return jsonify({"error": str(e), "reply": f"⚠️ AI Tutor temporarily unavailable: {e}"}), 500
+
+
+# ── Paper Trade Submit ───────────────────────────────────────────────
+@app.route("/api/paper-trade", methods=["POST"])
+def api_paper_trade():
+    """Log a paper trade from the UI and return AI feedback on the decision."""
+    try:
+        body   = request.get_json(force=True) or {}
+        symbol = body.get("symbol", "NIFTY")
+        action = body.get("action", "BUY")   # BUY | SELL
+        strike = body.get("strike", "")
+        opt_type = body.get("opt_type", "CE") # CE or PE
+        qty    = int(body.get("qty", 1))
+        entry  = float(body.get("entry", 0))
+        sl     = float(body.get("sl", 0))
+        target = float(body.get("target", 0))
+
+        rr = round((target - entry) / (entry - sl), 2) if sl and sl != entry else "N/A"
+
+        GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
+        feedback = "Trade logged. Connect GEMINI_API_KEY for AI feedback."
+        if GEMINI_KEY:
+            import google.generativeai as genai
+            genai.configure(api_key=GEMINI_KEY)
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            prompt = (
+                f"A trader just placed a PAPER TRADE. Evaluate this decision like an experienced trading professor:\n"
+                f"Trade: {action} {qty} lot {symbol} {strike} {opt_type}\n"
+                f"Entry: ₹{entry} | Stop Loss: ₹{sl} | Target: ₹{target} | R:R = {rr}\n\n"
+                f"Give: 1) Risk assessment (is SL too wide/tight?) 2) Strategy fit (right option type?) "
+                f"3) One key thing to watch. Keep it under 120 words. Be practical and encouraging."
+            )
+            resp = model.generate_content(prompt)
+            feedback = resp.text if hasattr(resp, "text") else feedback
+
+        return jsonify({
+            "status": "logged",
+            "rr": rr,
+            "ai_feedback": feedback,
+            "trade": body
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ── Auto-startup when loaded by gunicorn (Railway) ───────────────────────────
+# gunicorn imports this module as "app", not "__main__", so _startup() was
+# never called on Railway — prices stayed 0 forever. This fixes that.
+_started = False
+def _ensure_started():
+    global _started
+    if _started:
+        return
+    _started = True
+    _startup()
+
+# Gunicorn worker import path (Railway) — start in background thread
+if __name__ != "__main__":
+    import threading as _th
+    _th.Thread(target=_ensure_started, daemon=True).start()
+
+if __name__ == "__main__":
+    _ensure_started()
+    port = int(os.getenv("PORT", 5050))   # Railway injects PORT automatically
+    print(f"\n>>> StockGuru v2.0 starting on http://localhost:{port}")
+    print(">>> 14 Agents scheduled & price feed connected.")
+    if socketio:
+        # WebSocket-enabled: use socketio.run() with gevent server
+        socketio.run(app, host="0.0.0.0", port=port, debug=False, use_reloader=False)
+    else:
+        # Fallback to plain Flask (no WebSocket)
+        app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)

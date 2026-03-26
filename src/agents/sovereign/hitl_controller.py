@@ -229,10 +229,17 @@ def _format_hitl_message(item: dict) -> str:
     def _sanitize(txt: str) -> str:
         return str(txt).replace("_", " ").replace("*", "").replace("`", "").replace("[", "").replace("]", "")
 
-    thesis_san = _sanitize(thesis)
-    memory_san = _sanitize(memory)
-    debate_san = _sanitize(debate)
+    thesis_san = _sanitize(item.get("quant_thesis", ""))
+    memory_san = _sanitize(item.get("memory_context", ""))
+    debate_san = _sanitize(item.get("debate_summary", ""))
     sector_san = _sanitize(sector)
+
+    # Calculate remaining minutes for expiry
+    try:
+        expires_at = datetime.fromisoformat(item["expires_at"])
+        expiry = max(0, int((expires_at - datetime.now()).total_seconds() / 60))
+    except Exception:
+        expiry = 60
 
     lines = [
         f"🤖 *TRADE PROPOSAL {num}*",
@@ -246,15 +253,16 @@ def _format_hitl_message(item: dict) -> str:
         f"🧠 Quant: _{thesis_san}_",
     ]
 
+    flags = item.get("soft_veto_flags", [])
     if flags:
         flag_san = _sanitize(flags[0])
         lines.append(f"⚠️  Flag: {flag_san}")
 
     if debate_san:
-        lines.append(f"🎭 Debate: _{debate_san[:60]}_")
+        lines.append(f"🎭 Debate: _{debate_san[:120]}_")
 
     lines += [
-        f"💭 Memory: _{memory_san}_",
+        f"💭 Memory: _{memory_san[:150]}..._" if len(memory_san) > 150 else f"💭 Memory: _{memory_san}_",
         "",
         f"⏰ Expires in {expiry} min",
         "_Paper simulation only — not SEBI advice._"

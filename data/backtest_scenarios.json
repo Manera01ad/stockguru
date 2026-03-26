@@ -450,5 +450,78 @@
     "max_drawdown_scenario": "N/A",
     "recommended_hedge": "No positions to hedge.",
     "last_run": "26 Mar 00:02:25"
+  },
+  {
+    "run_id": "BACKTEST_20260326_0639",
+    "portfolio_snapshot": {
+      "capital": 500000.0,
+      "positions_count": 0,
+      "invested": 0
+    },
+    "scenarios": {
+      "FLASH_CRASH": {
+        "positions_hit": [],
+        "drawdown_pct": 0.0,
+        "narrative": "No open positions."
+      },
+      "SECTOR_SELLOFF": {
+        "positions_hit": [],
+        "drawdown_pct": 0.0,
+        "narrative": "No open positions."
+      },
+      "BLACK_SWAN": {
+        "positions_hit": [],
+        "drawdown_pct": 0.0,
+        "narrative": "No open positions."
+      }
+    },
+    "black_swan_probability": "LOW",
+    "max_drawdown_scenario": "N/A",
+    "recommended_hedge": "No positions to hedge.",
+    "last_run": "26 Mar 06:39:30"
+  },
+  {
+    "run_id": "BACKTEST_20260326_1030",
+    "portfolio_snapshot": {
+      "capital": 500000.0,
+      "positions_count": 3,
+      "invested": 0.0,
+      "invested_pct": 0.0
+    },
+    "scenarios": {
+      "FLASH_CRASH": {
+        "positions_hit": [
+          "AIRTEL"
+        ],
+        "drawdown_pct": -0.0,
+        "shock": "-5% flash crash",
+        "sl_triggered": 1,
+        "narrative": "Paper portfolio with zero capital invested; no actual risk exposure."
+      },
+      "SECTOR_SELLOFF": {
+        "positions_hit": [],
+        "drawdown_pct": -0.0,
+        "shock": "-4% sector selloff (NBFC)",
+        "worst_sector": "NBFC",
+        "sl_triggered": 0,
+        "narrative": "No capital deployed; sector movements irrelevant to portfolio performance."
+      },
+      "BLACK_SWAN": {
+        "positions_hit": [
+          "MUTHOOT",
+          "INDIGO",
+          "AIRTEL"
+        ],
+        "drawdown_pct": -0.0,
+        "shock": "-10% crash then +5% bounce",
+        "sl_triggered": 3,
+        "net_underwater": 0,
+        "narrative": "Three stop losses triggered but zero drawdown; positions are hypothetical."
+      }
+    },
+    "black_swan_probability": "LOW",
+    "max_drawdown_scenario": "FLASH_CRASH",
+    "recommended_hedge": "Deploy capital first. Then consider index put options or sector ETF hedges.",
+    "last_run": "26 Mar 10:30:19"
   }
 ]
