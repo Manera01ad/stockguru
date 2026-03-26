@@ -1,0 +1,1 @@
+# StockGuru Core Package
