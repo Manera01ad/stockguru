@@ -1901,7 +1901,7 @@ def api_update_keys():
         def resolve(field, existing):
             v = data.get(field, '').strip()
             return existing if '****' in v else v
-        env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+        env_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".env"))
         new_anthropic = resolve('anthropic_api_key', ANTHROPIC_API_KEY)
         new_gemini    = resolve('gemini_api_key',    GEMINI_API_KEY)
         new_tg_token  = resolve('telegram_token',    TELEGRAM_TOKEN)
@@ -2014,7 +2014,7 @@ def api_set_live_trading():
     try:
         data    = request.get_json() or {}
         enabled = bool(data.get("enabled", False))
-        env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+        env_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".env"))
         try:
             with open(env_path, "r") as f:
                 lines = f.readlines()
@@ -2089,7 +2089,7 @@ def api_update_feed_keys():
     """Write broker credentials to .env and hot-reload the feed manager."""
     try:
         data = request.get_json() or {}
-        env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+        env_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".env"))
         # Read existing .env lines
         try:
             with open(env_path, "r") as f:
@@ -2169,7 +2169,7 @@ def api_toggle_feed():
         os.environ[env_key] = val
 
         # Persist to .env
-        env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+        env_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".env"))
         try:
             with open(env_path, "r") as f:
                 lines = f.readlines()
@@ -3404,6 +3404,19 @@ def api_feed_status():
         if _FEED_OK and _feed_mgr:
             status_data = _feed_mgr.status()
             status_data["forced_feed"] = forced
+            # Inject Shoonya auth error if present
+            try:
+                from src.agents.feeds.shoonya_feed import ShoonyaFeed
+                if ShoonyaFeed._auth_error:
+                    import time as _t
+                    age = int(_t.time() - ShoonyaFeed._auth_failed_at)
+                    status_data["shoonya_auth_error"]   = ShoonyaFeed._auth_error
+                    status_data["shoonya_retry_in_sec"] = max(0, ShoonyaFeed._AUTH_RETRY_SEC - age)
+                    status_data["shoonya_connected"]    = False
+                else:
+                    status_data["shoonya_connected"] = ShoonyaFeed._session is not None
+            except Exception:
+                pass
             return jsonify(status_data)
         return jsonify({"active_feed": "yahoo", "active_label": "Yahoo Finance",
                         "is_realtime": False, "feeds": [], "forced_feed": forced})
@@ -3411,12 +3424,30 @@ def api_feed_status():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/shoonya-test")
+def api_shoonya_test():
+    """
+    Explicitly test Shoonya/Finvasia login and return detailed diagnostics.
+    Clears any cached auth failure so a fresh login is attempted.
+    Use this from the API Keys tab to debug why Shoonya isn't connecting.
+    """
+    try:
+        from src.agents.feeds.shoonya_feed import ShoonyaFeed
+        result = ShoonyaFeed.test_connection()
+        status_code = 200 if result["ok"] else 400
+        return jsonify(result), status_code
+    except ImportError:
+        return jsonify({"ok": False, "error": "ShoonyaFeed not available — check imports"}), 503
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @app.route("/api/feed-reload")
 def api_feed_reload():
     """Force re-detect active feed (after updating .env keys at runtime)."""
     try:
         from dotenv import load_dotenv
-        env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+        env_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".env"))
         load_dotenv(env_path, override=True)
         
         if _FEED_OK and _feed_mgr:
@@ -3434,7 +3465,7 @@ def api_set_active_feed():
         data = request.get_json() or {}
         feed = data.get("feed", "").lower().strip()
         
-        env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+        env_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".env"))
         
         if feed:
             os.environ["ACTIVE_FEED"] = feed

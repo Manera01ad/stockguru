@@ -11,6 +11,7 @@ Symbol resolution:
   - All symbols resolved to Shoonya numeric token via SearchScrip (cached in-memory)
 """
 import os
+import time
 import logging
 import requests
 from datetime import datetime, timedelta
@@ -30,6 +31,84 @@ class ShoonyaFeed(DataFeed):
     BASE     = "https://api.shoonya.com/NorenWClientTP"
     _session = None
     _token_cache: dict = {}   # class-level cache: (EXCHANGE, TSYM) → "token_str"
+
+    # ── Auth error tracking (class-level so all instances share it) ───────────
+    _auth_error:     str   = ""        # last auth failure message
+    _auth_failed_at: float = 0.0       # epoch when last failure occurred
+    _AUTH_RETRY_SEC: int   = 300       # retry login no sooner than 5 min after failure
+
+    # ── Public connection test ────────────────────────────────────────────────
+    @classmethod
+    def test_connection(cls) -> dict:
+        """
+        Explicitly test Shoonya login. Returns a dict with:
+          ok (bool), message (str), user (str), totp_ok (bool), error (str)
+        Call via GET /api/shoonya-test
+        """
+        result = {"ok": False, "user": os.getenv("SHOONYA_USER","?"),
+                  "totp_ok": False, "error": "", "message": ""}
+        # 1. Check env vars
+        missing = [k for k in ["SHOONYA_USER","SHOONYA_PASSWORD","SHOONYA_API_KEY","SHOONYA_TOTP_KEY"]
+                   if not os.getenv(k,"").strip()]
+        if missing:
+            result["error"] = f"Missing env vars: {', '.join(missing)}"
+            result["message"] = "❌ Shoonya credentials not configured"
+            return result
+
+        # 2. Test TOTP generation
+        try:
+            import pyotp
+            totp_secret = os.getenv("SHOONYA_TOTP_KEY","").replace(" ","")
+            totp = pyotp.TOTP(totp_secret).now()
+            result["totp_ok"] = True
+            log.debug(f"Shoonya TOTP generated OK: {totp}")
+        except Exception as e:
+            result["error"] = f"TOTP generation failed: {e}"
+            result["message"] = (
+                "❌ TOTP key invalid. Open Google Authenticator, tap the ⋮ menu "
+                "→ Export accounts → scan the QR code, and copy the exact base32 secret "
+                "into SHOONYA_TOTP_KEY in your .env file."
+            )
+            return result
+
+        # 3. Test login
+        try:
+            cls._session = None          # force fresh login
+            cls._auth_failed_at = 0.0
+            cls._auth_error = ""
+            session_token = cls()._get_session()
+            if session_token:
+                result["ok"] = True
+                result["message"] = f"✅ Shoonya connected — user {result['user']}"
+                log.info("Shoonya test_connection: SUCCESS for %s", result["user"])
+            else:
+                result["error"] = "Login returned empty token"
+                result["message"] = "❌ Shoonya login returned no session token"
+        except Exception as e:
+            cls._session = None
+            result["error"] = str(e)
+            # Give the user an actionable fix message
+            err = str(e).lower()
+            if "invalid totp" in err or "totp" in err or "base32" in err:
+                result["message"] = (
+                    "❌ TOTP failed. Your SHOONYA_TOTP_KEY is wrong or your server clock "
+                    "is off. Rescan the QR code in Shoonya API settings and update .env."
+                )
+            elif "password" in err or "auth" in err or "invalid" in err:
+                result["message"] = (
+                    "❌ Authentication failed. Check SHOONYA_USER and SHOONYA_PASSWORD. "
+                    "Password is case-sensitive."
+                )
+            elif "vendor" in err or "vc" in err:
+                result["message"] = (
+                    "❌ Vendor code mismatch. Set SHOONYA_VENDOR_CODE in .env. "
+                    "Find your vendor code in Shoonya API Manager → App Details."
+                )
+            elif "connection" in err or "timeout" in err or "network" in err:
+                result["message"] = "❌ Network error — cannot reach api.shoonya.com. Check internet connection."
+            else:
+                result["message"] = f"❌ Login error: {e}"
+        return result
 
     # ── Direct yahoo→shoonya symbol map for non-equity instruments ────────────
     # Shoonya tsym values: exactly as they appear in the scrip master / SearchScrip
@@ -127,6 +206,17 @@ class ShoonyaFeed(DataFeed):
     def _get_session(self):
         if ShoonyaFeed._session:
             return ShoonyaFeed._session
+
+        # Don't hammer Shoonya API — wait _AUTH_RETRY_SEC after a failure
+        if ShoonyaFeed._auth_error and ShoonyaFeed._auth_failed_at:
+            age = time.time() - ShoonyaFeed._auth_failed_at
+            if age < ShoonyaFeed._AUTH_RETRY_SEC:
+                raise ConnectionError(
+                    f"Shoonya auth previously failed ({ShoonyaFeed._auth_error}). "
+                    f"Retrying in {int(ShoonyaFeed._AUTH_RETRY_SEC - age)}s. "
+                    f"Run GET /api/shoonya-test to debug or update credentials."
+                )
+
         try:
             import pyotp
             from NorenRestApiPy.NorenApi import NorenApi as _NorenApi
@@ -158,13 +248,24 @@ class ShoonyaFeed(DataFeed):
             ret = api.login(userid=uid, password=pwd, twoFA=totp,
                             vendor_code=vc, api_secret=api_key, imei="abc1234")
             if ret is not None and ret.get("stat") == "Ok":
-                ShoonyaFeed._session  = ret.get("susertoken")
-                ShoonyaFeed._noren_api = api
-                log.info("Shoonya login OK for %s", uid)
+                ShoonyaFeed._session     = ret.get("susertoken")
+                ShoonyaFeed._noren_api   = api
+                ShoonyaFeed._auth_error  = ""        # clear any previous error
+                ShoonyaFeed._auth_failed_at = 0.0
+                log.info("✅ Shoonya login OK for %s", uid)
                 return ShoonyaFeed._session
-            raise ValueError(f"Shoonya auth failed: {ret}")
+            err_msg = (ret or {}).get("emsg", str(ret))
+            raise ValueError(f"Shoonya auth failed: {err_msg}")
         except ImportError:
             raise ImportError("Run: pip install NorenRestApiPy pyotp")
+        except Exception as e:
+            # Cache the failure so we don't retry for _AUTH_RETRY_SEC
+            ShoonyaFeed._auth_error    = str(e)
+            ShoonyaFeed._auth_failed_at = time.time()
+            ShoonyaFeed._session       = None
+            log.warning("⚠️ Shoonya login FAILED for %s: %s", os.getenv("SHOONYA_USER","?"), e)
+            log.warning("⚠️ Shoonya falling back to Yahoo Finance. Run GET /api/shoonya-test to debug.")
+            raise
 
 
 

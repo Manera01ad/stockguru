@@ -4166,8 +4166,10 @@
                 <div class="key-hint" style="margin-top:8px">Get from: <a href="https://shoonya.finvasia.com" target="_blank">shoonya.finvasia.com</a> → Developer → API credentials. TOTP secret = the base32 key from your authenticator setup.</div>
                 <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
                   <button class="btn" onclick="saveBrokerSection('shoonya')" id="save-btn-shoonya" style="padding:8px 20px;font-size:11px;background:rgba(255,97,160,.15);border-color:rgba(255,97,160,.5);color:#ff61a0">💾 Save &amp; Connect</button>
+                  <button class="btn" onclick="testShoonya()" id="test-btn-shoonya" style="padding:8px 16px;font-size:11px;background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.5);color:#a5b4fc">🔌 Test Login</button>
                   <span id="save-result-shoonya" style="font-family:'Space Mono';font-size:10px"></span>
                 </div>
+                <div id="shoonya-test-result" style="display:none;margin-top:8px;padding:10px 12px;border-radius:6px;font-family:'Space Mono';font-size:11px;line-height:1.6"></div>
               </div>
 
               <!-- ── ANGEL ONE ── -->
@@ -6795,9 +6797,70 @@
           else if (f.configured) { el.textContent = '🟡 Configured';   el.style.color = '#f5c518'; }
           else                   { el.textContent = '⭕ Not configured'; el.style.color = 'var(--muted)'; }
         }
+        // ── Shoonya auth error override ──────────────────────────
+        if (d.shoonya_auth_error) {
+          const sel = document.getElementById('fstatus-shoonya');
+          if (sel) {
+            sel.textContent = '🔴 Auth Failed';
+            sel.style.color = '#f87171';
+            sel.title = d.shoonya_auth_error;
+          }
+          const errDiv = document.getElementById('shoonya-test-result');
+          if (errDiv && errDiv.style.display === 'none') {
+            errDiv.style.display = 'block';
+            errDiv.style.background = 'rgba(248,113,113,.1)';
+            errDiv.style.borderColor = 'rgba(248,113,113,.35)';
+            errDiv.style.color = '#fca5a5';
+            const retryMsg = d.shoonya_retry_in_sec > 0 ? ` Retry in ${d.shoonya_retry_in_sec}s.` : '';
+            errDiv.textContent = `⚠️ Last login error: ${d.shoonya_auth_error}${retryMsg}`;
+          }
+        }
       } catch(e) {
         const name = document.getElementById('feed-active-name');
         if (name) name.textContent = '⚠️ Could not reach feed API';
+      }
+    }
+
+    // ── SHOONYA TEST LOGIN ────────────────────────────────────
+    async function testShoonya() {
+      const btn    = document.querySelector('[onclick="testShoonya()"]');
+      const resDiv = document.getElementById('shoonya-test-result');
+      if (!resDiv) return;
+      if (btn) { btn.disabled = true; btn.textContent = '⏳ Testing…'; }
+      resDiv.style.display = 'block';
+      resDiv.style.background = 'rgba(99,179,237,.08)';
+      resDiv.style.borderColor = 'rgba(99,179,237,.3)';
+      resDiv.style.color = '#90cdf4';
+      resDiv.textContent = '🔄 Attempting Shoonya login… this may take 5–10 seconds.';
+      try {
+        const r = await fetch(`${API}/shoonya-test`);
+        const d = await r.json();
+        if (d.status === 'ok') {
+          resDiv.style.background = 'rgba(0,229,160,.08)';
+          resDiv.style.borderColor = 'rgba(0,229,160,.3)';
+          resDiv.style.color = '#6ee7b7';
+          resDiv.innerHTML = `✅ <strong>Login successful!</strong><br>
+            User: ${d.user || '–'} &nbsp;|&nbsp; Broker: ${d.broker || '–'}<br>
+            <span style="font-size:11px;opacity:.75">Exchange segments: ${(d.exchanges||[]).join(', ') || 'N/A'}</span>`;
+          // Refresh feed status badge
+          setTimeout(initFeedStatus, 500);
+        } else {
+          resDiv.style.background = 'rgba(248,113,113,.1)';
+          resDiv.style.borderColor = 'rgba(248,113,113,.35)';
+          resDiv.style.color = '#fca5a5';
+          resDiv.innerHTML = `❌ <strong>Login failed</strong><br>
+            <span style="word-break:break-all">${d.message || 'Unknown error'}</span>`;
+          if (d.fix) {
+            resDiv.innerHTML += `<br><span style="color:#fde68a;font-size:11px">💡 Fix: ${d.fix}</span>`;
+          }
+        }
+      } catch(e) {
+        resDiv.style.background = 'rgba(248,113,113,.1)';
+        resDiv.style.borderColor = 'rgba(248,113,113,.35)';
+        resDiv.style.color = '#fca5a5';
+        resDiv.textContent = `❌ Could not reach server: ${e.message}`;
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '🔌 Test Login'; }
       }
     }
 
