@@ -355,7 +355,34 @@ WATCHLIST = [
     {"name":"INDIGO",    "symbol":"INDIGO.NS",     "sector":"Aviation",  "pe":14, "roe":82, "de":1.2, "base_score":84},
 ]
 
-price_cache  = {name: {"price": 0.0, "change": 0.0, "change_pct": 0.0, "symbol": sym, "updated": "Initializing..."} for name, sym in YAHOO_SYMBOLS.items()}
+# ── Realistic seed values — keeps dashboard readable before first live fetch ──
+_PRICE_SEEDS = {
+    "NIFTY 50":      22150.00,  "SENSEX":        72900.00,
+    "BANK NIFTY":    47500.00,  "INDIA VIX":        15.50,
+    "FINNIFTY":      21800.00,  "MIDCAP NIFTY":  46500.00,
+    "NIFTY NEXT 50": 65500.00,  "NIFTY IT":      37200.00,
+    "NIFTY METAL":    8800.00,  "NIFTY PHARMA":  21500.00,
+    "NIFTY AUTO":    23200.00,  "NIFTY FMCG":    57500.00,
+    "NIFTY REALTY":    950.00,  "NIFTY ENERGY":  43500.00,
+    "AIRTEL":         1560.00,  "HDFC BANK":      1710.00,
+    "ICICI BANK":     1240.00,  "BAJAJ FIN":      7100.00,
+    "BEL":             280.00,  "MUTHOOT":        2100.00,
+    "ZOMATO":          225.00,  "INDIGO":         3950.00,
+    "GOLD MCX":       92000.00, "SILVER MCX":    101000.00,
+    "CRUDE OIL":       6800.00, "NAT GAS":         270.00,
+    "USD/INR":          83.90,
+    "BTC/INR":       7200000.00,"ETH/INR":       275000.00,
+    "SOL/INR":         14500.00,
+}
+import random as _rng
+price_cache = {}
+for _n, _sym in YAHOO_SYMBOLS.items():
+    _p = _PRICE_SEEDS.get(_n, 100.0)
+    _prev = round(_p * _rng.uniform(0.998, 1.002), 2)
+    _chg = round(_p - _prev, 2)
+    price_cache[_n] = {"price": _p, "change": _chg,
+                       "change_pct": round(_chg / _prev * 100, 2) if _prev else 0,
+                       "symbol": _sym, "updated": "seed", "feed": "seed"}
 alert_log    = []
 last_update  = "Initializing..."
 shared_state = {
@@ -431,14 +458,50 @@ if AGENTS_AVAILABLE:
         orchestrator.register_agent("synthetic_backtester", synthetic_backtester)
 
 
+# ── YAHOO CRUMB SESSION (handles Yahoo's new cookie/crumb requirement) ────────
+_yf_session   = None
+_yf_crumb     = None
+_yf_crumb_at  = 0.0
+
+def _ensure_yahoo_session():
+    """Get (or refresh) a Yahoo Finance session + crumb. Cached for 55 min."""
+    global _yf_session, _yf_crumb, _yf_crumb_at
+    import time as _t
+    if _yf_crumb and (_t.time() - _yf_crumb_at) < 3300:   # 55-min TTL
+        return _yf_session, _yf_crumb
+    try:
+        s = requests.Session()
+        s.headers.update({
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+        })
+        # Step 1: hit Yahoo Finance to get cookies
+        s.get("https://fc.yahoo.com", timeout=5)
+        s.get("https://finance.yahoo.com", timeout=5)
+        # Step 2: fetch the crumb
+        r = s.get("https://query2.finance.yahoo.com/v1/test/getcrumb",
+                  headers={"User-Agent": s.headers["User-Agent"]}, timeout=5)
+        if r.status_code == 200 and r.text and len(r.text) < 50:
+            _yf_crumb    = r.text.strip()
+            _yf_session  = s
+            _yf_crumb_at = _t.time()
+            log.info("✅ Yahoo Finance crumb obtained: %s", _yf_crumb)
+            return _yf_session, _yf_crumb
+    except Exception as e:
+        log.debug("Yahoo crumb fetch failed: %s", e)
+    return requests.Session(), None
+
+
 # ── PRICE FETCHER ─────────────────────────────────────────────────────────────
 def fetch_yahoo_price(symbol):
     """
-    Multi-layer price fetch — tries 4 sources in order:
-      1. Yahoo Finance query2 (more Railway-friendly)
-      2. Yahoo Finance query1 (original)
-      3. yfinance library (handles rate-limits internally)
-      4. CoinGecko (crypto only) / realistic seed values (indices)
+    Multi-layer price fetch — tries 5 sources in order:
+      1. NSE direct API  (Indian indices only — fastest, no auth)
+      2. Yahoo Finance v8 with crumb session
+      3. Yahoo Finance v8 without crumb (legacy)
+      4. yfinance library
+      5. CoinGecko (crypto) / seed drift (all others)
     """
     def _parse_meta(meta):
         price      = float(meta.get("regularMarketPrice") or meta.get("postMarketPrice") or 0)
@@ -449,7 +512,67 @@ def fetch_yahoo_price(symbol):
         change_pct = round((change / prev) * 100, 2) if prev else 0
         return {"price": round(price, 2), "change": change, "change_pct": change_pct, "prev": round(prev, 2)}
 
-    # ── Layer 1: Yahoo Finance query2 ────────────────────────────────────────
+    # ── Layer 0: NSE Direct API (Indian indices — fastest, always free) ───────
+    _NSE_INDEX_MAP = {
+        "^NSEI":       "NIFTY 50",
+        "^NSEBANK":    "NIFTY BANK",
+        "^INDIAVIX":   "India VIX",
+        "^CNXFIN":     "NIFTY FINANCIAL SERVICES",
+        "^CNXMIDCAP":  "NIFTY MIDCAP 100",
+        "^CNXJUNIOR":  "NIFTY NEXT 50",
+        "^CNXIT":      "NIFTY IT",
+        "^CNXMETAL":   "NIFTY METAL",
+        "^CNXPHARMA":  "NIFTY PHARMA",
+        "^CNXAUTO":    "NIFTY AUTO",
+        "^CNXFMCG":    "NIFTY FMCG",
+        "^CNXREALTY":  "NIFTY REALTY",
+        "^CNXENERGY":  "NIFTY ENERGY",
+    }
+    if symbol in _NSE_INDEX_MAP:
+        try:
+            nse_name = _NSE_INDEX_MAP[symbol]
+            r = requests.get(
+                "https://www.nseindia.com/api/allIndices",
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                    "Accept": "application/json, text/plain, */*",
+                    "Referer": "https://www.nseindia.com",
+                    "Accept-Language": "en-US,en;q=0.9",
+                    "Connection": "keep-alive",
+                },
+                timeout=8
+            )
+            if r.status_code == 200:
+                data = r.json().get("data", [])
+                for entry in data:
+                    if entry.get("indexSymbol", "").upper() == nse_name.upper() or \
+                       entry.get("index", "").upper() == nse_name.upper():
+                        curr = float(entry.get("last", 0) or entry.get("currentValue", 0))
+                        prev = float(entry.get("previousClose", curr) or curr)
+                        if curr > 0:
+                            chg = round(curr - prev, 2)
+                            return {"price": round(curr, 2), "change": chg,
+                                    "change_pct": round(chg / prev * 100, 2) if prev else 0,
+                                    "prev": round(prev, 2), "feed": "nse_direct"}
+        except Exception as e:
+            log.debug("NSE direct API failed for %s: %s", symbol, e)
+
+    # ── Layer 1: Yahoo Finance with crumb session ─────────────────────────────
+    try:
+        sess, crumb = _ensure_yahoo_session()
+        url = f"https://query2.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1m&range=1d"
+        if crumb:
+            url += f"&crumb={crumb}"
+        r = sess.get(url, timeout=10)
+        if r.status_code == 200:
+            meta = r.json()["chart"]["result"][0]["meta"]
+            result = _parse_meta(meta)
+            if result:
+                return result
+    except Exception as e:
+        log.debug("Yahoo crumb session failed for %s: %s", symbol, e)
+
+    # ── Layer 2: Yahoo Finance plain (fallback if crumb fails) ───────────────
     for host in ("query2.finance.yahoo.com", "query1.finance.yahoo.com"):
         try:
             url = f"https://{host}/v8/finance/chart/{symbol}?interval=1m&range=1d"
@@ -1963,7 +2086,8 @@ def api_dashboard_data():
         "telegram_configured":  bool(TELEGRAM_TOKEN and TELEGRAM_CHAT_ID),
         "anthropic_configured": bool(ANTHROPIC_API_KEY),
         "gemini_configured":    bool(GEMINI_API_KEY),
-        "prices_loaded":        len(price_cache),
+        "prices_loaded":        sum(1 for v in price_cache.values() if v.get("feed","seed") != "seed"),
+        "prices_total":         len(price_cache),
         "last_update":          last_update,
         "price_feed":           shared_state.get("_active_feed", "Yahoo Finance"),
         "agents_available":     AGENTS_AVAILABLE,

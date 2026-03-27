@@ -6411,10 +6411,10 @@
         document.getElementById('tg-status').className = d.telegram_configured ? 's-ok' : 's-warn';
         const livePrices = d.prices_loaded || 0;
         const totalPrices = d.prices_total || d.prices_loaded || 30;
-        document.getElementById('price-count').textContent = livePrices > 0 ? livePrices : `${totalPrices}*`;
+        document.getElementById('price-count').textContent = livePrices > 0 ? livePrices : `${totalPrices}~`;
         document.getElementById('price-count').className = livePrices > 0 ? 's-ok' : 's-warn';
         document.getElementById('price-count').title = livePrices > 0
-          ? `${livePrices} live prices fetched` : `${totalPrices} symbols seeded (live fetch in progress)`;
+          ? `${livePrices}/${totalPrices} live prices from market` : `${totalPrices} seeded (live fetch running...)`;
         // API Keys tab
         const tgOk = d.telegram_configured;
         setStatus('sys-tg', tgOk, tgOk ? '✅ Configured' : '⏳ Not configured');
