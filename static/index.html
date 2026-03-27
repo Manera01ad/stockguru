@@ -1841,6 +1841,11 @@
         <button class="tab-btn" data-label="ATLAS" onclick="showTab('atlas',this);loadAtlas()"> <span
             class="tab-icon">🧠</span><span class="tab-label">ATLAS</span><span id="atlas-badge"
             style="display:none;margin-left:5px;background:#06b6d4;color:#000;font-size:8px;padding:1px 5px;border-radius:8px;font-weight:700">LIVE</span></button>
+        <button class="tab-btn" data-label="Diagnostics" onclick="showTab('diagnostics',this);loadDiagnostics()"> <span
+            class="tab-icon">🔍</span><span class="tab-label">Diagnostics</span><span id="diag-badge"
+            style="display:none;margin-left:5px;background:#ef4444;color:#fff;font-size:8px;padding:1px 5px;border-radius:8px;font-weight:700">!</span></button>
+        <button class="tab-btn" data-label="Diagnostics" onclick="showTab('diagnostics',this);loadDiagnostics()"> <span
+            class="tab-icon">🔍</span><span class="tab-label">Diagnostics</span><span id="diag-badge" style="display:none;margin-left:5px;background:#ef4444;color:#fff;font-size:8px;padding:1px 5px;border-radius:8px;font-weight:700">!</span></button>
         <button class="tab-btn" data-label="Docs" onclick="showTab('docs',this);loadDocsTab()"> <span
             class="tab-icon">📚</span><span class="tab-label">Docs</span></button>
       </div>
@@ -12629,5 +12634,134 @@ TOP 3 PLAYS FOR THIS WEEK:
   }
 </script>
 
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- DIAGNOSTICS TAB                                                        -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="section" id="tab-diagnostics">
+  <div style="padding:20px;max-width:900px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
+      <h2 style="margin:0;font-size:18px">🔍 System Diagnostics</h2>
+      <span id="diag-overall-badge" style="padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;background:#374151;color:#9ca3af">—</span>
+      <span id="diag-score" style="font-size:13px;color:#9ca3af"></span>
+      <div style="margin-left:auto;display:flex;gap:8px">
+        <button onclick="runDiagnostics()" style="background:#2563eb;color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:12px">▶ Run Full Scan</button>
+        <button onclick="loadDiagnostics()" style="background:#374151;color:#d1d5db;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">↻ Refresh Cache</button>
+      </div>
+    </div>
+    <div id="diag-last-run" style="font-size:11px;color:#6b7280;margin-bottom:16px">Never scanned — click Run Full Scan</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
+      <div style="background:#1f2937;border-radius:8px;padding:14px;text-align:center">
+        <div id="diag-count-critical" style="font-size:28px;font-weight:700;color:#ef4444">—</div>
+        <div style="font-size:11px;color:#9ca3af;margin-top:4px">CRITICAL</div>
+      </div>
+      <div style="background:#1f2937;border-radius:8px;padding:14px;text-align:center">
+        <div id="diag-count-error" style="font-size:28px;font-weight:700;color:#f97316">—</div>
+        <div style="font-size:11px;color:#9ca3af;margin-top:4px">ERROR</div>
+      </div>
+      <div style="background:#1f2937;border-radius:8px;padding:14px;text-align:center">
+        <div id="diag-count-warn" style="font-size:28px;font-weight:700;color:#eab308">—</div>
+        <div style="font-size:11px;color:#9ca3af;margin-top:4px">WARNING</div>
+      </div>
+      <div style="background:#1f2937;border-radius:8px;padding:14px;text-align:center">
+        <div id="diag-count-info" style="font-size:28px;font-weight:700;color:#06b6d4">—</div>
+        <div style="font-size:11px;color:#9ca3af;margin-top:4px">INFO</div>
+      </div>
+    </div>
+    <div id="diag-issues-list" style="display:flex;flex-direction:column;gap:8px">
+      <div style="color:#6b7280;font-size:13px;padding:20px;text-align:center">
+        Run a scan to see diagnostics results
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var _DIAG_SEV = {
+    CRITICAL: {bg:'rgba(239,68,68,0.15)',  border:'#ef4444', icon:'🔴', badge:'background:#ef4444;color:#fff'},
+    ERROR:    {bg:'rgba(249,115,22,0.12)', border:'#f97316', icon:'🟠', badge:'background:#f97316;color:#fff'},
+    WARNING:  {bg:'rgba(234,179,8,0.10)',  border:'#eab308', icon:'🟡', badge:'background:#eab308;color:#000'},
+    INFO:     {bg:'rgba(6,182,212,0.10)',  border:'#06b6d4', icon:'🔵', badge:'background:#06b6d4;color:#000'},
+    OK:       {bg:'rgba(34,197,94,0.10)',  border:'#22c55e', icon:'✅', badge:'background:#22c55e;color:#000'},
+  };
+
+  var _OS = {
+    HEALTHY:  {bg:'#22c55e',c:'#000'},
+    DEGRADED: {bg:'#eab308',c:'#000'},
+    WARNING:  {bg:'#f97316',c:'#fff'},
+    CRITICAL: {bg:'#ef4444',c:'#fff'},
+    UNKNOWN:  {bg:'#374151',c:'#9ca3af'},
+  };
+
+  function _set(id, txt) { var el = document.getElementById(id); if(el) el.textContent = txt; }
+  function _q(id) { return document.getElementById(id); }
+
+  window._renderDiagReport = function(d) {
+    var ob = _q('diag-overall-badge');
+    var os = _OS[d.overall] || _OS.UNKNOWN;
+    if(ob){ ob.textContent=d.overall||'UNKNOWN'; ob.style.background=os.bg; ob.style.color=os.c; }
+    var sc = _q('diag-score');
+    if(sc) sc.textContent = d.health_score !== undefined ? 'Health: ' + d.health_score + '%' : '';
+    var s = d.summary || {};
+    _set('diag-count-critical', s.critical !== undefined ? s.critical : '—');
+    _set('diag-count-error',    s.error    !== undefined ? s.error    : '—');
+    _set('diag-count-warn',     s.warning  !== undefined ? s.warning  : '—');
+    _set('diag-count-info',     s.info     !== undefined ? s.info     : '—');
+    if(d.timestamp){
+      var ts = d.timestamp.replace('T',' ').slice(0,19);
+      _set('diag-last-run', 'Last scan: ' + ts + '  (' + (d.elapsed_s||0) + 's)  · ' + (s.total||0) + ' issue(s)');
+    }
+    var nb = _q('diag-badge');
+    var nErr = (s.critical||0) + (s.error||0);
+    if(nb){ nb.style.display = nErr > 0 ? 'inline' : 'none'; nb.textContent = nErr; }
+    var list = _q('diag-issues-list');
+    if(!list) return;
+    var issues = d.all_issues || [];
+    if(!issues.length){
+      list.innerHTML = '<div style="color:#22c55e;font-size:14px;padding:20px;text-align:center">✅ No issues found — system is healthy!</div>';
+      return;
+    }
+    var html = issues.map(function(iss){
+      var st = _DIAG_SEV[iss.severity] || _DIAG_SEV.INFO;
+      var detail = iss.detail ? '<div style="font-size:12px;color:#9ca3af;margin-bottom:3px">' + iss.detail + '</div>' : '';
+      var fix    = iss.fix    ? '<div style="font-size:12px;color:#60a5fa">💡 ' + iss.fix + '</div>' : '';
+      return '<div style="background:' + st.bg + ';border-left:3px solid ' + st.border + ';border-radius:6px;padding:12px 14px">'
+        + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'
+        + '<span style="font-size:12px">' + st.icon + '</span>'
+        + '<span style="font-size:10px;padding:1px 8px;border-radius:10px;font-weight:700;' + st.badge + '">' + iss.severity + '</span>'
+        + '<span style="font-size:10px;color:#9ca3af;background:#111827;padding:1px 6px;border-radius:4px">' + iss.category + '</span>'
+        + '<span style="font-size:13px;font-weight:600;color:#f9fafb">' + iss.title + '</span>'
+        + '</div>' + detail + fix + '</div>';
+    }).join('');
+    list.innerHTML = html;
+  };
+
+  window.loadDiagnostics = function() {
+    fetch('/api/diagnostics').then(function(r){ return r.json(); }).then(function(d){
+      if(d.overall === 'UNKNOWN' || !d.all_issues){
+        _set('diag-last-run','No scan yet — click Run Full Scan above');
+        return;
+      }
+      window._renderDiagReport(d);
+    }).catch(function(e){
+      _set('diag-last-run','❌ Cannot reach /api/diagnostics — is the server running?');
+    });
+  };
+
+  window.runDiagnostics = function() {
+    var btn = document.querySelector('[onclick*="runDiagnostics()"]');
+    if(btn){ btn.textContent='⏳ Scanning...'; btn.disabled=true; }
+    _set('diag-last-run','Running full scan — this takes 5-15 seconds...');
+    fetch('/api/diagnostics/run', {method:'POST'}).then(function(r){ return r.json(); }).then(function(d){
+      window._renderDiagReport(d);
+    }).catch(function(e){
+      _set('diag-last-run','❌ Scan failed — ' + e.message);
+    }).finally(function(){
+      if(btn){ btn.textContent='▶ Run Full Scan'; btn.disabled=false; }
+    });
+  };
+})();
+</script>
 </body>
 </html>

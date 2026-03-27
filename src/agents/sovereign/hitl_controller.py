@@ -507,30 +507,19 @@ def _send_queue_status(send_telegram_fn) -> str:
 
 
 def _manual_veto(shared_state: dict, send_telegram_fn) -> str:
-    """Human-triggered hard veto: reject all pending HITL items."""
-    queue = _load_queue()
-    count = 0
-    for item in queue:
-        if item["status"] == "PENDING":
-            item["status"]       = "REJECTED"
-            item["response"]     = "MANUAL_VETO"
-            item["responded_at"] = datetime.now().isoformat()
-            count += 1
-    _save_queue(queue)
-    msg = f"🛑 Manual VETO: {count} pending trades rejected."
+    """Human-triggered veto — clears the most recent pending HITL item."""
+    queue   = _load_queue()
+    pending = [q for q in queue if q["status"] == "PENDING"]
+    if not pending:
+        msg = "✅ HITL: No pending items to veto."
+    else:
+        item = pending[-1]
+        item["status"] = "VETOED"
+        item["reviewed_at"] = datetime.now().isoformat()
+        _save_queue(queue)
+        if shared_state:
+            shared_state.pop(item.get("stock", ""), None)
+        msg = f"🚫 HITL VETO: #{item['id_num']} {item.get('stock','?')} vetoed by user."
     if send_telegram_fn:
         send_telegram_fn(msg)
-    log.info("Manual VETO: %d trades rejected", count)
-    return "vetoed"
-
-
-def _get_vix(shared_state: dict) -> float:
-    for k, v in shared_state.get("index_prices", {}).items():
-        if "VIX" in k.upper():
-            return float(v.get("price", 0)) if isinstance(v, dict) else float(v or 0)
-    return float(shared_state.get("india_vix", 0) or 0)
-
-
-def get_queue_for_api() -> list:
-    """Return full queue for /api/hitl-queue endpoint."""
-    return _load_queue()
+    return "veto_applied"

@@ -184,6 +184,14 @@ except Exception as _fe:
     _feed_mgr = None
     _FEED_OK  = False
 
+# ── DIAGNOSTICS AGENT ─────────────────────────────────────────────────────────
+try:
+    from src.agents.diagnostics_agent import get_diagnostics_agent, run_diagnostics
+    DIAGNOSTICS_AVAILABLE = True
+except Exception as _diag_e:
+    DIAGNOSTICS_AVAILABLE = False
+    logging.warning(f"DiagnosticsAgent not loaded: {_diag_e}")
+
 # ── LOGGING: Rotating file handler + console ──────────────────────────────────
 _log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
 os.makedirs(_log_dir, exist_ok=True)
@@ -1495,6 +1503,47 @@ def api_paper_portfolio():
         "last_updated": p.get("last_run", "--"),
     })
 
+# ── DIAGNOSTICS AGENT ──────────────────────────────────────────────────────────
+
+@app.route("/api/diagnostics", methods=["GET"])
+def api_diagnostics_status():
+    """Return cached diagnostics report (fast — no re-scan)."""
+    report = shared_state.get("diagnostics_report")
+    if not report:
+        return jsonify({"overall": "UNKNOWN", "message": "No diagnostics run yet. POST to /api/diagnostics/run"}), 200
+    return jsonify(report)
+
+@app.route("/api/diagnostics/run", methods=["POST", "GET"])
+def api_diagnostics_run():
+    """Trigger a fresh full diagnostics scan (takes 5-15s)."""
+    if not DIAGNOSTICS_AVAILABLE:
+        return jsonify({"error": "DiagnosticsAgent not loaded"}), 503
+    try:
+        _proj_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        agent  = get_diagnostics_agent(shared_state, app_root=_proj_root)
+        report = agent.run_full_check()
+        # Update feature flags in shared_state so agent runtime checks see current values
+        shared_state["AGENTS_AVAILABLE"]       = AGENTS_AVAILABLE
+        shared_state["ATLAS_AVAILABLE"]        = ATLAS_AVAILABLE
+        shared_state["SELF_HEALING_AVAILABLE"] = SELF_HEALING_AVAILABLE
+        return jsonify(report)
+    except Exception as e:
+        log.error("Diagnostics run error: %s", e)
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/diagnostics/quick", methods=["GET"])
+def api_diagnostics_quick():
+    """Fast health check — agents + keys + DB only (< 2s)."""
+    if not DIAGNOSTICS_AVAILABLE:
+        return jsonify({"error": "DiagnosticsAgent not loaded"}), 503
+    try:
+        _proj_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        agent  = get_diagnostics_agent(shared_state, app_root=_proj_root)
+        report = agent.run_quick_check()
+        return jsonify(report)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # ── PHASE 5: SELF-HEALING & STRATEGY OPTIMIZATION ──────────────────────────────
 
 @app.route("/api/self-healing/run", methods=["POST"])
@@ -2544,6 +2593,18 @@ def run_scheduler():
         schedule.every(15).minutes.do(lambda: run_quick_context_refresh(shared_state))
         schedule.every().day.at("21:00").do(lambda: run_upgrade(shared_state, use_llm=True))
         log.info("⏰ ATLAS: Context refresh every 15min | Full upgrade daily 21:00")
+    # DiagnosticsAgent — auto health monitor
+    if DIAGNOSTICS_AVAILABLE:
+        _diag_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        _diag_agent = get_diagnostics_agent(shared_state, app_root=_diag_root)
+        # Sync current feature-flag state so agent runtime check knows what's loaded
+        shared_state["AGENTS_AVAILABLE"]       = AGENTS_AVAILABLE
+        shared_state["ATLAS_AVAILABLE"]        = ATLAS_AVAILABLE
+        shared_state["SELF_HEALING_AVAILABLE"] = SELF_HEALING_AVAILABLE
+        schedule.every(30).minutes.do(_diag_agent.run_full_check)
+        # Run once immediately at startup in a background thread
+        threading.Thread(target=_diag_agent.run_full_check, daemon=True).start()
+        log.info("⏰ DiagnosticsAgent: full scan every 30 min + startup scan")
     log.info("⏰ Scheduler started — 14-agent cycle every 15 minutes")
     while True:
         schedule.run_pending()
@@ -4102,10 +4163,7 @@ def api_ohlcv():
 
 @app.route("/api/orderbook")
 def api_orderbook():
-    """
-    Live order book — routed through active DataFeed connector.
-    Falls back to simulated order book (Yahoo price) if no connector configured.
-    """
+    """Live order book — simulated depth if no connector configured."""
     sym   = request.args.get("sym", "^NSEI")
     depth = int(request.args.get("depth", 15))
     try:
@@ -4114,166 +4172,19 @@ def api_orderbook():
         else:
             from src.agents.feeds.yahoo_feed import YahooFeed
             result = YahooFeed().get_orderbook(sym, depth)
-        result["feed"]   = (_feed_mgr.active_name if _feed_mgr else "yahoo") if (_FEED_OK and _feed_mgr) else "yahoo"
-        result["symbol"] = sym
+        result["feed"] = _feed_mgr.active_name if (_FEED_OK and _feed_mgr) else "yahoo"
         return jsonify(result)
     except Exception as e:
-        log.error("Orderbook error %s: %s", sym, e)
-        # Return simulated empty book as 200 so frontend doesn't hang
-        return jsonify({"bids": [], "asks": [], "spread": 0, "price": 0,
-                        "feed": "yahoo", "symbol": sym, "error": str(e)})
+        log.warning("api_orderbook error %s: %s", sym, e)
+        return jsonify({"bids": [], "asks": [], "error": str(e)}), 500
 
 
-# ══════════════════════════════════════════════════════════════════════
-#  AI TUTOR + CHART ANALYST — Gemini Vision Backend
-# ══════════════════════════════════════════════════════════════════════
-@app.route("/api/ai-tutor", methods=["POST"])
-def api_ai_tutor():
-    """
-    Multi-modal AI Tutor: accepts text + optional chart image (base64).
-    Uses Gemini (vision if image present) to analyse chart, patterns,
-    entry/SL/target recommendations, and teaching commentary.
-    """
-    try:
-        body = request.get_json(force=True) or {}
-        user_message = body.get("message", "").strip()
-        image_b64    = body.get("image_b64", "")   # base64 encoded chart image
-        context      = body.get("context", {})     # current OC / portfolio data
-        mode         = body.get("mode", "tutor")   # tutor | trader | analyser
-
-        GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
-        if not GEMINI_KEY:
-            return jsonify({"error": "GEMINI_API_KEY not configured"}), 500
-
-        import google.generativeai as genai
-        genai.configure(api_key=GEMINI_KEY)
-
-        # ── System persona based on mode ────────────────────────────
-        PERSONA = {
-            "tutor": (
-                "You are StockGuru AI Professor — an expert Indian stock market educator and trading coach. "
-                "You explain complex concepts in simple, practical terms using real-world Indian market examples (NIFTY, BANKNIFTY, NSE F&O). "
-                "When reviewing charts, identify: 1) Exact chart pattern name 2) Key support/resistance levels "
-                "3) Entry price, Stop Loss, Target 4) Risk:Reward ratio 5) One lesson the trader should learn from this. "
-                "Always be encouraging but honest about mistakes. Speak like a wise professor who has traded for 20+ years."
-            ),
-            "trader": (
-                "You are StockGuru AI Trader — a veteran options trader specialising in NIFTY/BANKNIFTY F&O strategies. "
-                "Give sharp, actionable trade ideas with exact strikes, entry, stop loss, and target. "
-                "Mention IV regime, PCR context, and whether to buy or sell options. Be concise and confident."
-            ),
-            "analyser": (
-                "You are StockGuru Chart Analyst — you specialise in technical analysis of Indian F&O charts. "
-                "Identify candlestick patterns, volume confirmation, trend lines, momentum divergences, and breakout levels. "
-                "Give a structured report: Pattern | Trend | Key Levels | Signal | Confidence %."
-            )
-        }.get(mode, "tutor")
-
-        # ── Build context snippet from live data ────────────────────
-        ctx_text = ""
-        if context:
-            spot   = context.get("spot", "N/A")
-            alerts = context.get("alerts", [])
-            ctx_text = f"\n\n[LIVE MARKET CONTEXT]\nNIFTY Spot: {spot}\n"
-            if alerts:
-                for a in alerts[:2]:
-                    ctx_text += f"⚠ {a.get('title','')}: {a.get('message','')}\n"
-
-        full_prompt = f"{PERSONA}\n\n[USER QUERY]\n{user_message}{ctx_text}"
-
-        # ── Choose model: Flash (text) or Pro Vision (image) ───────
-        if image_b64:
-            model = genai.GenerativeModel("gemini-2.5-flash")
-            import base64
-            img_bytes = base64.b64decode(image_b64)
-            response = model.generate_content([
-                full_prompt,
-                {"mime_type": "image/png", "data": img_bytes}
-            ])
-        else:
-            model = genai.GenerativeModel("gemini-2.5-flash")
-            response = model.generate_content(full_prompt)
-
-        reply_text = response.text if hasattr(response, "text") else str(response)
-
-        return jsonify({
-            "reply":   reply_text,
-            "mode":    mode,
-            "has_image": bool(image_b64),
-            "model": "gemini-2.5-flash"
-        })
-
-    except Exception as e:
-        log.error("AI Tutor error: %s", e)
-        return jsonify({"error": str(e), "reply": f"⚠️ AI Tutor temporarily unavailable: {e}"}), 500
-
-
-# ── Paper Trade Submit ───────────────────────────────────────────────
-@app.route("/api/paper-trade", methods=["POST"])
-def api_paper_trade():
-    """Log a paper trade from the UI and return AI feedback on the decision."""
-    try:
-        body   = request.get_json(force=True) or {}
-        symbol = body.get("symbol", "NIFTY")
-        action = body.get("action", "BUY")   # BUY | SELL
-        strike = body.get("strike", "")
-        opt_type = body.get("opt_type", "CE") # CE or PE
-        qty    = int(body.get("qty", 1))
-        entry  = float(body.get("entry", 0))
-        sl     = float(body.get("sl", 0))
-        target = float(body.get("target", 0))
-
-        rr = round((target - entry) / (entry - sl), 2) if sl and sl != entry else "N/A"
-
-        GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
-        feedback = "Trade logged. Connect GEMINI_API_KEY for AI feedback."
-        if GEMINI_KEY:
-            import google.generativeai as genai
-            genai.configure(api_key=GEMINI_KEY)
-            model = genai.GenerativeModel("gemini-2.5-flash")
-            prompt = (
-                f"A trader just placed a PAPER TRADE. Evaluate this decision like an experienced trading professor:\n"
-                f"Trade: {action} {qty} lot {symbol} {strike} {opt_type}\n"
-                f"Entry: ₹{entry} | Stop Loss: ₹{sl} | Target: ₹{target} | R:R = {rr}\n\n"
-                f"Give: 1) Risk assessment (is SL too wide/tight?) 2) Strategy fit (right option type?) "
-                f"3) One key thing to watch. Keep it under 120 words. Be practical and encouraging."
-            )
-            resp = model.generate_content(prompt)
-            feedback = resp.text if hasattr(resp, "text") else feedback
-
-        return jsonify({
-            "status": "logged",
-            "rr": rr,
-            "ai_feedback": feedback,
-            "trade": body
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-# ── Auto-startup when loaded by gunicorn (Railway) ───────────────────────────
-# gunicorn imports this module as "app", not "__main__", so _startup() was
-# never called on Railway — prices stayed 0 forever. This fixes that.
-_started = False
-def _ensure_started():
-    global _started
-    if _started:
-        return
-    _started = True
-    _startup()
-
-# Gunicorn worker import path (Railway) — start in background thread
-if __name__ != "__main__":
-    import threading as _th
-    _th.Thread(target=_ensure_started, daemon=True).start()
-
+# ── APP ENTRY POINT ───────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    _ensure_started()
-    port = int(os.getenv("PORT", 5050))   # Railway injects PORT automatically
-    print(f"\n>>> StockGuru v2.0 starting on http://localhost:{port}")
-    print(">>> 14 Agents scheduled & price feed connected.")
-    if socketio:
-        # WebSocket-enabled: use socketio.run() with gevent server
-        socketio.run(app, host="0.0.0.0", port=port, debug=False, use_reloader=False)
+    port = int(os.getenv("PORT", 5050))
+    debug_mode = os.getenv("FLASK_DEBUG", "false").lower() == "true"
+    log.info(f"🚀 StockGuru v2.0 starting on http://0.0.0.0:{port}")
+    if _SIO_AVAILABLE:
+        socketio.run(app, host="0.0.0.0", port=port, debug=debug_mode)
     else:
-        # Fallback to plain Flask (no WebSocket)
-        app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
+        app.run(host="0.0.0.0", port=port, debug=debug_mode)
