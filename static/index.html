@@ -322,12 +322,14 @@
       overflow-x: hidden;
       transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
         min-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      z-index: 50;
+      z-index: 210;
       backdrop-filter: blur(24px);
       -webkit-backdrop-filter: blur(24px);
       display: flex;
       flex-direction: column;
       flex-shrink: 0;
+      pointer-events: auto;
+      padding-bottom: 48px;
     }
 
     .sidebar.collapsed {
@@ -1849,8 +1851,7 @@
             class="tab-icon">🔍</span><span class="tab-label">Diagnostics</span><span id="diag-badge"
             style="display:none;margin-left:5px;background:#ef4444;color:#fff;font-size:8px;padding:1px 5px;border-radius:8px;font-weight:700">!</span></button>
 
-        <button class="tab-btn" data-label="Docs" onclick="showTab('docs',this);loadDocsTab()"> <span
-            class="tab-icon">📚</span><span class="tab-label">Docs</span></button>
+
       </div>
 
     </aside>
@@ -3100,6 +3101,43 @@
         <!-- ══════════════════ DAILY BRIEF ══════════════════ -->
         <div class="section" id="tab-daily">
           <div style="margin-top:22px">
+
+            <!-- ══ LIVE TODAY SNAPSHOT ══ -->
+            <div id="daily-snapshot" style="background:linear-gradient(135deg,rgba(0,196,204,.08),rgba(99,102,241,.08));border:1px solid rgba(0,196,204,.25);border-radius:12px;padding:14px 18px;margin-bottom:18px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+                <div style="font-family:'Bebas Neue';font-size:18px;letter-spacing:3px;color:#00c4cc;">
+                  📊 TODAY — <span id="daily-date-label">--</span>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <span id="daily-session-badge" style="font-family:'Space Mono';font-size:9px;padding:3px 8px;border-radius:8px;background:rgba(0,196,204,.15);color:#00c4cc;border:1px solid rgba(0,196,204,.3);">LOADING</span>
+                  <button onclick="generateAIBrief()" id="ai-brief-btn" style="background:linear-gradient(135deg,rgba(99,102,241,.3),rgba(139,92,246,.2));border:1px solid rgba(99,102,241,.5);color:#a5b4fc;border-radius:8px;padding:5px 12px;font-size:10px;font-weight:700;cursor:pointer;font-family:'Space Mono';letter-spacing:.05em;">✨ AI BRIEF</button>
+                  <button onclick="loadDailyBrief()" style="background:rgba(0,196,204,.1);border:1px solid rgba(0,196,204,.3);color:#00c4cc;border-radius:8px;padding:5px 10px;font-size:10px;cursor:pointer;font-family:'Space Mono';">↻</button>
+                </div>
+              </div>
+              <!-- Live price tiles -->
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;">
+                <div class="daily-tile" id="dt-nifty"><div class="dt-label">NIFTY 50</div><div class="dt-val" id="dt-nifty-v">--</div><div class="dt-chg" id="dt-nifty-c">--</div></div>
+                <div class="daily-tile" id="dt-bn"><div class="dt-label">BANK NIFTY</div><div class="dt-val" id="dt-bn-v">--</div><div class="dt-chg" id="dt-bn-c">--</div></div>
+                <div class="daily-tile" id="dt-sensex"><div class="dt-label">SENSEX</div><div class="dt-val" id="dt-sensex-v">--</div><div class="dt-chg" id="dt-sensex-c">--</div></div>
+                <div class="daily-tile" id="dt-vix"><div class="dt-label">INDIA VIX</div><div class="dt-val" id="dt-vix-v">--</div><div class="dt-chg" id="dt-vix-c" style="font-size:9px;">FEAR GAUGE</div></div>
+                <div class="daily-tile" id="dt-gold"><div class="dt-label">GOLD MCX</div><div class="dt-val" id="dt-gold-v">--</div><div class="dt-chg" id="dt-gold-c">--</div></div>
+                <div class="daily-tile" id="dt-crude"><div class="dt-label">CRUDE OIL</div><div class="dt-val" id="dt-crude-v">--</div><div class="dt-chg" id="dt-crude-c">--</div></div>
+                <div class="daily-tile" id="dt-usd"><div class="dt-label">USD/INR</div><div class="dt-val" id="dt-usd-v">--</div><div class="dt-chg" id="dt-usd-c">--</div></div>
+              </div>
+              <!-- Market mood bar -->
+              <div style="margin-top:10px;display:flex;align-items:center;gap:10px;font-family:'Space Mono';font-size:10px;">
+                <span style="color:var(--muted);">MARKET MOOD:</span>
+                <span id="daily-mood-bar" style="color:#94a3b8;">Loading…</span>
+                <span style="color:var(--muted);margin-left:auto;">VIX: <span id="daily-vix-regime" style="font-weight:700;">--</span></span>
+              </div>
+            </div>
+
+            <!-- AI BRIEF OUTPUT -->
+            <div id="ai-brief-panel" style="display:none;background:#0d111a;border:1px solid rgba(99,102,241,.35);border-radius:12px;padding:16px 18px;margin-bottom:18px;">
+              <div style="font-family:'Bebas Neue';font-size:15px;letter-spacing:2px;color:#a5b4fc;margin-bottom:10px;">✨ AI GENERATED MARKET BRIEF</div>
+              <div id="ai-brief-text" style="font-family:'Space Mono';font-size:11px;line-height:1.8;color:#cbd5e1;white-space:pre-wrap;"></div>
+            </div>
+
             <div class="sec-title">YOUR 3-PART DAILY BRIEF</div>
             <div class="g3">
               <div class="brief-card">
