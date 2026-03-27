@@ -1744,6 +1744,10 @@
             style="display:flex;align-items:center;gap:5px;background:linear-gradient(135deg,rgba(124,58,237,.25),rgba(0,196,204,.1));border:1px solid rgba(124,58,237,.45);border-radius:20px;padding:5px 12px;cursor:pointer;font-size:11px;font-weight:700;color:#a78bfa;font-family:'Space Mono',monospace;letter-spacing:.04em;transition:all .2s;white-space:nowrap;">
             🎓 TUTOR
           </button>
+          <button onclick="showTab('docs', document.querySelector('[data-label=Docs]'));loadDocsTab()" title="Documentation"
+            style="display:flex;align-items:center;gap:5px;background:linear-gradient(135deg,rgba(16,185,129,.2),rgba(6,182,212,.1));border:1px solid rgba(16,185,129,.4);border-radius:20px;padding:5px 12px;cursor:pointer;font-size:11px;font-weight:700;color:#6ee7b7;font-family:'Space Mono',monospace;letter-spacing:.04em;transition:all .2s;white-space:nowrap;">
+            📚 DOCS
+          </button>
         </div>
         <div class="header-right">
           <div class="status-bar">
@@ -1844,8 +1848,7 @@
         <button class="tab-btn" data-label="Diagnostics" onclick="showTab('diagnostics',this);loadDiagnostics()"> <span
             class="tab-icon">🔍</span><span class="tab-label">Diagnostics</span><span id="diag-badge"
             style="display:none;margin-left:5px;background:#ef4444;color:#fff;font-size:8px;padding:1px 5px;border-radius:8px;font-weight:700">!</span></button>
-        <button class="tab-btn" data-label="Diagnostics" onclick="showTab('diagnostics',this);loadDiagnostics()"> <span
-            class="tab-icon">🔍</span><span class="tab-label">Diagnostics</span><span id="diag-badge" style="display:none;margin-left:5px;background:#ef4444;color:#fff;font-size:8px;padding:1px 5px;border-radius:8px;font-weight:700">!</span></button>
+
         <button class="tab-btn" data-label="Docs" onclick="showTab('docs',this);loadDocsTab()"> <span
             class="tab-icon">📚</span><span class="tab-label">Docs</span></button>
       </div>
