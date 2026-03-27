@@ -1,8 +1,8 @@
 @echo off
 title StockGuru Intelligence Hub
 color 0A
-:: Run from project root (two levels up from scripts/deployment/)
-cd /d "%~dp0..\.."
+:: Stay in project root (same directory as this file)
+cd /d "%~dp0"
 
 :: ════════════════════════════════════════════════════════════════
 ::  AUTO-INSTALLER & UPDATER
@@ -54,6 +54,7 @@ exit /b 1
 
 :python_ok
 echo  [OK] Found Python: %PYTHON%
+echo  [OK] Working directory: %CD%
 
 :: ════════════════════════════════════════════════════════════════
 ::  INSTALL REQUIREMENTS
@@ -67,30 +68,18 @@ if errorlevel 1 (
 )
 
 :: ════════════════════════════════════════════════════════════════
-::  SELF-REGISTER in Startup (only runs once)
+::  CLEAR PORT 5050 (only TCP - skip Windows system services)
 :: ════════════════════════════════════════════════════════════════
-set "STARTUP_DIR=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
-set "LAUNCHER_FILE=%STARTUP_DIR%\StockGuru_AutoStart.bat"
-if not exist "%LAUNCHER_FILE%" (
-    echo @echo off > "%LAUNCHER_FILE%"
-    echo cd /d "%~dp0" >> "%LAUNCHER_FILE%"
-    echo start "" "START.bat" >> "%LAUNCHER_FILE%"
-    echo  [OK] Registered for Auto-Start on Boot.
-)
-
-:: ════════════════════════════════════════════════════════════════
-::  CLEAR PORT 5050 (Aggressive)
-:: ════════════════════════════════════════════════════════════════
-echo  [SYSTEM] Clearing port 5050...
-for /f "tokens=5" %%a in ('netstat -aon ^| findstr :5050') do (
+echo  [SYSTEM] Clearing TCP port 5050...
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr "TCP.*:5050.*LISTEN"') do (
     echo  [KILL] Port 5050 occupied by PID %%a - Terminating...
     taskkill /PID %%a /F >nul 2>&1
 )
+timeout /t 1 /nobreak >nul
 
 :: ════════════════════════════════════════════════════════════════
 ::  BROWSER TRIGGER (PowerShell) — cache-busted URL
 :: ════════════════════════════════════════════════════════════════
-:: Waits for port 5050, then opens browser with ?v=<timestamp> to force fresh load
 set "PS_SCRIPT=%TEMP%\sg_trigger_%RANDOM%.ps1"
 > "%PS_SCRIPT%" (
     echo $ts = [int][double]::Parse^(^(Get-Date -UFormat %%s^)^)
@@ -119,10 +108,10 @@ echo  ╔═══════════════════════�
 echo  ║   STOCKGURU v2.0  Intelligence Hub      ║
 echo  ║   ──────────────────────────────────    ║
 echo  ║   Port: 5050                            ║
-echo  ║   Mode: Forest ^& Cyan Premium          ║
+echo  ║   http://localhost:5050                 ║
 echo  ╚══════════════════════════════════════════╝
 echo.
-echo  [LOGS] Starting server...
+echo  [LOGS] Starting server... (keep this window open)
 "%PYTHON%" app.py
 echo.
 echo  [SYSTEM] Server stopped.

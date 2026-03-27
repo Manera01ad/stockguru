@@ -9193,7 +9193,7 @@
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionDelay: 2000,
-        reconnectionAttempts: 10,
+        reconnectionAttempts: Infinity,
         timeout: 10000,
       });
 
@@ -9344,9 +9344,9 @@
 
     function _startFallbackPoll() {
       if (_fallbackPoll) return;
-      _fallbackPoll = setInterval(fetchAll, 60000);  // 60s in fallback mode
+      _fallbackPoll = setInterval(fetchAll, 5000);  // 5s in fallback mode
       fetchAll();  // immediate refresh
-      console.log('[WS] Fallback polling at 60s intervals');
+      console.log('[WS] Fallback polling at 5s intervals');
     }
 
     function _stopFallbackPoll() {
@@ -9354,8 +9354,22 @@
     }
 
     // Boot: initial full fetch, then init WebSocket
-    fetchAll();
+    // Retry up to 5 times with 2s gaps if server not ready yet
+    let _bootRetries = 0;
+    async function _bootFetch() {
+      try {
+        const r = await fetch('/api/status', { signal: AbortSignal.timeout(3000) });
+        if (r.ok) { fetchAll(); return; }
+      } catch(e) { /* server not ready */ }
+      if (++_bootRetries < 5) setTimeout(_bootFetch, 2000);
+      else fetchAll(); // try anyway after 10s
+    }
+    _bootFetch();
     initWebSocket();
+    // Refresh when user brings the tab back into focus (handles server restarts)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') fetchAll();
+    });
     // Auto-populate API key inputs from .env so users never have to re-enter credentials
     setTimeout(loadFeedKeys, 1200);
     // ── END M2 WebSocket ──────────────────────────────────────────────────────
