@@ -3584,6 +3584,9 @@ def api_shoonya_test():
     try:
         from src.agents.feeds.shoonya_feed import ShoonyaFeed
         result = ShoonyaFeed.test_connection()
+        # Add status field for index.html compatibility
+        if result["ok"]:
+            result["status"] = "ok"
         status_code = 200 if result["ok"] else 400
         return jsonify(result), status_code
     except ImportError:

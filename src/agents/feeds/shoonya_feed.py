@@ -102,10 +102,12 @@ class ShoonyaFeed(DataFeed):
             elif "vendor" in err or "vc" in err:
                 result["message"] = (
                     "❌ Vendor code mismatch. Set SHOONYA_VENDOR_CODE in .env. "
-                    "Find your vendor code in Shoonya API Manager → App Details."
+                    "You can find this in Shoonya API Manager → App Details."
                 )
             elif "connection" in err or "timeout" in err or "network" in err:
-                result["message"] = "❌ Network error — cannot reach api.shoonya.com. Check internet connection."
+                result["message"] = "❌ Network error — could not reach api.shoonya.com. Check your internet connection."
+            elif "2fa" in err or "totp" in err:
+                result["message"] = "❌ 2FA/TOTP failure. Verify your SHOONYA_TOTP_KEY (base32 secret from QR code) and server time."
             else:
                 result["message"] = f"❌ Login error: {e}"
         return result
@@ -117,6 +119,17 @@ class ShoonyaFeed(DataFeed):
         "^NSEI":     ("NSE", "Nifty 50"),
         "^NSEBANK":  ("NSE", "Nifty Bank"),
         "^INDIAVIX": ("NSE", "India VIX"),
+        # Sector Indices
+        "^CNXFIN":      ("NSE", "Finnifty"),
+        "^CNXMIDCAP":   ("NSE", "Midcpnifty"),
+        "^CNXJUNIOR":   ("NSE", "Nifty Next 50"),
+        "^CNXIT":       ("NSE", "Nifty IT"),
+        "^CNXMETAL":    ("NSE", "Nifty Metal"),
+        "^CNXPHARMA":   ("NSE", "Nifty Pharma"),
+        "^CNXAUTO":     ("NSE", "Nifty Auto"),
+        "^CNXFMCG":     ("NSE", "Nifty FMCG"),
+        "^CNXREALTY":    ("NSE", "Nifty Realty"),
+        "^CNXENERGY":   ("NSE", "Nifty Energy"),
         # BSE Index
         "^BSESN":    ("BSE", "SENSEX"),
         # MCX Commodities
@@ -248,14 +261,16 @@ class ShoonyaFeed(DataFeed):
             ret = api.login(userid=uid, password=pwd, twoFA=totp,
                             vendor_code=vc, api_secret=api_key, imei="abc1234")
             if ret is not None and ret.get("stat") == "Ok":
-                ShoonyaFeed._session     = ret.get("susertoken")
+                session = ret.get("susertoken")
+                ShoonyaFeed._session = session
                 ShoonyaFeed._noren_api   = api
-                ShoonyaFeed._auth_error  = ""        # clear any previous error
+                ShoonyaFeed._auth_error = ""
                 ShoonyaFeed._auth_failed_at = 0.0
-                log.info("✅ Shoonya login OK for %s", uid)
-                return ShoonyaFeed._session
-            err_msg = (ret or {}).get("emsg", str(ret))
-            raise ValueError(f"Shoonya auth failed: {err_msg}")
+                log.info("✅ Shoonya login SUCCESS total OK for user %s", uid)
+                return session
+            else:
+                msg = ret.get("emsg", "Unknown Shoonya error") if ret else "Login returned empty response"
+                raise ConnectionError(msg)
         except ImportError:
             raise ImportError("Run: pip install NorenRestApiPy pyotp")
         except Exception as e:

@@ -6878,23 +6878,24 @@
       try {
         const r = await fetch(`${API}/shoonya-test`);
         const d = await r.json();
-        if (d.status === 'ok') {
+        // Check both 'ok' (Python field) and 'status' (legacy JS field)
+        if (d.ok || d.status === 'ok') {
           resDiv.style.background = 'rgba(0,229,160,.08)';
           resDiv.style.borderColor = 'rgba(0,229,160,.3)';
           resDiv.style.color = '#6ee7b7';
           resDiv.innerHTML = `✅ <strong>Login successful!</strong><br>
-            User: ${d.user || '–'} &nbsp;|&nbsp; Broker: ${d.broker || '–'}<br>
-            <span style="font-size:11px;opacity:.75">Exchange segments: ${(d.exchanges||[]).join(', ') || 'N/A'}</span>`;
-          // Refresh feed status badge
-          setTimeout(initFeedStatus, 500);
+            User: ${d.user || '–'} &nbsp;|&nbsp; Status: Connected<br>
+            <span style="font-size:11px;opacity:.75">${d.message || ''}</span>`;
+          // Trigger a feed status refresh
+          setTimeout(() => { if (typeof initFeedStatus === 'function') initFeedStatus(); }, 500);
         } else {
           resDiv.style.background = 'rgba(248,113,113,.1)';
           resDiv.style.borderColor = 'rgba(248,113,113,.35)';
           resDiv.style.color = '#fca5a5';
           resDiv.innerHTML = `❌ <strong>Login failed</strong><br>
-            <span style="word-break:break-all">${d.message || 'Unknown error'}</span>`;
-          if (d.fix) {
-            resDiv.innerHTML += `<br><span style="color:#fde68a;font-size:11px">💡 Fix: ${d.fix}</span>`;
+            <span style="word-break:break-all">${d.message || d.error || 'Unknown error'}</span>`;
+          if (d.error && d.error.includes("TOTP")) {
+            resDiv.innerHTML += `<br><span style="color:#fde68a;font-size:11px">💡 Fix: Your SHOONYA_TOTP_KEY (base32) is likely wrong. Rescan QR and copy the secret.</span>`;
           }
         }
       } catch(e) {
