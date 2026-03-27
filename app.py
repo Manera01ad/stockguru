@@ -1513,19 +1513,6 @@ def api_options_flow():
     payload["oi_wall_alerts"] = shared_state.get("oi_wall_alerts", [])
     return jsonify(payload)
 
-@app.route("/api/paper-portfolio")
-def api_paper_portfolio():
-    p = shared_state.get("paper_portfolio", {})
-    capital = p.get("capital", 500000)
-    return jsonify({
-        "portfolio":    p.get("positions", []),
-        "stats":        p.get("stats", {}),
-        "capital":      capital,
-        "available":    p.get("available_cash", capital),
-        "realised_pnl": p.get("realised_pnl", 0),
-        "last_updated": p.get("last_run", "--"),
-    })
-
 # ── PHASE 5: SELF-HEALING & STRATEGY OPTIMIZATION ──────────────────────────────
 
 @app.route("/api/self-healing/run", methods=["POST"])

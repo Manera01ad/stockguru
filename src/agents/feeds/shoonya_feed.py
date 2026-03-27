@@ -371,6 +371,10 @@ class ShoonyaFeed(DataFeed):
                 "et":    end_dt,
                 "intrv": str(tf_secs),
             })
+            # If Shoonya returns an error dict (stat != Ok), fall back to Yahoo
+            if isinstance(data, dict):
+                err = data.get("emsg", data.get("stat", ""))
+                raise ValueError(f"Shoonya TPSeries error: {err}")
             candles = []
             for row in (data if isinstance(data, list) else []):
                 try:

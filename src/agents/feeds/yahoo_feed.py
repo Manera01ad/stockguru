@@ -1,10 +1,10 @@
 """
 Yahoo Finance Feed — always available, no credentials needed.
 15-minute delayed data. Used as the universal fallback.
+Uses yfinance library (handles cookies/crumb automatically).
 """
 import math
 import random
-import requests
 from datetime import datetime
 from .base import DataFeed
 
@@ -17,106 +17,107 @@ class YahooFeed(DataFeed):
     OB_LEVELS   = 0            # simulated, not real
     IS_REALTIME = False
 
-    _HEADERS = {"User-Agent": "Mozilla/5.0"}
-
     def is_configured(self) -> bool:
         return True            # always available
 
     # ── Quote ──────────────────────────────────────────────────────────────
     def get_quote(self, symbol: str) -> dict:
         try:
-            url = (f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
-                   f"?interval=1m&range=1d")
-            r    = requests.get(url, headers=self._HEADERS, timeout=8)
-            meta = r.json()["chart"]["result"][0]["meta"]
-            curr = meta.get("regularMarketPrice", 0)
-            prev = meta.get("chartPreviousClose", curr) or curr
-            day_open = meta.get("regularMarketOpen", curr)
+            import yfinance as yf
+            tk   = yf.Ticker(symbol)
+            info = tk.fast_info
+            curr = float(getattr(info, "last_price", 0) or getattr(info, "regularMarketPrice", 0) or 0)
+            prev = float(getattr(info, "previous_close", curr) or curr)
             return {
-                "price":      round(float(curr), 4),
-                "prev_close": round(float(prev), 4),
-                "day_open":   round(float(day_open), 4) if day_open else None,
+                "price":      round(curr, 4),
+                "prev_close": round(prev, 4),
                 "change_pct": round(((curr - prev) / prev) * 100, 2) if prev else 0,
-                "day_high":   meta.get("regularMarketDayHigh", curr),
-                "day_low":    meta.get("regularMarketDayLow",  curr),
-                "volume":     meta.get("regularMarketVolume",  0),
-                "currency":   meta.get("currency", "INR"),
-                "name":       meta.get("longName", meta.get("shortName", symbol)),
+                "day_high":   float(getattr(info, "day_high", curr) or curr),
+                "day_low":    float(getattr(info, "day_low",  curr) or curr),
+                "volume":     int(getattr(info, "three_month_average_volume", 0) or 0),
+                "currency":   getattr(info, "currency", "INR"),
+                "name":       symbol,
             }
         except Exception as e:
             return {"price": 0, "error": str(e)}
 
     # ── Candles ────────────────────────────────────────────────────────────
     def get_candles(self, symbol: str, interval: str, range_: str) -> dict:
-        # Enforce valid Yahoo interval/range combos
+        # Map range strings to yfinance period
+        period_map = {
+            "1d": "1d", "5d": "5d", "1mo": "1mo",
+            "3mo": "3mo", "6mo": "6mo", "1y": "1y", "2y": "2y",
+        }
+        # Enforce valid yfinance interval/period combos
         valid = {
             "1m":  ["1d"],
-            "2m":  ["1d","5d"],
-            "5m":  ["1d","5d"],
-            "15m": ["1d","5d","1mo"],
-            "30m": ["1d","5d","1mo"],
-            "60m": ["5d","1mo","3mo"],
-            "1h":  ["5d","1mo","3mo"],
-            "1d":  ["1mo","3mo","6mo","1y","2y","5y"],
-            "1wk": ["3mo","6mo","1y","2y","5y"],
-            "1mo": ["1y","2y","5y"],
+            "2m":  ["1d", "5d"],
+            "5m":  ["1d", "5d"],
+            "15m": ["1d", "5d", "1mo"],
+            "30m": ["1d", "5d", "1mo"],
+            "60m": ["5d", "1mo", "3mo"],
+            "1h":  ["5d", "1mo", "3mo"],
+            "1d":  ["1mo", "3mo", "6mo", "1y", "2y"],
+            "1wk": ["3mo", "6mo", "1y", "2y"],
         }
-        allowed = valid.get(interval, ["1d","5d","1mo"])
+        allowed = valid.get(interval, ["5d", "1mo"])
         if range_ not in allowed:
             range_ = allowed[0]
+        period = period_map.get(range_, range_)
 
         try:
-            url = (f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
-                   f"?interval={interval}&range={range_}&includePrePost=false")
-            r   = requests.get(url, headers=self._HEADERS, timeout=10)
-            d   = r.json()
-            res = d.get("chart", {}).get("result", [])
-            if not res:
-                return {"candles": [], "error": "No data"}
-
-            res    = res[0]
-            meta   = res.get("meta", {})
-            ts_lst = res.get("timestamp", [])
-            q      = res.get("indicators", {}).get("quote", [{}])[0]
+            import yfinance as yf
+            tk   = yf.Ticker(symbol)
+            hist = tk.history(period=period, interval=interval, auto_adjust=True)
 
             candles = []
-            for i, ts in enumerate(ts_lst):
-                o = q.get("open",   [None]*len(ts_lst))[i]
-                h = q.get("high",   [None]*len(ts_lst))[i]
-                l = q.get("low",    [None]*len(ts_lst))[i]
-                c = q.get("close",  [None]*len(ts_lst))[i]
-                v = q.get("volume", [0]*len(ts_lst))[i]
-                if None in (o, h, l, c) or o != o:
+            for idx, row in hist.iterrows():
+                try:
+                    # idx is a pandas Timestamp
+                    ts = int(idx.timestamp())
+                    o  = float(row["Open"])
+                    h  = float(row["High"])
+                    l  = float(row["Low"])
+                    c  = float(row["Close"])
+                    v  = int(row.get("Volume", 0) or 0)
+                    if o != o or c != c:  # NaN check
+                        continue
+                    candles.append({
+                        "time":   ts,
+                        "open":   round(o, 4),
+                        "high":   round(h, 4),
+                        "low":    round(l, 4),
+                        "close":  round(c, 4),
+                        "volume": v,
+                    })
+                except Exception:
                     continue
-                candles.append({
-                    "time":   int(ts),
-                    "open":   round(float(o), 4),
-                    "high":   round(float(h), 4),
-                    "low":    round(float(l), 4),
-                    "close":  round(float(c), 4),
-                    "volume": int(v or 0),
-                })
 
-            curr     = meta.get("regularMarketPrice", 0)
-            prev     = meta.get("chartPreviousClose", curr) or curr
-            day_open = meta.get("regularMarketOpen", curr)
+            # Get current price metadata
+            fast = tk.fast_info
+            curr = float(getattr(fast, "last_price", 0) or 0)
+            prev = float(getattr(fast, "previous_close", curr) or curr)
+            if not curr and candles:
+                curr = candles[-1]["close"]
+                prev = curr
+
             return {
                 "candles":    candles,
                 "symbol":     symbol,
-                "name":       meta.get("longName", meta.get("shortName", symbol)),
-                "currency":   meta.get("currency", "INR"),
-                "price":      round(float(curr), 4),
-                "prev_close": round(float(prev), 4),
-                "day_open":   round(float(day_open), 4) if day_open else None,
+                "name":       symbol,
+                "currency":   getattr(fast, "currency", "INR"),
+                "price":      round(curr, 4),
+                "prev_close": round(prev, 4),
                 "change_pct": round(((curr - prev) / prev) * 100, 2) if prev else 0,
-                "day_high":   meta.get("regularMarketDayHigh", curr),
-                "day_low":    meta.get("regularMarketDayLow",  curr),
-                "volume":     meta.get("regularMarketVolume",  0),
+                "day_high":   float(getattr(fast, "day_high", curr) or curr),
+                "day_low":    float(getattr(fast, "day_low",  curr) or curr),
+                "volume":     int(getattr(fast, "three_month_average_volume", 0) or 0),
                 "interval":   interval,
                 "range":      range_,
             }
         except Exception as e:
-            return {"candles": [], "error": str(e)}
+            return {"candles": [], "error": str(e), "symbol": symbol,
+                    "price": 0, "interval": interval, "range": range_}
 
     # ── Order book (simulated) ─────────────────────────────────────────────
     def get_orderbook(self, symbol: str, depth: int = 15) -> dict:
