@@ -36,7 +36,9 @@ import time
 import schedule
 from datetime import datetime
 from dotenv import load_dotenv
-load_dotenv()
+# Always load from the project root .env regardless of CWD
+_ROOT_ENV = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".env"))
+load_dotenv(_ROOT_ENV, override=True)
 if not os.getenv('ANTHROPIC_API_KEY'):
     os.environ['ANTHROPIC_API_KEY'] = 'disabled'
 import logging
@@ -2058,7 +2060,7 @@ def api_live_trading_status():
 _FEED_ENV_KEYS = [
     "UPSTOX_ACCESS_TOKEN",
     "TRUEDATA_USERNAME", "TRUEDATA_PASSWORD",
-    "SHOONYA_USER", "SHOONYA_PASSWORD", "SHOONYA_API_KEY", "SHOONYA_TOTP_KEY",
+    "SHOONYA_USER", "SHOONYA_PASSWORD", "SHOONYA_API_KEY", "SHOONYA_TOTP_KEY", "SHOONYA_VENDOR_CODE",
     "ANGEL_API_KEY", "ANGEL_CLIENT_ID", "ANGEL_MPIN", "ANGEL_TOTP_KEY",
     "FYERS_ACCESS_TOKEN", "FYERS_APP_ID",
     "ZERODHA_API_KEY", "ZERODHA_ACCESS_TOKEN",
@@ -2073,6 +2075,7 @@ _FEED_FIELD_MAP = {
     "shoonya_password":     "SHOONYA_PASSWORD",
     "shoonya_api_key":      "SHOONYA_API_KEY",
     "shoonya_totp_key":     "SHOONYA_TOTP_KEY",
+    "shoonya_vendor_code":  "SHOONYA_VENDOR_CODE",
     "angel_api_key":        "ANGEL_API_KEY",
     "angel_client_id":      "ANGEL_CLIENT_ID",
     "angel_mpin":           "ANGEL_MPIN",
@@ -3417,9 +3420,32 @@ def api_feed_status():
                     status_data["shoonya_connected"] = ShoonyaFeed._session is not None
             except Exception:
                 pass
+            # Inject masked credential state so the form knows what's already saved
+            def _masked(key):
+                v = os.getenv(key, "").strip()
+                return "●●●●●●●●" if v else ""
+            status_data["saved_creds"] = {
+                "shoonya_user":         _masked("SHOONYA_USER"),
+                "shoonya_password":     _masked("SHOONYA_PASSWORD"),
+                "shoonya_api_key":      _masked("SHOONYA_API_KEY"),
+                "shoonya_totp_key":     _masked("SHOONYA_TOTP_KEY"),
+                "shoonya_vendor_code":  _masked("SHOONYA_VENDOR_CODE"),
+                "upstox_access_token":  _masked("UPSTOX_ACCESS_TOKEN"),
+                "truedata_username":    _masked("TRUEDATA_USERNAME"),
+                "truedata_password":    _masked("TRUEDATA_PASSWORD"),
+                "angel_api_key":        _masked("ANGEL_API_KEY"),
+                "angel_client_id":      _masked("ANGEL_CLIENT_ID"),
+                "angel_mpin":           _masked("ANGEL_PASSWORD"),
+                "angel_totp_key":       _masked("ANGEL_TOTP_KEY"),
+                "fyers_access_token":   _masked("FYERS_ACCESS_TOKEN"),
+                "fyers_app_id":         _masked("FYERS_CLIENT_ID"),
+                "zerodha_api_key":      _masked("KITE_API_KEY"),
+                "zerodha_access_token": _masked("KITE_ACCESS_TOKEN"),
+            }
             return jsonify(status_data)
         return jsonify({"active_feed": "yahoo", "active_label": "Yahoo Finance",
-                        "is_realtime": False, "feeds": [], "forced_feed": forced})
+                        "is_realtime": False, "feeds": [], "forced_feed": forced,
+                        "saved_creds": {}})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

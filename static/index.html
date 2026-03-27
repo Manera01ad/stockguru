@@ -4136,6 +4136,10 @@
                     <span class="status-indicator" id="fstatus-shoonya">⭕ Not configured</span>
                   </div>
                 </div>
+                <!-- Saved-credentials banner — shown when keys are already in .env -->
+                <div id="shoonya-saved-banner" style="display:none;margin-bottom:10px;padding:8px 12px;border-radius:6px;background:rgba(0,229,160,.07);border:1px solid rgba(0,229,160,.3);font-family:'Space Mono';font-size:10px;color:#6ee7b7">
+                  ✅ <strong>Credentials saved in .env</strong> — fields below show masked values. Type new values to update, or leave as-is to keep existing.
+                </div>
                 <div class="g2e" style="margin-bottom:0">
                   <div class="key-group" style="margin-bottom:0">
                     <div class="key-label"><span>👤</span>USER ID</div>
@@ -4162,8 +4166,16 @@
                       <button class="btn" onclick="toggleVis('inp-shoonya-totp',this)" style="white-space:nowrap;padding:10px 14px">👁</button>
                     </div>
                   </div>
+                  <div class="key-group" style="margin-bottom:0">
+                    <div class="key-label"><span>🏢</span>VENDOR CODE <span style="font-size:9px;opacity:.6">(optional)</span></div>
+                    <input type="text" class="key-input" id="inp-shoonya-vendor" placeholder="FA" autocomplete="off">
+                  </div>
                 </div>
-                <div class="key-hint" style="margin-top:8px">Get from: <a href="https://shoonya.finvasia.com" target="_blank">shoonya.finvasia.com</a> → Developer → API credentials. TOTP secret = the base32 key from your authenticator setup.</div>
+                <div class="key-hint" style="margin-top:8px">
+                  Get from: <a href="https://shoonya.finvasia.com" target="_blank" style="color:#ff61a0">shoonya.finvasia.com</a> → Developer → API credentials.<br>
+                  TOTP secret = the base32 key from your authenticator app (not the 6-digit code).<br>
+                  Vendor code = usually same as your User ID (e.g. <code style="opacity:.7">FA12345</code>). Leave blank to auto-detect.
+                </div>
                 <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
                   <button class="btn" onclick="saveBrokerSection('shoonya')" id="save-btn-shoonya" style="padding:8px 20px;font-size:11px;background:rgba(255,97,160,.15);border-color:rgba(255,97,160,.5);color:#ff61a0">💾 Save &amp; Connect</button>
                   <button class="btn" onclick="testShoonya()" id="test-btn-shoonya" style="padding:8px 16px;font-size:11px;background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.5);color:#a5b4fc">🔌 Test Login</button>
@@ -6797,6 +6809,37 @@
           else if (f.configured) { el.textContent = '🟡 Configured';   el.style.color = '#f5c518'; }
           else                   { el.textContent = '⭕ Not configured'; el.style.color = 'var(--muted)'; }
         }
+        // ── Pre-populate form fields with masked saved values ────
+        const creds = d.saved_creds || {};
+        const fieldMap = {
+          'inp-shoonya-user':    creds.shoonya_user,
+          'inp-shoonya-pass':    creds.shoonya_password,
+          'inp-shoonya-apikey':  creds.shoonya_api_key,
+          'inp-shoonya-totp':    creds.shoonya_totp_key,
+          'inp-shoonya-vendor':  creds.shoonya_vendor_code,
+          'inp-upstox-token':    creds.upstox_access_token,
+          'inp-truedata-user':   creds.truedata_username,
+          'inp-truedata-pass':   creds.truedata_password,
+          'inp-angel-apikey':    creds.angel_api_key,
+          'inp-angel-clientid':  creds.angel_client_id,
+          'inp-angel-mpin':      creds.angel_mpin,
+          'inp-angel-totp':      creds.angel_totp_key,
+          'inp-fyers-token':     creds.fyers_access_token,
+          'inp-fyers-appid':     creds.fyers_app_id,
+          'inp-zerodha-apikey':  creds.zerodha_api_key,
+          'inp-zerodha-token':   creds.zerodha_access_token,
+        };
+        for (const [elId, maskedVal] of Object.entries(fieldMap)) {
+          const el = document.getElementById(elId);
+          // Only pre-fill if field is empty (don't overwrite what user is typing)
+          if (el && maskedVal && el.value === '') el.value = maskedVal;
+        }
+        // Show the "credentials saved" banner on the Shoonya card
+        const banner = document.getElementById('shoonya-saved-banner');
+        if (banner) {
+          const shoonya_saved = creds.shoonya_user || creds.shoonya_api_key;
+          banner.style.display = shoonya_saved ? 'block' : 'none';
+        }
         // ── Shoonya auth error override ──────────────────────────
         if (d.shoonya_auth_error) {
           const sel = document.getElementById('fstatus-shoonya');
@@ -6875,6 +6918,7 @@
         shoonya_password:     document.getElementById('inp-shoonya-pass')?.value.trim()    || '',
         shoonya_api_key:      document.getElementById('inp-shoonya-apikey')?.value.trim()  || '',
         shoonya_totp_key:     document.getElementById('inp-shoonya-totp')?.value.trim()    || '',
+        shoonya_vendor_code:  document.getElementById('inp-shoonya-vendor')?.value.trim()  || '',
         angel_api_key:        document.getElementById('inp-angel-apikey')?.value.trim()    || '',
         angel_client_id:      document.getElementById('inp-angel-clientid')?.value.trim()  || '',
         angel_mpin:           document.getElementById('inp-angel-mpin')?.value.trim()      || '',
@@ -6936,10 +6980,11 @@
           truedata_password: document.getElementById('inp-truedata-pass')?.value.trim() || '',
         },
         shoonya: {
-          shoonya_user:     document.getElementById('inp-shoonya-user')?.value.trim()   || '',
-          shoonya_password: document.getElementById('inp-shoonya-pass')?.value.trim()   || '',
-          shoonya_api_key:  document.getElementById('inp-shoonya-apikey')?.value.trim() || '',
-          shoonya_totp_key: document.getElementById('inp-shoonya-totp')?.value.trim()   || '',
+          shoonya_user:        document.getElementById('inp-shoonya-user')?.value.trim()    || '',
+          shoonya_password:    document.getElementById('inp-shoonya-pass')?.value.trim()    || '',
+          shoonya_api_key:     document.getElementById('inp-shoonya-apikey')?.value.trim()  || '',
+          shoonya_totp_key:    document.getElementById('inp-shoonya-totp')?.value.trim()    || '',
+          shoonya_vendor_code: document.getElementById('inp-shoonya-vendor')?.value.trim()  || '',
         },
         angel: {
           angel_api_key:   document.getElementById('inp-angel-apikey')?.value.trim()   || '',
@@ -6999,6 +7044,7 @@
         setVal('inp-shoonya-pass',    d.shoonya_password);
         setVal('inp-shoonya-apikey',  d.shoonya_api_key);
         setVal('inp-shoonya-totp',    d.shoonya_totp_key);
+        setVal('inp-shoonya-vendor',  d.shoonya_vendor_code);
         setVal('inp-angel-apikey',    d.angel_api_key);
         setVal('inp-angel-clientid',  d.angel_client_id);
         setVal('inp-angel-mpin',      d.angel_mpin);
