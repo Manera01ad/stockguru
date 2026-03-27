@@ -12,7 +12,7 @@ Measures the predictive power of each conviction gate by analyzing:
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 import statistics
-from phase5_self_healing.data_models import GateEffectivenessRecord, GateType
+from .data_models import GateEffectivenessRecord, GateType
 
 
 @dataclass

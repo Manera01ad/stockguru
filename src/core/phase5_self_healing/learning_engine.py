@@ -19,13 +19,13 @@ from typing import Dict, List, Optional
 import json
 from dataclasses import asdict
 
-from phase5_self_healing.historical_analyzer import HistoricalAnalyzer
-from phase5_self_healing.gate_effectiveness import GateEffectivenessCalculator
-from phase5_self_healing.market_regime_detector import MarketRegimeDetector, VIXRegimeAnalyzer
-from phase5_self_healing.dynamic_optimizer import DynamicThresholdOptimizer
-from phase5_self_healing.risk_tuner import RiskParameterTuner, RiskMetrics
-from phase5_self_healing.statistical_utils import StatisticalUtils
-from phase5_self_healing.data_models import (
+from .historical_analyzer import HistoricalAnalyzer
+from .gate_effectiveness import GateEffectivenessCalculator
+from .market_regime_detector import MarketRegimeDetector, VIXRegimeAnalyzer
+from .dynamic_optimizer import DynamicThresholdOptimizer
+from .risk_tuner import RiskParameterTuner, RiskMetrics
+from .statistical_utils import StatisticalUtils
+from .data_models import (
     MarketRegime,
     OptimizationMetrics,
     ThresholdOptimizationLog,

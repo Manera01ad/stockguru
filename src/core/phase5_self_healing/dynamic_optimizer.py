@@ -11,7 +11,7 @@ Generates gate threshold recommendations based on:
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 from datetime import datetime
-from phase5_self_healing.data_models import GateType, MarketRegime, ThresholdRecommendation
+from .data_models import GateType, MarketRegime, ThresholdRecommendation
 
 
 @dataclass

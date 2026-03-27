@@ -310,22 +310,24 @@ class DiagnosticsAgent:
             ))
             return
 
-        # Check individual agent statuses
+        # Check individual agent statuses — only warn per-agent after cycles have run
+        cycle_count = self.shared_state.get("cycle_count", 0)
         for agent_name in EXPECTED_AGENTS:
             status = agent_status.get(agent_name, "unknown")
             if status == "error":
                 self.issues.append(Issue(
                     "Agents", SEV_ERROR,
                     f"Agent failed: {agent_name}",
-                    f"Runtime status: error",
+                    "Runtime status: error",
                     f"Check logs for {agent_name} exception details"
                 ))
-            elif status == "unknown":
+            elif status == "unknown" and cycle_count > 0:
+                # Only a real warning if cycles have been running but this agent is missing
                 self.issues.append(Issue(
                     "Agents", SEV_WARN,
-                    f"Agent never ran: {agent_name}",
-                    "No cycle has completed yet or agent not scheduled",
-                    "Run /api/run-now to trigger a full agent cycle"
+                    f"Agent not scheduled: {agent_name}",
+                    "Cycles have run but this agent has never executed",
+                    "Restart server or check AgentOrchestrator schedule config"
                 ))
 
         # Check cycle staleness
@@ -350,8 +352,7 @@ class DiagnosticsAgent:
                 "Call GET /api/run-now to execute the first agent cycle"
             ))
 
-        # Cycle count
-        cycle_count = self.shared_state.get("cycle_count", 0)
+        # Cycle count (cycle_count already read above)
         if cycle_count == 0:
             self.issues.append(Issue(
                 "Agents", SEV_INFO,
@@ -451,7 +452,7 @@ class DiagnosticsAgent:
             conn.close()
 
             expected_tables = {
-                "paper_trades", "order_book", "position_book",
+                "trade_book", "order_book", "position_book",
                 "portfolio_state", "conviction_audit", "portfolio_history",
             }
             missing = expected_tables - table_names

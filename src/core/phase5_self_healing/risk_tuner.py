@@ -11,7 +11,7 @@ based on:
 
 from typing import Dict, Optional
 from dataclasses import dataclass
-from phase5_self_healing.data_models import MarketRegime, RiskParameterProfile
+from .data_models import MarketRegime, RiskParameterProfile
 
 
 @dataclass

@@ -13,7 +13,7 @@ from typing import Dict, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
 from datetime import datetime
-from phase5_self_healing.data_models import MarketRegime
+from .data_models import MarketRegime
 
 
 @dataclass
